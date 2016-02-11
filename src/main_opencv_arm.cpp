@@ -116,7 +116,7 @@ int main(int argc, char** argv) {
         std::cout << "Cannot access RGB camera!" << std::endl;
         return false;
     }
-
+    cap.set(CV_CAP_PROP_BUFFERSIZE, 1);
     cap.set(CV_CAP_PROP_FRAME_WIDTH, 640);
     cap.set(CV_CAP_PROP_FRAME_HEIGHT, 480);
 
