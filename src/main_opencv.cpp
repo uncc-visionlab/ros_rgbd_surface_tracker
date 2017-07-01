@@ -11,31 +11,21 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
-#include <ros_rgbd_surface_tracker/rgbd_uncc_contrib.h>
+#include <ros_rgbd_surface_tracker/rgbd_uncc_contrib.hpp>
 
 using namespace openni;
 using namespace std;
 
 volatile bool run;
 
+openni::VideoStream** streams;
 VideoStream depth;
 VideoStream rgb;
-openni::VideoStream** streams;
 
 
-string topic;
-string frame_id;
-int _depth_mode;
-int _device_num;
-string _device_uri;
-int _rgb_mode;
-int _registration;
-int _sync;
 int _frame_skip;
-int _exposure;
-int _gain;
-
 int gain_status = 0;
+
 cv::Mat ocv_rgbframe;
 cv::Mat ocv_depthframe_uint16;
 cv::Mat ocv_depthframe_float;
@@ -104,11 +94,11 @@ void* camera_thread(void*) {
 
     cv::Mat di_distortionCoeffs = cv::Mat::zeros(5, 1, CV_32F);
     cv::Mat di_cameraMatrix(3, 3, CV_32F);
-    cv::Size di_imSize(frame.getWidth(), frame.getHeight());
+    cv::Size di_imSize(0, 0);
 
     cv::Mat rgb_distortionCoeffs = cv::Mat::zeros(5, 1, CV_32F);
     cv::Mat rgb_cameraMatrix(3, 3, CV_32F);
-    cv::Size rgb_imSize;
+    cv::Size rgb_imSize(0, 0);
 
     while (run) {
         bool new_frame = false;
@@ -219,8 +209,18 @@ void* camera_thread(void*) {
 }
 
 int main(int argc, char **argv) {
+    int _depth_mode = -1;
+    int _device_num = -1;
+    string _device_uri = "NA";
+    int _rgb_mode = -1;
+    int _registration = 0;
+    int _sync = 0;
+    int _exposure = -1;
+    int _gain = -1;
+
     printf("starting\n");
     fflush(stdout);
+    _device_num = 0;
     _sync = 1;
     _registration = 1;
     //_depth_mode = -1; // SHOW DEPTH MODES
@@ -231,22 +231,18 @@ int main(int argc, char **argv) {
     printf("Launched with params:\n");
     printf("_device_num:= %d\n", _device_num);
     printf("_device_uri:= %s\n", _device_uri.c_str());
-    printf("_topic:= %s\n", topic.c_str());
     printf("_sync:= %d\n", _sync);
     printf("_registration:= %d\n", _registration);
     printf("_depth_mode:= %d\n", _depth_mode);
     printf("_rgb_mode:= %d\n", _rgb_mode);
-    printf("_frame_id:= %s\n", frame_id.c_str());
     printf("_frame_skip:= %d\n", _frame_skip);
     printf("_exposure:= %d\n", _exposure);
     printf("_gain:= %d\n", _gain);
 
     fflush(stdout);
 
-
     if (_frame_skip <= 0)
         _frame_skip = 1;
-
 
     //OPENNI2 STUFF
     //===================================================================
@@ -313,13 +309,8 @@ int main(int argc, char **argv) {
                 fflush(stdout);
                 return 3;
             }
-            //DEPTH
-            //pub_depth = n.advertise<sensor_msgs::Image>("/" + topic + "/depth/image_raw", 1);
-            //pub_camera_info_depth = n.advertise<sensor_msgs::CameraInfo>("/" + topic + "/depth/camera_info", 1);
-
         }
     }
-
 
     if (_rgb_mode >= 0) {
         if (device.getSensorInfo(SENSOR_COLOR) != NULL) {
@@ -329,13 +320,8 @@ int main(int argc, char **argv) {
                 fflush(stdout);
                 return 3;
             }
-            //RGB
-            //pub_rgb = n.advertise<sensor_msgs::Image>("/" + topic + "/rgb/image_raw", 1);
-            //pub_camera_info_rgb = n.advertise<sensor_msgs::CameraInfo>("/" + topic + "/rgb/camera_info", 1);
         }
-
     }
-
 
     if (_depth_mode < 0 && _rgb_mode < 0) {
         cout << "Depth modes" << endl;
@@ -393,34 +379,6 @@ int main(int argc, char **argv) {
     if (_depth_mode >= 0 && _rgb_mode >= 0 && _registration == 1) {
         device.setImageRegistrationMode(openni::IMAGE_REGISTRATION_DEPTH_TO_COLOR);
     }
-
-
-    //    while (!wasKeyboardHit()) {
-    //        int changedStreamDummy;
-    //        VideoStream* pStream = &depth;
-    //        rc = OpenNI::waitForAnyStream(&pStream, 1, &changedStreamDummy, SAMPLE_READ_WAIT_TIMEOUT);
-    //        if (rc != STATUS_OK) {
-    //            cout << "Wait failed! (timeout is " << SAMPLE_READ_WAIT_TIMEOUT << " ms)" << endl << OpenNI::getExtendedError() << endl;
-    //            continue;
-    //        }
-    //
-    //        rc = depth.readFrame(&frame);
-    //        if (rc != STATUS_OK) {
-    //            cout << "Read failed!" << endl << OpenNI::getExtendedError() << endl;
-    //            continue;
-    //        }
-    //
-    //        if (frame.getVideoMode().getPixelFormat() != PIXEL_FORMAT_DEPTH_1_MM && frame.getVideoMode().getPixelFormat() != PIXEL_FORMAT_DEPTH_100_UM) {
-    //            cout << "Unexpected frame format" << endl;
-    //            continue;
-    //        }
-    //
-    //        DepthPixel* pDepth = (DepthPixel*) frame.getData();
-    //
-    //        int middleIndex = (frame.getHeight() + 1) * frame.getWidth() / 2;
-    //
-    //        printf("[%08llu] %8d\n", (long long) frame.getTimestamp(), pDepth[middleIndex]);
-    //    }
 
     run = true;
     //pthread_t runner;
