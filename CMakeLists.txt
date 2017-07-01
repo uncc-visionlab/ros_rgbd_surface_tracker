@@ -174,6 +174,18 @@ add_executable(${PROJECT_NAME} src/ros_rgbd_surface_tracker.cpp)
 target_link_libraries(${PROJECT_NAME} 
 ${catkin_LIBRARIES}  ${Boost_LIBRARIES} 
 ${OpenCV_LIBRARIES})
+
+link_directories(/opt/ros/kinetic/lib)
+add_executable(main_opencv src/main_opencv.cpp)
+#set_target_properties(main_opencv PROPERTIES
+#  IMPORTED_LOCATION "/opt/ros/kinetic/lib/libbar.so"
+#  INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/include/libbar"
+#)
+
+target_link_libraries(main_opencv ${OpenCV_LIBRARIES}  ${catkin_LIBRARIES} ${BOOST_LIBRARIES} 
+OpenNI2Orbbec astra_camera_nodelet astra_wrapper astra_driver_lib pthread)
+#add_executable(main_opencv src/main_opencv.cpp)
+#target_link_libraries(main_opencv v4l2)
 #############
 ## Install ##
 #############

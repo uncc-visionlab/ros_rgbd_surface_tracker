@@ -18,6 +18,8 @@
 
 #include <opencv2/core.hpp>
 #include <limits>
+#include <boost/shared_ptr.hpp>
+
 namespace cv {
     namespace rgbd {
         class RgbdSurfaceTracker {
