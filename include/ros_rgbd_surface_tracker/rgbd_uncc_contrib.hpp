@@ -16,8 +16,10 @@
 
 #ifdef __cplusplus
 
-#include <opencv2/core.hpp>
 #include <limits>
+
+#include <opencv2/core.hpp>
+
 #include <boost/shared_ptr.hpp>
 
 namespace cv {
@@ -45,7 +47,7 @@ namespace cv {
             void setRGBImage(cv::UMat &_rawRGB) {
                 rawDepth = _rawRGB;
             }
-            void segmentDepth() { std::cout << "Called segmentDepth()" << std::endl;}
+            void segmentDepth();;// { std::cout << "Called segmentDepth()" << std::endl;}
 
         private:
             // -------------------------

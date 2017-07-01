@@ -29,8 +29,8 @@
 #include <Eigen/Geometry>
 
 // Includes for this Library
-#include <ros_rgbd_surface_tracker/ros_rgbd_surface_tracker.h>
-#include <ros_rgbd_surface_tracker/rgbd_uncc_contrib.h>
+#include <ros_rgbd_surface_tracker/ros_rgbd_surface_tracker.hpp>
+#include <ros_rgbd_surface_tracker/rgbd_uncc_contrib.hpp>
 
 //typedef float Scalar;
 typedef double Scalar;

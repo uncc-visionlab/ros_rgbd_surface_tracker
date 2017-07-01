@@ -4,7 +4,7 @@ project(ros_rgbd_surface_tracker)
 set( CMAKE_FIND_DEBUG_MODE 1 )
 set( CMAKE_VERBOSE_MAKEFILE ON )
 
-set( CMAKE_CXX_FLAGS "-std=c++11")
+set( CMAKE_CXX_FLAGS "-std=c++11 -DCMAKE_BUILD_TYPE=Debug")
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
 
@@ -155,7 +155,8 @@ include_directories(
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 # add_executable(${PROJECT_NAME}_node src/detect_depth_surflets_node.cpp)
-add_executable(${PROJECT_NAME} src/ros_rgbd_surface_tracker.cpp)
+add_executable(${PROJECT_NAME} src/ros_rgbd_surface_tracker.cpp
+    src/rgbd_uncc_contrib.cpp)
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
@@ -176,14 +177,15 @@ ${catkin_LIBRARIES}  ${Boost_LIBRARIES}
 ${OpenCV_LIBRARIES})
 
 link_directories(/opt/ros/kinetic/lib)
-add_executable(main_opencv src/main_opencv.cpp)
+add_executable(main_opencv src/main_opencv.cpp
+    src/rgbd_uncc_contrib.cpp)
 #set_target_properties(main_opencv PROPERTIES
 #  IMPORTED_LOCATION "/opt/ros/kinetic/lib/libbar.so"
 #  INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/include/libbar"
 #)
 
 target_link_libraries(main_opencv ${OpenCV_LIBRARIES}  ${catkin_LIBRARIES} ${BOOST_LIBRARIES} 
-OpenNI2Orbbec astra_camera_nodelet astra_wrapper astra_driver_lib pthread)
+OpenNI2Orbbec pthread)
 #add_executable(main_opencv src/main_opencv.cpp)
 #target_link_libraries(main_opencv v4l2)
 #############
