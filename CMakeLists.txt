@@ -184,8 +184,11 @@ add_executable(main_opencv src/main_opencv.cpp
 #  INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/include/libbar"
 #)
 
-target_link_libraries(main_opencv ${OpenCV_LIBRARIES}  ${catkin_LIBRARIES} ${BOOST_LIBRARIES} 
-OpenNI2Orbbec pthread)
+target_link_libraries(main_opencv 
+   ${OpenCV_LIBRARIES}  
+   ${catkin_LIBRARIES} 
+   ${BOOST_LIBRARIES} 
+   OpenNI2Orbbec pthread)
 #add_executable(main_opencv src/main_opencv.cpp)
 #target_link_libraries(main_opencv v4l2)
 #############

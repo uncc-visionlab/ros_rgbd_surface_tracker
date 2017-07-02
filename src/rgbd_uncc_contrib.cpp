@@ -3,12 +3,15 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
+#include <iostream>      /* printf, scanf, puts, NULL */
+
 #include <ros_rgbd_surface_tracker/rgbd_uncc_contrib.hpp>
 
 namespace cv {
     namespace rgbd {
 
         void RgbdSurfaceTracker::segmentDepth() {
+            std::cout << "segmentDepth()" << std::endl;
             cv::Mat img_I = rawRGB.getMat(cv::ACCESS_READ);
             cv::Mat img_Z = rawDepth.getMat(cv::ACCESS_READ);
             cv::Mat img_L = cv::Mat::zeros(img_I.rows, img_I.cols, CV_8U);
