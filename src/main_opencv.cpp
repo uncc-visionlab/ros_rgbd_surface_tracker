@@ -303,12 +303,8 @@ public:
         cv::Mat di_cameraMatrix(3, 3, CV_32F);
         cv::Size di_imSize(0, 0);
 
-        //cv::Mat rgb_distortionCoeffs = cv::Mat::zeros(5, 1, CV_32F);
-        //cv::Mat rgb_cameraMatrix(3, 3, CV_32F);
-        //cv::Size rgb_imSize(0, 0);
         rgb_distortionCoeffs = cv::Mat::zeros(5, 1, CV_32F);
         rgb_cameraMatrix = cv::Mat::zeros(3, 3, CV_32F);
-        //rgb_imSize;
 
         while (run) {
             bool new_frame = false;
@@ -424,9 +420,12 @@ public:
 
 int main(int argc, char **argv) {
     OpenNI2Driver openni2_drvr;
+
+    // hook up driver to surface tracking class
     cv::rgbd::RgbdSurfaceTracker rgbdSurfTracker;
     boost::function<void (cv::Mat, cv::Mat, cv::Mat, cv::Mat) > callback(
             boost::bind(&cv::rgbd::RgbdSurfaceTracker::callback, &rgbdSurfTracker, _1, _2, _3, _4));
+
     openni2_drvr.setCallback(callback);
     openni2_drvr.initialize();
     run = true;
