@@ -32,7 +32,6 @@ find_package(catkin REQUIRED
 find_package(Boost REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
-find_package(PCL REQUIRED)
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -124,7 +123,7 @@ catkin_package(
 #  LIBRARIES detect_depth_surflets
 #  CATKIN_DEPENDS boost cv_bridge eigen geometry_msgs image_geometry image_transport nodelet pcl_ros std_msgs tf tf2 tf2_ros visualization_msgs
 #  DEPENDS system_lib
-  DEPENDS OpenCV PCL
+  DEPENDS Boost Eigen3 OpenCV 
   LIBRARIES ${PROJECT_NAME}
 )
 
@@ -156,7 +155,7 @@ include_directories(
 ## The recommended prefix ensures that target names across packages don't collide
 # add_executable(${PROJECT_NAME}_node src/detect_depth_surflets_node.cpp)
 add_executable(${PROJECT_NAME} src/ros_rgbd_surface_tracker.cpp
-    src/rgbd_uncc_contrib.cpp)
+    src/rgbd_tracker_uncc.cpp)
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
@@ -173,21 +172,24 @@ add_executable(${PROJECT_NAME} src/ros_rgbd_surface_tracker.cpp
 #   ${catkin_LIBRARIES}
 # )
 target_link_libraries(${PROJECT_NAME} 
-${catkin_LIBRARIES}  ${Boost_LIBRARIES} 
-${OpenCV_LIBRARIES})
+   ${catkin_LIBRARIES}  
+   ${Boost_LIBRARIES} 
+   ${OpenCV_LIBRARIES}
+   ${Eigen3_LIBRARIES})
 
 link_directories(/opt/ros/kinetic/lib)
 add_executable(main_opencv src/main_opencv.cpp
-    src/rgbd_uncc_contrib.cpp)
+    src/rgbd_tracker_uncc.cpp)
 #set_target_properties(main_opencv PROPERTIES
 #  IMPORTED_LOCATION "/opt/ros/kinetic/lib/libbar.so"
 #  INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/include/libbar"
 #)
 
 target_link_libraries(main_opencv 
-   ${OpenCV_LIBRARIES}  
    ${catkin_LIBRARIES} 
    ${BOOST_LIBRARIES} 
+   ${OpenCV_LIBRARIES}  
+   ${Eigen3_LIBRARIES}  
    OpenNI2Orbbec pthread)
 #add_executable(main_opencv src/main_opencv.cpp)
 #target_link_libraries(main_opencv v4l2)

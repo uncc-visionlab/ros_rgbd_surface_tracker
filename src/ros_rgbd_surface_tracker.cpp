@@ -30,7 +30,13 @@
 
 // Includes for this Library
 #include <ros_rgbd_surface_tracker/ros_rgbd_surface_tracker.hpp>
-#include <ros_rgbd_surface_tracker/rgbd_uncc_contrib.hpp>
+#include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>
+
+#define PROFILE_CALLGRIND false
+
+#ifdef PROFILE_CALLGRIND
+#include <valgrind/callgrind.h>
+#endif
 
 //typedef float Scalar;
 typedef double Scalar;
@@ -81,14 +87,17 @@ void ROS_RgbdSurfaceTracker::depthImageCallback(const sensor_msgs::ImageConstPtr
 
     cv::UMat depthFrame;
     createDepthImageFloat(depthFrame);
-
-    rgbdSurfTracker.setRGBCameraDistortion(distortionCoeffs);
-    rgbdSurfTracker.setRGBCameraIntrinsics(cameraMatrix, imSize);
-    rgbdSurfTracker.setDepthImage(depthFrame);
-    rgbdSurfTracker.segmentDepth();
+    cv::Mat _ocv_depthframe_float = depthFrame.getMat(cv::ACCESS_READ);
+    cv::Mat _ocv_rgbframe = cv::Mat::zeros(_ocv_depthframe_float.size(), CV_8UC3);
+    float cx = cameraMatrix.at<float>(0, 2);
+    float cy = cameraMatrix.at<float>(1, 2);
+    float fx = cameraMatrix.at<float>(0, 0);
+    float fy = cameraMatrix.at<float>(1, 1);
+    cv::rgbd::RgbdImage rgbd_img(_ocv_rgbframe, _ocv_depthframe_float, cx, cy, fx);
+    rgbdSurfTracker.segmentDepth(rgbd_img);
 
     if (image_pub.getNumSubscribers() > 0) {
-        cv::Mat resultImg = cv::Mat::zeros(imSize,CV_8UC3);
+        cv::Mat resultImg = cv::Mat::zeros(imSize, CV_8UC3);
         //show input with augmented information
         cv_bridge::CvImage out_msg;
         out_msg.header.frame_id = depth_msg->header.frame_id;
@@ -129,21 +138,22 @@ void ROS_RgbdSurfaceTracker::rgbdImageCallback(const sensor_msgs::ImageConstPtr&
     cv::UMat depthFrame;
     createDepthImageFloat(depthFrame);
 
-    rgbdSurfTracker.setRGBCameraDistortion(distortionCoeffs);
-    rgbdSurfTracker.setRGBCameraIntrinsics(cameraMatrix, imSize);
-    rgbdSurfTracker.setDepthImage(depthFrame);
-    cv::UMat rgbFrame = cv_rgbimg_ptr->image.getUMat(cv::ACCESS_READ);
-    rgbdSurfTracker.setRGBImage(rgbFrame);
-    rgbdSurfTracker.segmentDepth();
+    cv::Mat _ocv_depthframe_float = depthFrame.getMat(cv::ACCESS_READ);
+    cv::Mat _ocv_rgbframe = cv_rgbimg_ptr->image;
+    float cx = cameraMatrix.at<float>(0, 2);
+    float cy = cameraMatrix.at<float>(1, 2);
+    float fx = cameraMatrix.at<float>(0, 0);
+    float fy = cameraMatrix.at<float>(1, 1);
+    cv::rgbd::RgbdImage rgbd_img(_ocv_rgbframe, _ocv_depthframe_float, cx, cy, fx);
+    rgbdSurfTracker.segmentDepth(rgbd_img);
 
     if (image_pub.getNumSubscribers() > 0) {
-        cv::Mat resultImg = rgbFrame.getMat(cv::ACCESS_READ);
         //show input with augmented information
         cv_bridge::CvImage out_msg;
         out_msg.header.frame_id = depth_msg->header.frame_id;
         out_msg.header.stamp = depth_msg->header.stamp;
         out_msg.encoding = sensor_msgs::image_encodings::BGR8;
-        out_msg.image = resultImg;
+        out_msg.image = _ocv_rgbframe;
         image_pub.publish(out_msg.toImageMsg());
     }
 }

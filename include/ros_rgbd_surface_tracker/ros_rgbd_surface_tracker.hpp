@@ -11,8 +11,8 @@
  * Created on June 30, 2017, 10:27 AM
  */
 
-#ifndef ROS_RGBD_SURFACE_TRACKER_H
-#define ROS_RGBD_SURFACE_TRACKER_H
+#ifndef ROS_RGBD_SURFACE_TRACKER_HPP
+#define ROS_RGBD_SURFACE_TRACKER_HPP
 
 #ifdef __cplusplus
 
@@ -31,7 +31,7 @@
 //#include <tf/transform_listener.h>
 #include <tf/transform_broadcaster.h>
 
-#include <ros_rgbd_surface_tracker/rgbd_uncc_contrib.hpp>
+#include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>
 
 class ROS_RgbdSurfaceTracker {
 public:

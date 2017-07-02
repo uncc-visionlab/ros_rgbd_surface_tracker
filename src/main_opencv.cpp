@@ -15,7 +15,7 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
-#include <ros_rgbd_surface_tracker/rgbd_uncc_contrib.hpp>
+#include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>
 
 using namespace openni;
 using namespace std;
@@ -51,7 +51,7 @@ private:
     OpenNI2Driver(const OpenNI2Driver& ref);
     OpenNI2Driver& operator=(const OpenNI2Driver& ref);
 
-    boost::function<void (cv::Mat, cv::Mat, cv::Mat, cv::Mat) > callback_;
+    boost::function<void (cv::Mat&, cv::Mat&, cv::Mat&, cv::Mat&) > callback_;
 
 public:
     typedef boost::shared_ptr<OpenNI2Driver> Ptr;
@@ -62,7 +62,7 @@ public:
     virtual ~OpenNI2Driver() {
     };
 
-    void setCallback(boost::function<void (cv::Mat, cv::Mat, cv::Mat, cv::Mat)> const &cb) {
+    void setCallback(boost::function<void (cv::Mat&, cv::Mat&, cv::Mat&, cv::Mat&)> const &cb) {
         callback_ = cb;
     }
 
@@ -423,7 +423,7 @@ int main(int argc, char **argv) {
 
     // hook up driver to surface tracking class
     cv::rgbd::RgbdSurfaceTracker rgbdSurfTracker;
-    boost::function<void (cv::Mat, cv::Mat, cv::Mat, cv::Mat) > callback(
+    boost::function<void (cv::Mat&, cv::Mat&, cv::Mat&, cv::Mat&) > callback(
             boost::bind(&cv::rgbd::RgbdSurfaceTracker::callback, &rgbdSurfTracker, _1, _2, _3, _4));
 
     openni2_drvr.setCallback(callback);
