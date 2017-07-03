@@ -147,6 +147,19 @@ void ROS_RgbdSurfaceTracker::rgbdImageCallback(const sensor_msgs::ImageConstPtr&
     cv::rgbd::RgbdImage rgbd_img(_ocv_rgbframe, _ocv_depthframe_float, cx, cy, fx);
     rgbdSurfTracker.segmentDepth(rgbd_img);
 
+    PlaneVisualizationData *vizData = rgbdSurfTracker.getPlaneVisualizationData();
+    //rgbd_targeting::planes planesmsg;
+    //planesmsg.header.frame_id = map_frame_id_str;
+    //planesmsg.header.stamp = frame_time;
+
+    //planedata.normal.x = transformed_norm(0);
+    //planedata.normal.y = transformed_norm(1);
+    //planedata.normal.z = transformed_norm(2);
+    //planedata.point.x = transformed_point(0);
+    //planedata.point.y = transformed_point(1);
+    //planedata.point.z = transformed_point(2);
+    //planesmsg.planes.push_back(planedata);
+    //pubPlanes.publish(planesmsg);
     if (image_pub.getNumSubscribers() > 0) {
         //show input with augmented information
         cv_bridge::CvImage out_msg;

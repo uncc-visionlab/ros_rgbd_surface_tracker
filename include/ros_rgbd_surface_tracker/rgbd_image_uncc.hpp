@@ -16,6 +16,7 @@
 
 #ifdef __cplusplus
 
+#include <iostream>
 #include <opencv2/core.hpp>
 #include <boost/shared_ptr.hpp>
 #include <ros_rgbd_surface_tracker/opencv_geom_uncc.hpp>

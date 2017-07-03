@@ -17,9 +17,25 @@
 #ifdef __cplusplus
 
 #include <limits>
+
+// Eigen includes
+#include <Eigen/Dense>
+#include <Eigen/Geometry>
+
 #include <opencv2/core.hpp>
 #include <boost/shared_ptr.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
+//#include <ros_rgbd_surface_tracker/surface_alignment_optimizer.hpp>
+
+class PlaneVisualizationData {
+public:
+    Eigen::Vector4f plane_point, transformed_point;
+    Eigen::Vector4f plane_norm, transformed_norm;
+
+    PlaneVisualizationData() {
+    }
+};
+
 
 namespace cv {
     namespace rgbd {
@@ -38,6 +54,12 @@ namespace cv {
 
             void callback(cv::Mat& _ocv_rgbframe, cv::Mat& _ocv_depthframe_float,
                     cv::Mat& _rgb_distortionCoeffs, cv::Mat& _rgb_cameraMatrix);
+            
+            PlaneVisualizationData *getPlaneVisualizationData() {
+                return &vizData;
+            }
+            
+            void iterativeAlignment(cv::rgbd::RgbdImage& rgbd_img);
         private:
             // -------------------------
             // Disabling default copy constructor and default
@@ -45,6 +67,7 @@ namespace cv {
             // -------------------------
             RgbdSurfaceTracker(const RgbdSurfaceTracker& ref);
             RgbdSurfaceTracker& operator=(const RgbdSurfaceTracker& ref);
+            PlaneVisualizationData vizData;
         };
     } /* namespace rgbd */
 } /* namespace cv */
