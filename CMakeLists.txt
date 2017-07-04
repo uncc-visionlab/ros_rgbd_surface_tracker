@@ -136,8 +136,9 @@ catkin_package(
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
-  ${BOOST_INCLUDE_DIRS}
+  ${Boost_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
+  ${Eigen3_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
@@ -189,7 +190,7 @@ add_executable(main_opencv src/main_opencv.cpp
 
 target_link_libraries(main_opencv 
    ${catkin_LIBRARIES} 
-   ${BOOST_LIBRARIES} 
+   ${Boost_LIBRARIES} 
    ${OpenCV_LIBRARIES}  
    ${Eigen3_LIBRARIES}  
    OpenNI2Orbbec pthread)

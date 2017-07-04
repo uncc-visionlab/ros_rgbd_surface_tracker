@@ -91,7 +91,8 @@ template <typename ScalarType>
 Eigen::Matrix<ScalarType, 3, Eigen::Dynamic> jacobianTransformedPointAxisAngle(
         ScalarType px, ScalarType py, ScalarType pz,
         ScalarType tx, ScalarType ty, ScalarType tz,
-        ScalarType vx, ScalarType vy, ScalarType vz, ScalarType theta) {
+        ScalarType vx, ScalarType vy, ScalarType vz, 
+        ScalarType theta = std::numeric_limits<ScalarType>::quiet_NaN()) {
     // Omission of optional argument theta assumes axis vector magnitude -> angle
     // Jacobian rows from top to bottom: x, y, z
     // Jacobian columns from left to right: vx, vy, vz, tx, ty, tz
@@ -198,16 +199,19 @@ Eigen::Matrix<ScalarType, 3, Eigen::Dynamic> jacobianTransformedPointAxisAngle(
     return jacobian;
 }
 
+template <typename ScalarType>
 struct LMFunctor {
-    const Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>* points;
+    // these functions are called by Eigen's LevenbergMarquardt optimizer
 
-    Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor> transformed_points;
+    const Eigen::Matrix<ScalarType, Eigen::Dynamic, 3, Eigen::RowMajor>* points;
+        
+    Eigen::Matrix<ScalarType, Eigen::Dynamic, 3, Eigen::RowMajor> transformed_points;
 
-    AlgebraicSurfaceProduct<double>* surface;
+    AlgebraicSurfaceProduct<ScalarType>* surface;
 
     // Compute errors, one for each data point, for the given parameter values in 'x'
-
-    int operator()(const Eigen::VectorXd& x, Eigen::VectorXd& fvec) {
+    int operator()(const Eigen::Matrix<ScalarType, Eigen::Dynamic, 1>& x, 
+            Eigen::Matrix<ScalarType, Eigen::Dynamic, 1>& fvec) {
         // 'x' has dimensions paraemters x 1
         // It contains the current estimates for the parameters.
 
@@ -216,36 +220,35 @@ struct LMFunctor {
 
         std::size_t N = num_data_points;
 
-        Eigen::Quaternion<double> quat(x(0), x(1), x(2), x(3));
+        Eigen::Quaternion<ScalarType> quat(x(0), x(1), x(2), x(3));
         quat.normalize();
 
-        Eigen::Matrix3d R0 = quat.toRotationMatrix();
-        Eigen::RowVector3d t0 = x.tail(3);
+        Eigen::Matrix<ScalarType, 3, 3> R0 = quat.toRotationMatrix();
+        Eigen::Matrix<ScalarType, 1, 3> t0 = x.tail(3);
+        
+        transformed_points = (*points)*R0.transpose() + Eigen::Matrix<ScalarType, Eigen::Dynamic, 1>::Ones(N)*t0;
 
-        transformed_points = (*points) * R0.transpose() + Eigen::VectorXd::Ones(N) * t0;
-
-        //        Eigen::Matrix<double, Eigen::Dynamic, 1> fvec(N);
         for (std::size_t i = 0; i != N; i++) {
             fvec(i) = surface->evaluate(transformed_points.row(i));
         }
-
+        
         return 0;
     }
 
     // Compute the jacobian of the errors
-
-    int df(const Eigen::VectorXd& x, Eigen::MatrixXd& fjac) {
+    int df(const Eigen::Matrix<ScalarType, Eigen::Dynamic, 1>& x, 
+            Eigen::Matrix<ScalarType, Eigen::Dynamic, Eigen::Dynamic>& fjac) {
         // 'x' has dimensions parameters x 1
         // It contains the current estimates for the parameters.
 
         // 'fjac' has dimensions points x parameters and will be returned
         for (std::size_t i = 0; i != num_data_points; i++) {
-            fjac.row(i) = surface->evaluateGradient(transformed_points.row(i)) *
-                    jacobianTransformedPointQuat<double>(transformed_points(i, 0),
+            fjac.row(i) = surface->evaluateGradient(transformed_points.row(i))*
+                    jacobianTransformedPointQuat<ScalarType>(transformed_points(i, 0),
                     transformed_points(i, 1), transformed_points(i, 2),
                     x(4), x(5), x(6), x(0), x(1), x(2), x(3));
         }
-
+        
         return 0;
     }
 
@@ -264,6 +267,45 @@ struct LMFunctor {
     }
 
 };
+
+template <typename ScalarType>
+bool leastSquaresSurfaceFitLM(AlgebraicSurfaceProduct<ScalarType>& surface,
+        const Eigen::Matrix<ScalarType, Eigen::Dynamic, 3, Eigen::RowMajor>& points,
+        Eigen::Ref<Eigen::Matrix<ScalarType, 4, 4>> transform) {
+    
+    LMFunctor<ScalarType> functor;
+    functor.surface = &surface;
+    functor.points = &points;
+    functor.num_data_points = points.rows();
+    functor.num_parameters = 7;
+    Eigen::Matrix<ScalarType, Eigen::Dynamic, 1> x(7);
+    x << 1, 0, 0, 0, 0, 0, 0;
+    
+    Eigen::LevenbergMarquardt<LMFunctor<ScalarType>, ScalarType> lm(functor);
+    lm.parameters.maxfev = 25; // maximum # of iterations
+    
+    int status = lm.minimize(x);
+    
+    Eigen::Quaternion<ScalarType> quat(x(0), x(1), x(2), x(3));
+    quat.normalize();
+    Eigen::Matrix<ScalarType, 3, 3> R0 = quat.toRotationMatrix();
+    
+    transform.setIdentity();
+    transform.template block<3, 3>(0, 0) = R0;
+    transform.template block<3, 1>(0, 3) = x.tail(3);
+    
+    // inverse of above
+//    transform.template block<3, 3>(0, 0) = R0.transpose();
+//    transform.template block<3, 1>(0, 3) = -R0.transpose()*x.tail(3);
+    
+    std::cout << "-----------------------------------------------------------\n"
+            "Nonlinear Surface Fit:\n";
+    std::cout << "LM optimization status: " << status << "\n";
+    std::cout << "Iterations: " << lm.iter << "\n";
+//    std::cout << "Transform:\n" << transform << "\n";
+    
+    return ((status > 0) ? true : false);
+}
 
 #endif /* __cplusplus */
 

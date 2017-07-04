@@ -32,6 +32,7 @@
 #include <tf/transform_broadcaster.h>
 
 #include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>
+#include <ros_rgbd_surface_tracker/ros_plane_visualizer.hpp>
 
 class ROS_RgbdSurfaceTracker {
 public:
@@ -39,12 +40,13 @@ public:
 
     ROS_RgbdSurfaceTracker() :
     nodeptr(new ros::NodeHandle),
-    nh("~"), it(nh) {
+    nh("~"), it(nh), plane_viz(nodeptr) {
 
         nh.param<std::string>("map_frame", map_frame_id_str, "optitrack");
         nh.param<std::string>("optical_parent", parent_frame_id_str, "optitrack");
         nh.param<std::string>("optical_frame", rgbd_frame_id_str, "rgbd_frame");
-
+        
+        plane_viz.setFrameID(parent_frame_id_str);
         image_pub = it.advertise("result", 1);
     };
 
@@ -102,6 +104,9 @@ private:
     image_transport::Publisher image_pub;
 
     cv::rgbd::RgbdSurfaceTracker rgbdSurfTracker;
+    
+    ros_plane_visualizer plane_viz;
+    
 };
 
 #endif /* __cplusplus */

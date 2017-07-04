@@ -43,6 +43,13 @@ namespace cv {
                 //lptr = img_L.ptr<uchar>();
                 istep = (int) (_img_I.step / _img_I.elemSize1());
                 zstep = (int) (_img_Z.step / _img_Z.elemSize1());
+//                for (int r=0; r < height; r++) {
+//                    for (int c=0; c < width; c++) {
+//                            //const float& depth = zptr[r * img_Z.cols + c];
+//                            std::cout << "depth = " <<_img_Z.at<float>(r,c) << std::endl;                        
+//                    }
+//                }
+
                 //lstep = (int) (_img_L.step / _img_L.elemSize1());
             }
 

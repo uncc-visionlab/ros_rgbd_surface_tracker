@@ -31,6 +31,8 @@
 // Includes for this Library
 #include <ros_rgbd_surface_tracker/ros_rgbd_surface_tracker.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>
+//#include <ros_rgbd_surface_tracker/plane.h>
+//#include <ros_rgbd_surface_tracker/planes.h>
 
 #define PROFILE_CALLGRIND false
 
@@ -138,8 +140,9 @@ void ROS_RgbdSurfaceTracker::rgbdImageCallback(const sensor_msgs::ImageConstPtr&
     cv::UMat depthFrame;
     createDepthImageFloat(depthFrame);
 
-    cv::Mat _ocv_depthframe_float = depthFrame.getMat(cv::ACCESS_READ);
-    cv::Mat _ocv_rgbframe = cv_rgbimg_ptr->image;
+    //cv::Mat _ocv_depthframe_float = depthFrame.getMat(cv::ACCESS_READ).clone();
+    cv::Mat _ocv_depthframe_float = cv_depthimg_ptr->image.clone();    
+    cv::Mat _ocv_rgbframe = cv_rgbimg_ptr->image.clone();
     float cx = cameraMatrix.at<float>(0, 2);
     float cy = cameraMatrix.at<float>(1, 2);
     float fx = cameraMatrix.at<float>(0, 0);
@@ -147,19 +150,21 @@ void ROS_RgbdSurfaceTracker::rgbdImageCallback(const sensor_msgs::ImageConstPtr&
     cv::rgbd::RgbdImage rgbd_img(_ocv_rgbframe, _ocv_depthframe_float, cx, cy, fx);
     rgbdSurfTracker.segmentDepth(rgbd_img);
 
-    PlaneVisualizationData *vizData = rgbdSurfTracker.getPlaneVisualizationData();
-    //rgbd_targeting::planes planesmsg;
+    PlaneVisualizationData* viz_data = rgbdSurfTracker.getPlaneVisualizationData();
+    //ros_rgbd_surface_tracker::plane planedata;
+    //ros_rgbd_surface_tracker::planes planesmsg;
     //planesmsg.header.frame_id = map_frame_id_str;
     //planesmsg.header.stamp = frame_time;
 
-    //planedata.normal.x = transformed_norm(0);
-    //planedata.normal.y = transformed_norm(1);
-    //planedata.normal.z = transformed_norm(2);
-    //planedata.point.x = transformed_point(0);
-    //planedata.point.y = transformed_point(1);
-    //planedata.point.z = transformed_point(2);
+    //planedata.normal.x = viz_data->plane_normal(0);
+    //planedata.normal.y = viz_data->plane_normal(1);
+    //planedata.normal.z = viz_data->plane_normal(2);
+    //planedata.point.x = viz_data->plane_point(0);
+    //planedata.point.y = viz_data->plane_point(1);
+    //planedata.point.z = viz_data->plane_point(2);
     //planesmsg.planes.push_back(planedata);
     //pubPlanes.publish(planesmsg);
+    
     if (image_pub.getNumSubscribers() > 0) {
         //show input with augmented information
         cv_bridge::CvImage out_msg;
@@ -270,7 +275,6 @@ void ROS_RgbdSurfaceTracker::initializeSubscribersAndPublishers() {
             this, _1, _2, _3));
 
     pubPoseWCovariance = nodeptr->advertise<geometry_msgs::PoseWithCovarianceStamped>("pose_w_cov", 1000);
-
 }
 
 int main(int argc, char **argv) {

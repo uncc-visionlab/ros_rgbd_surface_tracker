@@ -44,9 +44,11 @@ public:
     }
 
     AlgebraicSurface(const AlgebraicSurface& orig) {
+
         this->coeffs = orig.coeffs;
         this->dimension = orig.dimension;
         this->order = orig.order;
+
     }
 
     AlgebraicSurface(int dimension, int order) {
@@ -54,6 +56,7 @@ public:
         this->coeffs.setZero(num_monomials);
         this->dimension = dimension;
         this->order = order;
+
     }
 
     AlgebraicSurface(const Eigen::Ref<const RowVectorXs>& coeffs, int dimension, int order) {
@@ -130,7 +133,7 @@ public:
      * in lexographical order.
      * */
     Eigen::RowVectorXi generateNextMonomial(
-            const Eigen::Ref<const Eigen::RowVectorXi>& coordinate_powers) {
+            const Eigen::Ref<const Eigen::RowVectorXi>& coordinate_powers) const {
 
         Eigen::RowVectorXi res(coordinate_powers.size() + 1);
 
@@ -229,6 +232,46 @@ public:
         }
         return ((ScalarType) r);
     }
+    
+    /**
+     * Compute the multinomial coefficient for an array of numbers.
+     * @param n How many items to choose.
+     * @param m Total number of available items.
+     * @return Number of ways to choose n items out of m.
+     * */
+    static ScalarType getMultinomialCoefficient(
+            const Eigen::Ref<const Eigen::RowVectorXi>& coordinate_powers) {
+
+        Eigen::RowVectorXi K(coordinate_powers.size());
+        K = coordinate_powers;
+
+        int N = K.sum();
+        
+        // find the maximal element in K
+        int max_element = -1;
+        int max_index = 0;
+        for (int i = 0; i < K.size(); i++) {
+            if (K(i) > max_element) {
+                max_element = K(i);
+                max_index = i;
+            }
+        }
+        
+        int res = 1;
+        for (int i = max_element + 1; i <= N; i++) {
+            res *= i;
+        }
+        
+        for (int i = 0; i < K.size(); i++) {
+            if (i != max_index) {
+                for (int j = 1; j <= K[i]; j++) {
+                    res /= j;
+                }
+            }
+        }
+        
+        return res;
+    }
 
     int getMonomialIndex(
             const Eigen::Ref<const Eigen::RowVectorXi>& coordinate_powers) {
@@ -266,6 +309,52 @@ public:
         }
         return pos;
     }
+    
+    /**
+     * Adds two implicit polynomials and returns the result.
+     * @param surfaceA - The first implicit polynomial.
+     * @param surfaceB - The second implicit polynomial.
+     * @return a new  implicit polynomial representing surfaceA + surfaceB.
+     * */
+    static AlgebraicSurface<ScalarType> add(
+            const AlgebraicSurface<ScalarType>& surfaceA, 
+            const AlgebraicSurface<ScalarType>& surfaceB) {
+        
+        int new_order = (surfaceA.order > surfaceB.order) ? surfaceA.order : surfaceB.order;
+        int new_dimension = surfaceA.dimension;
+        int num_monomials = polyDim(new_dimension, new_order);
+        RowVectorXs new_coeffs(num_monomials);
+        double coeffA, coeffB;
+        for (int i = 0; i < new_coeffs.size(); i++) {
+            if (i < surfaceA.coeffs.size()) {
+                coeffA = surfaceA.coeffs(i);
+            } else {
+                coeffA = 0.0;
+            }
+            if (i < surfaceB.coeffs.size()) {
+                coeffB = surfaceB.coeffs(i);
+            } else {
+                coeffB = 0.0;
+            }
+            new_coeffs[i] = coeffA + coeffB;
+        }
+        
+        return AlgebraicSurface<ScalarType>(new_coeffs, new_dimension, new_order);
+        
+    }
+    
+    static AlgebraicSurface<ScalarType> scale(ScalarType scale, const AlgebraicSurface<ScalarType>& surface) {
+        return AlgebraicSurface<ScalarType>(scale*surface.coeffs, surface.dimension, surface.order);
+    }
+    
+    /**
+     * Scale the coefficients of an implicit polynomial.
+     * @param scale the value which will be multiplied into each of the polynomial coefficients.
+     * @return a new scaled implicit polynomial.
+     * */
+    AlgebraicSurface<ScalarType> scale(ScalarType scale) {
+        return AlgebraicSurface<ScalarType>(scale*this->coeffs, this->dimension, this->order);
+    }
 
     /**
      * Multiplies the two passed AlgebraicSurface objects and returns a new
@@ -275,8 +364,9 @@ public:
      * @param surfB The second of the two implicit polynomials to multiply.
      * @return A new AlgebraicSurface object representing surfA*surfB.
      */
-    static AlgebraicSurface<ScalarType> multiply(AlgebraicSurface& surfA,
-            AlgebraicSurface& surfB) {
+    static AlgebraicSurface<ScalarType> multiply(
+            const AlgebraicSurface<ScalarType>& surfA,
+            const AlgebraicSurface<ScalarType>& surfB) {
 
         if (surfA.dimension != surfB.dimension) {
             throw "Cannot multiply polynomials of differing dimension";
@@ -359,6 +449,73 @@ public:
         
     }
     
+    static AlgebraicSurface<ScalarType> affineTransform(
+            const Eigen::Ref<const MatrixXs>& transform, 
+            const AlgebraicSurface<ScalarType>& surface) {
+        
+        int num_monomials = polyDim(surface.dimension, surface.order);
+        AlgebraicSurface<ScalarType> res = 
+                AlgebraicSurface<ScalarType>(surface.dimension, surface.order);
+
+        // notice we need to reverse the order to satisfy the order of [a_n, ..., a2, a1] like
+        Eigen::RowVectorXi powers(surface.dimension);
+        powers.setZero();
+
+        for (int i = 0; i < num_monomials; i++) {
+            // for each monomial
+            RowVectorXs one_coeff(1);
+            one_coeff.setOnes();
+
+            AlgebraicSurface<double> poly(one_coeff, surface.dimension, 0); // 0 degree polynomial
+            for (int j = 0; j < surface.dimension; j++) {
+                // for each dimension
+                RowVectorXs trans(surface.dimension + 1);
+                for (int k = 1; k < surface.dimension + 1; k++) {
+                    trans(k) = transform(j, k - 1);
+                }
+                trans(0) = transform(j, surface.dimension);
+                poly = AlgebraicSurface<ScalarType>::multiply(poly, surface.expandLinearFormPower(trans, powers(j)));
+            }
+            res = AlgebraicSurface<ScalarType>::add(res, poly.scale(surface.coeffs(i)));
+            powers = surface.generateNextMonomial(powers);
+        }
+        
+        return res;
+    }
+    
+    
+    virtual void affineTransform(const Eigen::Ref<const MatrixXs>& transform) {
+        *this = AlgebraicSurface<ScalarType>::affineTransform(transform, *this);
+        return;
+    }
+    
+    AlgebraicSurface<ScalarType> expandLinearFormPower(
+            const Eigen::Ref<const RowVectorXs>& linear_coeffs, int power) const {
+        
+        Eigen::RowVectorXi indx(this->dimension + 1);
+        indx.setZero();
+        indx(0) = power;
+
+        int num_monomials = polyDim(this->dimension, power);
+        AlgebraicSurface<ScalarType> res = AlgebraicSurface<ScalarType>(this->dimension, power);
+        RowVectorXs coeffs(num_monomials);
+        coeffs.setZero();
+        
+        for (int i = 0; i < num_monomials; i++) {
+            double prod = getMultinomialCoefficient(indx);
+            for (int j = 0; j < this->dimension + 1; j++) {
+                prod *= pow(linear_coeffs(j), indx(j));
+            }
+            
+            coeffs(i) = prod;
+            indx = generateNextMonomial(indx);
+        }
+        
+        res.coeffs = coeffs;
+        return res;
+    }
+    
+    
     std::string coordinatePowerstoString(
             const Eigen::Ref<const Eigen::RowVectorXi>& coordinate_powers) {
         
@@ -424,6 +581,10 @@ public:
     PlanarSurface(const Eigen::Ref<const RowVectorXs>& coeffs) : 
         AlgebraicSurface<ScalarType>(coeffs, 3, 1) {}
 
+    void convertHessianNormalForm() {
+        this->coeffs = this->coeffs/this->coeffs.tail(3).norm();
+    }
+    
     ScalarType evaluate(const Eigen::Ref<const RowVectorXs>& pt) {
         
         return (Eigen::Matrix<ScalarType, 1, 4>() << 1.0, pt).finished() *
@@ -436,9 +597,32 @@ public:
         return this->coeffs(coord_index + 1);
         
     }
+    
+    void affineTransform(
+            const Eigen::Ref<const Eigen::Matrix<ScalarType, 4, 4>>& transform) {
+        
+        // inverse method 1
+//        transform.row(3).swap(transform.col(3));
+//        transform.block<1, 3>(3, 0) *= -transform.block<3, 3>(0, 0);
+        
+        // inverse method 2
+//        transform.template block<3, 3>(0, 0).transposeInPlace();
+//        transform.block<3, 1>(0, 3) = -transform.block<3, 3>(0, 0)*transform.block<3, 1>(0, 3);
+        
+        // this method seems to take ~600% less time to run than 
+        // superclass affineTransform()
+        Eigen::PermutationMatrix<4, 4> perm;
+        perm.indices() << 1, 2, 3, 0;
+        this->coeffs = perm.transpose()*transform*perm*this->coeffs.transpose();
 
+//        this->AlgebraicSurface<ScalarType>::affineTransform(transform);
+        this->convertHessianNormalForm();
+        
+        return;
+    }
+    
 };
-
+    
 template <typename ScalarType>
 class AlgebraicSurfaceProduct {
     using RowVectorXs =  Eigen::Matrix<ScalarType, 1, Eigen::Dynamic>;
@@ -609,6 +793,15 @@ public:
 
         return gradient;
         
+    }
+    
+    void affineTransform(const Eigen::Ref<const MatrixXs>& transform) {
+        
+        for (auto& surface : this->subsurfaces) {
+            surface->affineTransform(transform);
+        }
+        
+        return;
     }
     
     AlgebraicSurface<ScalarType> toAlgebraicSurface() {

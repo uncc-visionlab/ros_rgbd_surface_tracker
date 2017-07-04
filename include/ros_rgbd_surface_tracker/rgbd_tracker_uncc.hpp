@@ -29,8 +29,8 @@
 
 class PlaneVisualizationData {
 public:
-    Eigen::Vector4f plane_point, transformed_point;
-    Eigen::Vector4f plane_norm, transformed_norm;
+    Eigen::Vector3f plane_point;
+    Eigen::Vector3f plane_normal;
 
     PlaneVisualizationData() {
     }

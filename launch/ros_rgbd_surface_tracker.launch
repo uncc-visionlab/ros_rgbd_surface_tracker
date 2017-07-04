@@ -28,7 +28,8 @@
 
     <!-- BEGIN Live sensor configuration -->
     <arg name="camera" default="camera" />
-    <include file="$(find ptcloud_engine)/launch/generic.depth.device.launch.xml"
+    <include file="$(find astra_launch)/launch/astra.launch"/>
+    <!--<include file="$(find ptcloud_engine)/launch/generic.depth.device.launch.xml"
              if="$(arg live_sensor)">
         <arg name="camera" value="$(arg camera)"/>
         <arg name="data_skip" default="0" />
@@ -39,7 +40,7 @@
         <arg name="sensor_type_kinect_xbox360" value="$(arg sensor_type_kinect_xbox360)" />
         <arg name="sensor_type_kinect_v2" value="$(arg sensor_type_kinect_v2)" />
         <arg name="kinect2_resolution" value="$(arg kinect2_resolution)"/>
-    </include> 
+    </include>--> 
     <!-- END Live sensor configuration -->
       
     <!-- BEGIN Save data to .bag file configuration -->
@@ -57,7 +58,7 @@
     <param name="use_sim_time" value = "true" if="$(arg play_bagfile)"/>
     
     <!-- BEGIN Play from .bag file sensor configuration -->
-    <arg name="path" default="$(find ptcloud_engine)" />
+    <arg name="path" default="$(find ros_rgbd_surface_tracker)" />
     <arg name="file_1" default="kinect-rgbd-camera_2015-09-30-08-30-05.bag" />
     <arg name="file_2" default="xtion-rgbd-camera_2016-02-17-18-16-12.bag" />
     <arg name="file_3" default="astra-rgbd-camera.bag"/>
@@ -73,6 +74,8 @@
         
         <node name="ros_rgbd_surface_tracker" pkg="ros_rgbd_surface_tracker" 
               type="ros_rgbd_surface_tracker" output="screen" if="$(arg run_surface_tracker)">    
+            <remap from="rgb/input_image" to="rgb/image_raw"/>
+            <remap from="depth_registered/input_image" to="depth_registered/image_raw"/>
             <param name="map_frame" value = "$(arg map_frame)"/>
             <param name="optical_parent" value = "$(arg rgb_optical_frame)"/>
             <param name="optical_frame" value = "$(arg rgbd_frame)"/>
