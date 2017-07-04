@@ -18,6 +18,7 @@
 
 #include <iostream>
 #include <opencv2/core.hpp>
+#include <opencv2/rgbd.hpp>
 #include <boost/shared_ptr.hpp>
 #include <ros_rgbd_surface_tracker/opencv_geom_uncc.hpp>
 
@@ -43,14 +44,20 @@ namespace cv {
                 //lptr = img_L.ptr<uchar>();
                 istep = (int) (_img_I.step / _img_I.elemSize1());
                 zstep = (int) (_img_Z.step / _img_Z.elemSize1());
-//                for (int r=0; r < height; r++) {
-//                    for (int c=0; c < width; c++) {
-//                            //const float& depth = zptr[r * img_Z.cols + c];
-//                            std::cout << "depth = " <<_img_Z.at<float>(r,c) << std::endl;                        
-//                    }
-//                }
+                //                for (int r=0; r < height; r++) {
+                //                    for (int c=0; c < width; c++) {
+                //                            //const float& depth = zptr[r * img_Z.cols + c];
+                //                            std::cout << "depth = " <<_img_Z.at<float>(r,c) << std::endl;                        
+                //                    }
+                //                }
 
                 //lstep = (int) (_img_L.step / _img_L.elemSize1());
+                cameraMatrix = cv::Mat::zeros(3, 3, CV_32F);
+                cameraMatrix.at<float>(0, 0) = _f;
+                cameraMatrix.at<float>(1, 1) = _f;
+                cameraMatrix.at<float>(2, 2) = 1.0f;
+                cameraMatrix.at<float>(0, 2) = _cx;
+                cameraMatrix.at<float>(1, 2) = _cy;
             }
 
             virtual ~RgbdImage() {
@@ -318,6 +325,34 @@ namespace cv {
                 return img_Z;
             }
 
+            const cv::Mat getCameraMatrix() {
+                return cameraMatrix;
+            }
+
+            void setNormalsComputer(cv::Ptr<RgbdNormals> _nc) {
+                normalsComputer = _nc;
+            }
+
+            cv::Ptr<RgbdNormals> getNormalsComputer(cv::Ptr<RgbdNormals> _nc) {
+                return normalsComputer;
+            }
+
+            bool computeNormals() {
+                cv::Mat normals(img_Z.size(), CV_32FC3);
+                cv::Mat points(img_Z.size(), CV_32FC3);
+                for (int r = 0; r < img_Z.rows; ++r) {
+                    for (int c = 0; c < img_Z.cols; ++c) {
+                        const float& depth = zptr[r * zstep + c];
+                        points.at<cv::Point3f>(r, c).x = (c - cx) * inv_f*depth;
+                        points.at<cv::Point3f>(r, c).y = (r - cy) * inv_f*depth;
+                        points.at<cv::Point3f>(r, c).z = depth;
+                    }
+                }
+                (*normalsComputer)(points, normals);
+                std::cout << "normals computed " << std::endl;
+                return true;
+            }
+
             int getWidth() {
                 return width;
             }
@@ -345,6 +380,8 @@ namespace cv {
 
             int width, height;
             float cx, cy, inv_f;
+            cv::Mat cameraMatrix;
+            mutable cv::Ptr<RgbdNormals> normalsComputer;
         };
     } /* namespace rgbd */
 } /* namespace cv */

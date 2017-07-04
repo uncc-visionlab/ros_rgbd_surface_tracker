@@ -4,7 +4,7 @@
  * and open the template in the editor.
  */
 #include <iostream>      /* printf, scanf, puts, NULL */
-
+#include <opencv2/rgbd.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>
 
@@ -22,7 +22,19 @@ namespace cv {
         }
 
         void RgbdSurfaceTracker::segmentDepth(cv::rgbd::RgbdImage& rgbd_img) {
-
+            const int sobelSize = 3;
+            const double sobelScale = 1. / 8.;
+            int normalWinSize = 5;
+            int normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_FALS;
+            cv::Ptr<RgbdNormals> normalsComputer;
+            normalsComputer = makePtr<RgbdNormals>(rgbd_img.getDepth().rows,
+                    rgbd_img.getDepth().cols,
+                    rgbd_img.getDepth().depth(),
+                    rgbd_img.getCameraMatrix(),
+                    normalWinSize,
+                    normalMethod);
+            rgbd_img.setNormalsComputer(normalsComputer);
+            rgbd_img.computeNormals();
             iterativeAlignment(rgbd_img);
         }
     } /* namespace rgbd */
