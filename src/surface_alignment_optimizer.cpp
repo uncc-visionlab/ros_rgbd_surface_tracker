@@ -31,7 +31,27 @@ namespace cv {
             int x0 = floor(0.5 * (rgbd_img.getWidth() - tile_width));
             int y0 = floor(0.5 * (rgbd_img.getHeight() - tile_height));
             int num_samples = 100;
+            
+            cv::Point2i tl, tr, br, bl;
+                    
+            tl.x = x0;
+            tl.y = y0;
 
+            tr.x = x0 + tile_width;
+            tr.y = y0;
+
+            br.x = x0 + tile_width;
+            br.y = y0 + tile_height;
+
+            bl.x = x0;
+            bl.y = y0 + tile_height;
+
+            std::vector<cv::Point2i> corners(4);
+            corners.push_back(bl);
+            corners.push_back(br);
+            corners.push_back(tr);
+            corners.push_back(tl);
+            
             std::vector<cv::Point3f> data;
             data.reserve(num_samples);
 
@@ -74,22 +94,23 @@ namespace cv {
                     AlgebraicSurface<double>::Ptr subsurface = surface.subsurfaces[0];
                     subsurface->affineTransform(transform_matrix);
                     std::cout << "surface: " << subsurface->toString() << "\n";
+                    
+                    PlaneVisualizationData* vis_data = this->getPlaneVisualizationData();
+                    
+                    for (std::size_t i = 0; i != 4; i++) {
 
-                    cv::Point2i middle_pixel;
-                    middle_pixel.x = floor(0.5 * rgbd_img.getWidth());
-                    middle_pixel.y = floor(0.5 * rgbd_img.getHeight());
+                        if (!std::isnan(rgbd_img.getDepth().at<float>(corners[i].y, corners[i].x))) {
 
-                    if (!std::isnan(rgbd_img.getDepth().at<float>(middle_pixel.y, middle_pixel.x))) {
+                            cv::Point3f point = rgbd_img.backproject(corners[i]);
 
-                        cv::Point3f middle = rgbd_img.backproject(middle_pixel);
+                            point.z = -(subsurface->coeffs(0)
+                                    + subsurface->coeffs(1) * point.x
+                                    + subsurface->coeffs(2) * point.y) / subsurface->coeffs(3);
 
-                        middle.z = -(subsurface->coeffs(0)
-                                + subsurface->coeffs(1) * middle.x
-                                + subsurface->coeffs(2) * middle.y) / subsurface->coeffs(3);
+                            
+                            vis_data->rect_points.push_back(Eigen::Vector3f(point.x, point.y, point.z));
 
-                        PlaneVisualizationData* vis_data = this->getPlaneVisualizationData();
-//                        viz_data->rect_points.push_back();
-
+                        }
                     }
                 }
             }
