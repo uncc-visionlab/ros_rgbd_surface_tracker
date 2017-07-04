@@ -150,20 +150,8 @@ void ROS_RgbdSurfaceTracker::rgbdImageCallback(const sensor_msgs::ImageConstPtr&
     cv::rgbd::RgbdImage rgbd_img(_ocv_rgbframe, _ocv_depthframe_float, cx, cy, fx);
     rgbdSurfTracker.segmentDepth(rgbd_img);
 
-    PlaneVisualizationData* viz_data = rgbdSurfTracker.getPlaneVisualizationData();
-    //ros_rgbd_surface_tracker::plane planedata;
-    //ros_rgbd_surface_tracker::planes planesmsg;
-    //planesmsg.header.frame_id = map_frame_id_str;
-    //planesmsg.header.stamp = frame_time;
-
-    //planedata.normal.x = viz_data->plane_normal(0);
-    //planedata.normal.y = viz_data->plane_normal(1);
-    //planedata.normal.z = viz_data->plane_normal(2);
-    //planedata.point.x = viz_data->plane_point(0);
-    //planedata.point.y = viz_data->plane_point(1);
-    //planedata.point.z = viz_data->plane_point(2);
-    //planesmsg.planes.push_back(planedata);
-    //pubPlanes.publish(planesmsg);
+    PlaneVisualizationData* vis_data = rgbdSurfTracker.getPlaneVisualizationData();
+    plane_vis.publishPlanes(vis_data.rect_points, depth_msg->header.stamp);
     
     if (image_pub.getNumSubscribers() > 0) {
         //show input with augmented information

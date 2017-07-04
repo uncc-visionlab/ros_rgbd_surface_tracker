@@ -105,7 +105,7 @@ private:
 
     cv::rgbd::RgbdSurfaceTracker rgbdSurfTracker;
     
-    ros_plane_visualizer plane_viz;
+    ros_plane_visualizer plane_vis;
     
 };
 

@@ -87,11 +87,8 @@ namespace cv {
                                 + subsurface->coeffs(1) * middle.x
                                 + subsurface->coeffs(2) * middle.y) / subsurface->coeffs(3);
 
-                        PlaneVisualizationData* viz_data = this->getPlaneVisualizationData();
-                        viz_data->plane_point << middle.x, middle.y, middle.z;
-                        viz_data->plane_normal << subsurface->coeffs(1),
-                                subsurface->coeffs(2),
-                                subsurface->coeffs(3);
+                        PlaneVisualizationData* vis_data = this->getPlaneVisualizationData();
+//                        viz_data->rect_points.push_back();
 
                     }
                 }

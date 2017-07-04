@@ -29,8 +29,7 @@
 
 class PlaneVisualizationData {
 public:
-    Eigen::Vector3f plane_point;
-    Eigen::Vector3f plane_normal;
+    std::vector<Eigen::Vector3f> rect_points;
 
     PlaneVisualizationData() {
     }
@@ -56,7 +55,7 @@ namespace cv {
                     cv::Mat& _rgb_distortionCoeffs, cv::Mat& _rgb_cameraMatrix);
             
             PlaneVisualizationData *getPlaneVisualizationData() {
-                return &vizData;
+                return &vis_data;
             }
             
             void iterativeAlignment(cv::rgbd::RgbdImage& rgbd_img);
@@ -67,7 +66,7 @@ namespace cv {
             // -------------------------
             RgbdSurfaceTracker(const RgbdSurfaceTracker& ref);
             RgbdSurfaceTracker& operator=(const RgbdSurfaceTracker& ref);
-            PlaneVisualizationData vizData;
+            PlaneVisualizationData vis_data;
         };
     } /* namespace rgbd */
 } /* namespace cv */
