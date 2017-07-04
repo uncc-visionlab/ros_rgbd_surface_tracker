@@ -27,8 +27,6 @@
 
 class PlaneVisualizationData {
 public:
-    Eigen::Vector3f plane_point;
-    Eigen::Vector3f plane_normal;
     std::vector<Eigen::Vector3f> rect_points;
 
     PlaneVisualizationData() {

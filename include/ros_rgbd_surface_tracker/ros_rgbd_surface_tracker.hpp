@@ -42,13 +42,13 @@ public:
 
     ROS_RgbdSurfaceTracker() :
     nodeptr(new ros::NodeHandle),
-    nh("~"), it(nh), plane_viz(nodeptr) {
+    nh("~"), it(nh), plane_vis(nodeptr) {
 
         nh.param<std::string>("map_frame", map_frame_id_str, "optitrack");
         nh.param<std::string>("optical_parent", parent_frame_id_str, "optitrack");
         nh.param<std::string>("optical_frame", rgbd_frame_id_str, "rgbd_frame");
         
-        plane_viz.setFrameID(parent_frame_id_str);
+        plane_vis.setFrameID(parent_frame_id_str);
         image_pub = it.advertise("result", 1);
     };
 

@@ -27,14 +27,6 @@
 #include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
 #include <ros_rgbd_surface_tracker/surface_alignment_optimizer.hpp>
 
-class PlaneVisualizationData {
-public:
-    std::vector<Eigen::Vector3f> rect_points;
-
-    PlaneVisualizationData() {
-    }
-};
-
 
 namespace cv {
     namespace rgbd {
