@@ -23,12 +23,11 @@
 #include <visualization_msgs/Marker.h>
 #include <geometry_msgs/Point.h>
 
+#include "surface_alignment_optimizer.hpp"
+
 class ros_plane_visualizer {
-    
 public:
-    
-    //ros_plane_visualizer();
-    
+
     ros_plane_visualizer(ros::NodeHandlePtr& nodeptr) {
         triangle_list.action = visualization_msgs::Marker::ADD;
         triangle_list.scale.x = triangle_list.scale.y = triangle_list.scale.z = 1.0;
@@ -38,7 +37,6 @@ public:
         triangle_list.ns = "planes";
         this->maxplanes = std::numeric_limits<int>::max();
         vis_pub = nodeptr->advertise<visualization_msgs::Marker>("planes", 10);
-        
     }
     
 //    ros_plane_visualizer(const ros_plane_visualizer& orig);
@@ -69,10 +67,10 @@ public:
         } else if (numplanes >= maxplanes) {
             triangle_list.points.clear();
             triangle_list.colors.clear();
-            triangle_list.points.reserve(6*maxplanes);
-            triangle_list.colors.reserve(6*maxplanes);
+            triangle_list.points.reserve(6 * maxplanes);
+            triangle_list.colors.reserve(6 * maxplanes);
         }
-        
+
         for (std::size_t planeid = 0; planeid != numplanes; planeid++) {
             
                 std::size_t offset = 4*planeid;
@@ -101,12 +99,12 @@ public:
         vis_pub.publish(triangle_list);
         
     }
-        
+
 private:
     ros::Publisher vis_pub;
     visualization_msgs::Marker triangle_list;
     int maxplanes;
-    
+
 };
 
 #endif /* __cplusplus*/

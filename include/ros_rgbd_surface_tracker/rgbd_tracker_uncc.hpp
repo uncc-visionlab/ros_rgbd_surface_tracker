@@ -25,7 +25,7 @@
 #include <opencv2/core.hpp>
 #include <boost/shared_ptr.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
-//#include <ros_rgbd_surface_tracker/surface_alignment_optimizer.hpp>
+#include <ros_rgbd_surface_tracker/surface_alignment_optimizer.hpp>
 
 class PlaneVisualizationData {
 public:
