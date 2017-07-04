@@ -87,9 +87,8 @@ void ROS_RgbdSurfaceTracker::depthImageCallback(const sensor_msgs::ImageConstPtr
     cv::Size imSize;
     cameraInfoToCVMats(info_msg, false, cameraMatrix, distortionCoeffs, imSize);
 
-    cv::UMat depthFrame;
-    createDepthImageFloat(depthFrame);
-    cv::Mat _ocv_depthframe_float = depthFrame.getMat(cv::ACCESS_READ);
+    cv::Mat _ocv_depthframe_float(cv_depthimg_ptr->image.size(), CV_32F);
+    createDepthImageFloat(_ocv_depthframe_float);
     cv::Mat _ocv_rgbframe = cv::Mat::zeros(_ocv_depthframe_float.size(), CV_8UC3);
     float cx = cameraMatrix.at<float>(0, 2);
     float cy = cameraMatrix.at<float>(1, 2);
@@ -137,11 +136,9 @@ void ROS_RgbdSurfaceTracker::rgbdImageCallback(const sensor_msgs::ImageConstPtr&
     cv::Size imSize;
     cameraInfoToCVMats(info_msg, false, cameraMatrix, distortionCoeffs, imSize);
 
-    cv::UMat depthFrame;
-    createDepthImageFloat(depthFrame);
+    cv::Mat _ocv_depthframe_float(cv_depthimg_ptr->image.size(), CV_32F);
+    createDepthImageFloat(_ocv_depthframe_float);
 
-    //cv::Mat _ocv_depthframe_float = depthFrame.getMat(cv::ACCESS_READ).clone();
-    cv::Mat _ocv_depthframe_float = cv_depthimg_ptr->image.clone();    
     cv::Mat _ocv_rgbframe = cv_rgbimg_ptr->image.clone();
     float cx = cameraMatrix.at<float>(0, 2);
     float cy = cameraMatrix.at<float>(1, 2);
@@ -150,21 +147,8 @@ void ROS_RgbdSurfaceTracker::rgbdImageCallback(const sensor_msgs::ImageConstPtr&
     cv::rgbd::RgbdImage rgbd_img(_ocv_rgbframe, _ocv_depthframe_float, cx, cy, fx);
     rgbdSurfTracker.segmentDepth(rgbd_img);
 
-    PlaneVisualizationData* viz_data = rgbdSurfTracker.getPlaneVisualizationData();
-    //ros_rgbd_surface_tracker::plane planedata;
-    //ros_rgbd_surface_tracker::planes planesmsg;
-    //planesmsg.header.frame_id = map_frame_id_str;
-    //planesmsg.header.stamp = frame_time;
+    plane_viz.publishPlanes(rgbdSurfTracker.getPlaneVisualizationData());
 
-    //planedata.normal.x = viz_data->plane_normal(0);
-    //planedata.normal.y = viz_data->plane_normal(1);
-    //planedata.normal.z = viz_data->plane_normal(2);
-    //planedata.point.x = viz_data->plane_point(0);
-    //planedata.point.y = viz_data->plane_point(1);
-    //planedata.point.z = viz_data->plane_point(2);
-    //planesmsg.planes.push_back(planedata);
-    //pubPlanes.publish(planesmsg);
-    
     if (image_pub.getNumSubscribers() > 0) {
         //show input with augmented information
         cv_bridge::CvImage out_msg;
@@ -176,16 +160,15 @@ void ROS_RgbdSurfaceTracker::rgbdImageCallback(const sensor_msgs::ImageConstPtr&
     }
 }
 
-void ROS_RgbdSurfaceTracker::createDepthImageFloat(cv::UMat depth_frame) {
+void ROS_RgbdSurfaceTracker::createDepthImageFloat(cv::Mat& depth_frame) {
     // Convert Kinect depth image from image-of-shorts (mm) to image-of-floats (m)
     if (depth_encoding == sensor_msgs::image_encodings::TYPE_16UC1) {
         ROS_DEBUG("Converting Kinect-style depth image to floating point depth image.");
         int width = cv_depthimg_ptr->image.cols;
         int height = cv_depthimg_ptr->image.rows;
-        depth_frame.create(height, width, CV_32F);
         float bad_point = std::numeric_limits<float>::quiet_NaN();
         uint16_t* uint_depthvals = (uint16_t *) cv_depthimg_ptr->image.data;
-        float* float_depthvals = (float *) depth_frame.getMat(cv::ACCESS_WRITE).data;
+        float* float_depthvals = (float *) depth_frame.data;
         for (int row = 0; row < height; ++row) {
             for (int col = 0; col < width; ++col) {
                 if (uint_depthvals[row * width + col] == 0) {
@@ -196,7 +179,7 @@ void ROS_RgbdSurfaceTracker::createDepthImageFloat(cv::UMat depth_frame) {
             }
         }
     } else if (depth_encoding == sensor_msgs::image_encodings::TYPE_32FC1) {
-        depth_frame = cv_depthimg_ptr->image.getUMat(cv::ACCESS_READ);
+        depth_frame = cv_depthimg_ptr->image;
     }
 }
 

@@ -34,6 +34,8 @@
 #include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>
 #include <ros_rgbd_surface_tracker/ros_plane_visualizer.hpp>
 
+class PlaneVisualizationData;
+
 class ROS_RgbdSurfaceTracker {
 public:
     typedef boost::shared_ptr<ROS_RgbdSurfaceTracker> Ptr;
@@ -62,7 +64,7 @@ public:
     void depthImageCallback(const sensor_msgs::ImageConstPtr& depth_msg,
             const sensor_msgs::CameraInfoConstPtr& info_msg);
 
-    void createDepthImageFloat(cv::UMat depth_frame);
+    void createDepthImageFloat(cv::Mat& depth_frame);
 
     void cameraInfoToCVMats(const sensor_msgs::CameraInfoConstPtr &cam_info,
             bool useRectifiedParameters, cv::Mat &cameraMatrix,
