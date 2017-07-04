@@ -39,18 +39,6 @@ public:
         vis_pub = nodeptr->advertise<visualization_msgs::Marker>("planes", 10);
     }
 
-    ros_plane_visualizer(ros::NodeHandlePtr& nodeptr, int maxplanes, std::string frame_id) {
-        triangle_list.action = visualization_msgs::Marker::ADD;
-        triangle_list.scale.x = triangle_list.scale.y = triangle_list.scale.z = 1.0;
-        triangle_list.pose.orientation.w = 1.0;
-        triangle_list.color.a = 1.0;
-        triangle_list.type = visualization_msgs::Marker::TRIANGLE_LIST;
-        triangle_list.ns = "planes";
-        triangle_list.header.frame_id = frame_id;
-        this->maxplanes = maxplanes;
-        vis_pub = nodeptr->advertise<visualization_msgs::Marker>("planes", 10);
-    }
-
     virtual ~ros_plane_visualizer() {
     }
 
