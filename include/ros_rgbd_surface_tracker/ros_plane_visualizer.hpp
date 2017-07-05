@@ -49,21 +49,25 @@ public:
         
     }
     
-    void publishPlanes(std::vector<Eigen::Vector3f> rect_points, ros::Time frame_time) {
+    void publishPlanes(const PlaneVisualizationData& vis_data, 
+            ros::Time timestamp = ros::Time::now()) {
         
-        triangle_list.header.stamp = frame_time;
-        std::size_t numplanes = rect_points.size()/4;
+        triangle_list.header.stamp = timestamp;
+        std::size_t numplanes = vis_data.rect_points.size()/4;
         
-        if ((triangle_list.points.size()/6 + numplanes > maxplanes) && (numplanes < maxplanes)) {
-            triangle_list.points.erase(triangle_list.points.begin(), triangle_list.points.begin() + 6*numplanes);
-            triangle_list.colors.erase(triangle_list.colors.begin(), triangle_list.colors.begin() + 6*numplanes);
+        if ((triangle_list.points.size()/6 + numplanes > maxplanes) 
+                && (numplanes < maxplanes)) {
+            triangle_list.points.erase(triangle_list.points.begin(), 
+                    triangle_list.points.begin() + 6*numplanes);
+            triangle_list.colors.erase(triangle_list.colors.begin(), 
+                    triangle_list.colors.begin() + 6*numplanes);
             triangle_list.points.reserve(triangle_list.points.size() + 6*numplanes);
             triangle_list.colors.reserve(triangle_list.points.size() + 6*numplanes);
         } else if (numplanes >= maxplanes) {
             triangle_list.points.clear();
             triangle_list.colors.clear();
-            triangle_list.points.reserve(6 * maxplanes);
-            triangle_list.colors.reserve(6 * maxplanes);
+            triangle_list.points.reserve(6*maxplanes);
+            triangle_list.colors.reserve(6*maxplanes);
         }
 
         for (std::size_t planeid = 0; planeid != numplanes; planeid++) {
@@ -74,9 +78,9 @@ public:
                 
                 for (std::size_t ptid = 0; ptid != 4; ++ptid) {
                     geometry_msgs::Point ptmsg;
-                    ptmsg.x = rect_points[ptid + offset](0);
-                    ptmsg.y = rect_points[ptid + offset](1);
-                    ptmsg.z = rect_points[ptid + offset](2);
+                    ptmsg.x = vis_data.rect_points[ptid + offset](0);
+                    ptmsg.y = vis_data.rect_points[ptid + offset](1);
+                    ptmsg.z = vis_data.rect_points[ptid + offset](2);
                     corners.push_back(ptmsg);
                 }
                 
@@ -89,7 +93,7 @@ public:
                 
         }
         
-        ROS_DEBUG("Publishing %i plane markers = %i points.", 
+        ROS_DEBUG("Publishing %i plane markers = %i vertices.", 
             (int)triangle_list.points.size()/6, (int)triangle_list.points.size());
 
         vis_pub.publish(triangle_list);
