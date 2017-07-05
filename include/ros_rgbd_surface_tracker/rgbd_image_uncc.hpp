@@ -428,7 +428,7 @@ namespace cv {
                 for (int r = 0; r < height; ++r) {
                     for (int c = 0; c < width; ++c) {
                         tan_theta_x.at<float>(r, c) = (c - cx) * inv_f;
-                        tan_theta_y.at<float>(r, c) = (y - cy) * inv_f;
+                        tan_theta_y.at<float>(r, c) = (r - cy) * inv_f;
                     }
                 }
                 //iImg_tan_theta_x = myIntegralImage(tan_theta_x);

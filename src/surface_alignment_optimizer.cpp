@@ -46,7 +46,8 @@ namespace cv {
             bl.x = x0;
             bl.y = y0 + tile_height;
 
-            std::vector<cv::Point2i> corners(4);
+            std::vector<cv::Point2i> corners;
+            corners.reserve(4);
             corners.push_back(bl);
             corners.push_back(br);
             corners.push_back(tr);
@@ -85,7 +86,7 @@ namespace cv {
                             rect.noise, rect.inliers, rect.outliers, rect.invalid);
                     AlgebraicSurface<double>::Ptr subsurface_ptr =
                             boost::make_shared<PlanarSurface<double>>(
-                            Eigen::RowVector4d(plane.d, plane.x, plane.y, plane.z));
+                                Eigen::RowVector4d(plane.d, plane.x, plane.y, plane.z));
                     surface.addSubSurface(subsurface_ptr);
                     have_initial_guess = true;
                 }
@@ -96,17 +97,17 @@ namespace cv {
                     std::cout << "surface: " << subsurface->toString() << "\n";
                     
                     PlaneVisualizationData* vis_data = this->getPlaneVisualizationData();
+                    vis_data->rect_points.clear();
                     
                     for (std::size_t i = 0; i != 4; i++) {
-
+                        
                         if (!std::isnan(rgbd_img.getDepth().at<float>(corners[i].y, corners[i].x))) {
-
+                            
                             cv::Point3f point = rgbd_img.backproject(corners[i]);
-
+                            
                             point.z = -(subsurface->coeffs(0)
                                     + subsurface->coeffs(1) * point.x
                                     + subsurface->coeffs(2) * point.y) / subsurface->coeffs(3);
-
                             
                             vis_data->rect_points.push_back(Eigen::Vector3f(point.x, point.y, point.z));
 
