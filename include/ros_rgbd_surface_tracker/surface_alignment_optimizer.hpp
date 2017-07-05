@@ -279,44 +279,44 @@ public:
 
 };
 
-template <typename ScalarType>
-bool leastSquaresSurfaceFitLM(AlgebraicSurfaceProduct<ScalarType>& surface,
-        const Eigen::Matrix<ScalarType, Eigen::Dynamic, 3, Eigen::RowMajor>& points,
-        Eigen::Ref<Eigen::Matrix<ScalarType, 4, 4 >> transform) {
-
-    LMFunctor<ScalarType> functor;
-    functor.surface = &surface;
-    functor.points = &points;
-    functor.num_data_points = points.rows();
-    functor.num_parameters = 7;
-    Eigen::Matrix<ScalarType, Eigen::Dynamic, 1> x(7);
-    x << 1, 0, 0, 0, 0, 0, 0;
-
-    Eigen::LevenbergMarquardt<LMFunctor<ScalarType>, ScalarType> lm(functor);
-    lm.parameters.maxfev = 25; // maximum # of iterations
-
-    int status = lm.minimize(x);
-
-    Eigen::Quaternion<ScalarType> quat(x(0), x(1), x(2), x(3));
-    quat.normalize();
-    Eigen::Matrix<ScalarType, 3, 3> R0 = quat.toRotationMatrix();
-
-    transform.setIdentity();
-    transform.template block<3, 3>(0, 0) = R0;
-    transform.template block<3, 1>(0, 3) = x.tail(3);
-
-    // inverse of above
-    //    transform.template block<3, 3>(0, 0) = R0.transpose();
-    //    transform.template block<3, 1>(0, 3) = -R0.transpose()*x.tail(3);
-
-    std::cout << "-----------------------------------------------------------\n"
-            "Nonlinear Surface Fit:\n";
-    std::cout << "LM optimization status: " << status << "\n";
-    std::cout << "Iterations: " << lm.iter << "\n";
-    //    std::cout << "Transform:\n" << transform << "\n";
-
-    return ((status > 0) ? true : false);
-}
+//template <typename ScalarType>
+//bool leastSquaresSurfaceFitLM(AlgebraicSurfaceProduct<ScalarType>& surface,
+//        const Eigen::Matrix<ScalarType, Eigen::Dynamic, 3, Eigen::RowMajor>& points,
+//        Eigen::Ref<Eigen::Matrix<ScalarType, 4, 4 >> transform) {
+//
+//    LMFunctor<ScalarType> functor;
+//    functor.surface = &surface;
+//    functor.points = &points;
+//    functor.num_data_points = points.rows();
+//    functor.num_parameters = 7;
+//    Eigen::Matrix<ScalarType, Eigen::Dynamic, 1> x(7);
+//    x << 1, 0, 0, 0, 0, 0, 0;
+//
+//    Eigen::LevenbergMarquardt<LMFunctor<ScalarType>, ScalarType> lm(functor);
+//    lm.parameters.maxfev = 25; // maximum # of iterations
+//
+//    int status = lm.minimize(x);
+//
+//    Eigen::Quaternion<ScalarType> quat(x(0), x(1), x(2), x(3));
+//    quat.normalize();
+//    Eigen::Matrix<ScalarType, 3, 3> R0 = quat.toRotationMatrix();
+//
+//    transform.setIdentity();
+//    transform.template block<3, 3>(0, 0) = R0;
+//    transform.template block<3, 1>(0, 3) = x.tail(3);
+//
+//    // inverse of above
+//    //    transform.template block<3, 3>(0, 0) = R0.transpose();
+//    //    transform.template block<3, 1>(0, 3) = -R0.transpose()*x.tail(3);
+//
+//    std::cout << "-----------------------------------------------------------\n"
+//            "Nonlinear Surface Fit:\n";
+//    std::cout << "LM optimization status: " << status << "\n";
+//    std::cout << "Iterations: " << lm.iter << "\n";
+//    //    std::cout << "Transform:\n" << transform << "\n";
+//
+//    return ((status > 0) ? true : false);
+//}
 
 template <typename ScalarType>
 class SurfaceAlignmentOptimizer {
@@ -324,6 +324,19 @@ class SurfaceAlignmentOptimizer {
 public:
     
     SurfaceAlignmentOptimizer() = delete;
+    
+    SurfaceAlignmentOptimizer(int mode = 0) : EigenSolverLM(*this) {
+        
+        this->mode = mode;
+        if (mode == 0)
+            this->num_parameters = 7;
+        else
+            throw "No other modes defined yet!";
+        
+        this->transform.setIdentity();
+        this->EigenSolverLM.parameters.maxfev = 25; // maximum # of iterations
+        
+    }
     
     SurfaceAlignmentOptimizer(AlgebraicSurfaceProduct<ScalarType>& surface,
         const Eigen::Matrix<ScalarType, Eigen::Dynamic, 3, Eigen::RowMajor>& points,
@@ -393,7 +406,6 @@ public:
             throw "No other modes defined yet!";
         
         this->status = this->EigenSolverLM.minimize(x);
-        std::cout << "x: " << x << "\n";
         
         Eigen::Quaternion<ScalarType> quat(x(0), x(1), x(2), x(3));
         quat.normalize();
@@ -433,6 +445,23 @@ public:
     Eigen::LevenbergMarquardt<SurfaceAlignmentOptimizer<ScalarType>, ScalarType> EigenSolverLM;
     
 };
+
+template <typename ScalarType>
+bool leastSquaresSurfaceFitLM(AlgebraicSurfaceProduct<ScalarType>& surface,
+        const Eigen::Matrix<ScalarType, Eigen::Dynamic, 3, Eigen::RowMajor>& points,
+        Eigen::Ref<Eigen::Matrix<ScalarType, 4, 4 >> transform) {
+    
+    static SurfaceAlignmentOptimizer<ScalarType> optimizer(surface, points, 0);
+    
+    optimizer.surface = &surface;
+    optimizer.points = &points;
+    
+    optimizer.minimize();
+    
+    transform = optimizer.transform;
+    
+    return ((optimizer.status > 0) ? true : false);
+}
 
 #endif /* __cplusplus */
 
