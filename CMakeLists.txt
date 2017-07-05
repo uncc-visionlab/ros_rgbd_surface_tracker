@@ -157,6 +157,7 @@ include_directories(
 # add_executable(${PROJECT_NAME}_node src/detect_depth_surflets_node.cpp)
 add_executable(${PROJECT_NAME} src/ros_rgbd_surface_tracker.cpp
     src/rgbd_tracker_uncc.cpp
+    src/rgbd_image_uncc.cpp
     src/surface_alignment_optimizer.cpp)
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -182,6 +183,7 @@ target_link_libraries(${PROJECT_NAME}
 link_directories(/opt/ros/kinetic/lib)
 add_executable(main_opencv src/main_opencv.cpp
     src/rgbd_tracker_uncc.cpp
+    src/rgbd_image_uncc.cpp
     src/surface_alignment_optimizer.cpp)
 #set_target_properties(main_opencv PROPERTIES
 #  IMPORTED_LOCATION "/opt/ros/kinetic/lib/libbar.so"
