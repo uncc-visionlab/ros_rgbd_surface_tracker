@@ -22,8 +22,207 @@
 #include <boost/shared_ptr.hpp>
 #include <ros_rgbd_surface_tracker/opencv_geom_uncc.hpp>
 
+// forward declaration for C++ compiler
+//class cv::rgbd::DepthIntegralImages;
+
 namespace cv {
     namespace rgbd {
+
+        // forward declaration for C++ compiler
+        //class DepthIntegralImages;
+
+        class DepthIntegralImages {
+        private:
+            cv::Mat tan_theta_x, tan_theta_y;
+            cv::Mat tan_theta_xy, tan_theta_x_sq, tan_theta_y_sq;
+            int width, height;
+        public:
+
+            int getWidth() {
+                return width;
+            }
+
+            int getHeight() {
+                return height;
+            }
+
+            template<typename T>
+            void computeIntegralImage(cv::Mat& input, T* integral_image, int* valid_points_num_image = nullptr) const {
+                int rows = input.rows;
+                int cols = input.cols;
+                // NEED TO ASSERT THAT input HAS 1-channel TYPE FLOAT data
+                const float* input_ptr = (const float *) input.data;
+                T* integral_image_ptr = integral_image;
+                int coffset = 0, poffset = -cols;
+                //T test;
+                for (int y = 0; y < static_cast<int> (rows); ++y) {
+                    for (int x = 0; x < static_cast<int> (cols); ++x, ++coffset, ++poffset) {
+                        T& integral_pixel = *(integral_image_ptr++);
+                        integral_pixel = static_cast<T> (input_ptr[coffset]);
+                        //std::cout << "current pixel i(" << x << ", " << y << ") = " << integral_pixel;
+                        if (std::isnan(integral_pixel)) {
+                            std::cout << "Found Nan!" << std::endl;
+                        }
+                        if (std::isinf(integral_pixel)) {
+                            std::cout << "Found Inf!" << std::endl;
+                            integral_pixel = static_cast<T> (0.0f);
+                        }
+                        T left_value = 0, top_left_value = 0, top_value = 0;
+                        if (x > 0) {
+                            left_value = integral_image[coffset - 1];
+                            if (y > 0) {
+                                top_left_value = integral_image[ poffset - 1];
+                            }
+                        }
+                        if (y > 0) {
+                            top_value = integral_image[ poffset];
+                        }
+                        integral_pixel += left_value + top_value - top_left_value;
+                        //std::cout << "integral pixel s(x,y) = " << integral_pixel
+                        //        << " s(x-1,y) = " << left_value << " s(x,y-1) = " << top_value
+                        //        << " s(x-1,y-1) = " << top_left_value << std::endl;
+
+                        if (valid_points_num_image) {
+                            int* valid_points_num_image_ptr = valid_points_num_image;
+                            int& valid_points_num = *(valid_points_num_image_ptr++);
+                            valid_points_num = 1;
+                            if (std::isinf(integral_pixel)) {
+                                valid_points_num = 0;
+                            }
+                            int left_valid_points = 0, top_left_valid_points = 0, top_valid_points = 0;
+                            if (x > 0) {
+                                left_valid_points = valid_points_num_image[coffset - 1];
+                                if (y > 0) {
+                                    top_left_valid_points = valid_points_num_image[ poffset - 1];
+                                }
+                            }
+                            if (y > 0) {
+                                top_valid_points = valid_points_num_image[ poffset];
+                            }
+                            valid_points_num += left_valid_points + top_valid_points - top_left_valid_points;
+                            //test = top_left_value + integral_pixel - left_value - top_value;
+                            //std::cout << "test = " << test << " orig = "  << points[coffset].range << std::endl;
+                        }
+                    }
+                }
+            }
+
+            template<typename T>
+            T getSum(T* iImg, cv::Rect2i& rect) const {
+                int offset_tlc = rect.y * width + rect.x;
+                int offset_trc = offset_tlc + rect.width;
+                int offset_blc = offset_tlc + rect.height*width;
+                int offset_brc = offset_blc + rect.width;
+                return iImg[offset_brc] + iImg[offset_tlc] - iImg[offset_trc] - iImg[offset_blc];
+            }
+
+            void initialize(int _width, int _height, float _cx, float _cy, float _inv_f) {
+                width = _width;
+                height = _height;
+                cv::Mat _tan_theta_x(height, width, CV_32F);
+                cv::Mat _tan_theta_y(height, width, CV_32F);
+                cv::Mat _tan_theta_xy(height, width, CV_32F);
+                cv::Mat _tan_theta_x_sq(height, width, CV_32F);
+                cv::Mat _tan_theta_y_sq(height, width, CV_32F);
+                double ttxval, ttyval;
+                for (int r = 0; r < height; ++r) {
+                    for (int c = 0; c < width; ++c) {
+                        ttxval = (c - _cx) * _inv_f;
+                        ttyval = (r - _cy) * _inv_f;
+                        _tan_theta_x.at<float>(r, c) = ttxval;
+                        _tan_theta_y.at<float>(r, c) = ttyval;
+                        _tan_theta_xy.at<float>(r, c) = ttxval*ttyval;
+                        _tan_theta_x_sq.at<float>(r, c) = ttxval*ttxval;
+                        _tan_theta_y_sq.at<float>(r, c) = ttyval*ttyval;
+                    }
+                }
+                tan_theta_x = cv::Mat::zeros(height, width, CV_64F);
+                tan_theta_y = cv::Mat::zeros(height, width, CV_64F);
+                tan_theta_x_sq = cv::Mat::zeros(height, width, CV_64F);
+                tan_theta_y_sq = cv::Mat::zeros(height, width, CV_64F);
+                tan_theta_xy = cv::Mat::zeros(height, width, CV_64F);
+                computeIntegralImage<double>(_tan_theta_x, (double *) tan_theta_x.data);
+                computeIntegralImage<double>(_tan_theta_y, (double *) tan_theta_y.data);
+                computeIntegralImage<double>(_tan_theta_xy, (double *) tan_theta_xy.data);
+                computeIntegralImage<double>(_tan_theta_x_sq, (double *) tan_theta_x_sq.data);
+                computeIntegralImage<double>(_tan_theta_y_sq, (double *) tan_theta_y_sq.data);
+                std::cout << "Computed integral images of (tax_x, tan_y) for "
+                        << width << "x" << height << " depth images." << std::endl;
+            }
+
+            void operator()(cv::InputArray depth_in, cv::OutputArray normals_out) {
+                Mat depth_ori = depth_in.getMat();
+
+                // Get the normals
+                normals_out.create(depth_ori.size(), CV_32FC3);
+                if (depth_in.empty())
+                    return;
+
+                Mat normals = normals_out.getMat();
+                compute(depth_ori, normals);
+            }
+
+            void compute(cv::Mat& depth, cv::Mat& normals) {
+                cv::Size winSize(9, 7); // width, height
+                cv::Size halfWinSize(winSize.width >> 1, winSize.height >> 1);
+                cv::Size MARGIN(10, 5);
+                int numPts = winSize.width * winSize.height;
+                cv::Mat sVals(4, 4, CV_64F);
+                cv::Rect rect(MARGIN.width - halfWinSize.width,
+                        MARGIN.height - halfWinSize.height,
+                        winSize.width, winSize.height);
+                cv::Mat _tan_theta_x_div_z(depth.size(), CV_32F);
+                cv::Mat _tan_theta_y_div_z(depth.size(), CV_32F);
+                cv::Mat _one_div_z(depth.size(), CV_32F);
+                cv::Mat _one_div_z_sq(depth.size(), CV_32F);
+                cv::Mat numValidPts(depth.size(), CV_32S);
+                cv::Mat tan_theta_x_div_z(depth.size(), CV_64F);
+                cv::Mat tan_theta_y_div_z(depth.size(), CV_64F);
+                cv::Mat one_div_z(depth.size(), CV_64F);
+                cv::Mat one_div_z_sq(depth.size(), CV_64F);
+                cv::divide(tan_theta_x, depth, _tan_theta_x_div_z);
+                cv::divide(tan_theta_x, depth, _tan_theta_y_div_z);
+                cv::divide(cv::Mat::ones(depth.size(), CV_32F), depth, _one_div_z);
+                cv::multiply(_one_div_z, _one_div_z, one_div_z_sq);
+                computeIntegralImage<double>(_tan_theta_x_div_z, (double *) tan_theta_x.data);
+                computeIntegralImage<double>(_tan_theta_y_div_z, (double *) tan_theta_y.data);
+                computeIntegralImage<double>(_one_div_z, (double *) one_div_z.data, (int *) numValidPts.data);
+                cv::Rect2i trect(0, 0, width, height);
+                int badpointcount = getSum<int>((int *) numValidPts.data, trect);
+                std::cout << badpointcount << " bad points in the RGBD image." << std::endl;
+                computeIntegralImage<double>(_one_div_z_sq, (double *) one_div_z_sq.data);
+                for (int r = MARGIN.height; r < depth.rows - MARGIN.height; ++r) {
+                    rect.y++;
+                    for (int c = MARGIN.width; c < depth.cols - MARGIN.width; ++c) {
+                        sVals.at<double>(1, 0) = getSum<double>((double *) tan_theta_xy.data, rect);
+                        sVals.at<double>(2, 0) = getSum<double>((double *) tan_theta_x.data, rect);
+                        sVals.at<double>(2, 1) = getSum<double>((double *) tan_theta_y.data, rect);
+                        sVals.at<double>(3, 0) = getSum<double>((double *) tan_theta_x_div_z.data, rect);
+                        sVals.at<double>(3, 1) = getSum<double>((double *) tan_theta_y_div_z.data, rect);
+                        sVals.at<double>(3, 2) = getSum<double>((double *) one_div_z.data, rect);
+
+                        sVals.at<double>(0, 1) = getSum<double>((double *) tan_theta_xy.data, rect);
+                        sVals.at<double>(0, 2) = getSum<double>((double *) tan_theta_x.data, rect);
+                        sVals.at<double>(1, 2) = getSum<double>((double *) tan_theta_y.data, rect);
+                        sVals.at<double>(0, 3) = getSum<double>((double *) tan_theta_x_div_z.data, rect);
+                        sVals.at<double>(1, 3) = getSum<double>((double *) tan_theta_y_div_z.data, rect);
+                        sVals.at<double>(2, 3) = getSum<double>((double *) one_div_z.data, rect);
+
+                        sVals.at<double>(0, 0) = getSum<double>((double *) tan_theta_x_sq.data, rect);
+                        sVals.at<double>(1, 1) = getSum<double>((double *) tan_theta_y_sq.data, rect);
+                        sVals.at<double>(2, 2) = rect.area();
+                        sVals.at<double>(3, 3) = getSum<double>((double *) one_div_z_sq.data, rect);
+                        rect.x++;
+                        //        [evec, eval] = eig(sVals);
+                        //coeffs = evec( :, 1);
+                        //% vector associated with smallest eigenvalue
+                        //normf = norm(coeffs(1 : 3));
+                        //coeffs = coeffs'./normf;
+                        //        error = sqrt(eval(1, 1)) / (normf * numPts);
+                    }
+                }
+            }
+        }; /*class DepthIntegralImages */
 
         class RgbdImage {
         public:
@@ -58,10 +257,15 @@ namespace cv {
                 cameraMatrix.at<float>(2, 2) = 1.0f;
                 cameraMatrix.at<float>(0, 2) = _cx;
                 cameraMatrix.at<float>(1, 2) = _cy;
+                if (!staticDataOK()) {
+                    iImgs.initialize(width, height, cx, cy, inv_f);
+                }
             }
 
             virtual ~RgbdImage() {
             };
+
+            bool staticDataOK();
 
             bool getPoint3f(const int ix, const int iy,
                     float& x3, float& y3, float& z3) const {
@@ -368,76 +572,6 @@ namespace cv {
             RgbdImage(const RgbdImage& ref);
             RgbdImage& operator=(const RgbdImage& ref);
 
-            template<typename T>
-            void
-            getIntegralImage(T* integral_image, int* valid_points_num_image = nullptr) const {
-                T* integral_image_ptr = integral_image;
-                int coffset = 0, poffset = -width;
-                //T test;
-                for (int y = 0; y < static_cast<int> (height); ++y) {
-                    for (int x = 0; x < static_cast<int> (width); ++x, ++coffset, ++poffset) {
-                        T& integral_pixel = *(integral_image_ptr++);
-                        integral_pixel = static_cast<T> (zptr[coffset]);
-                        //std::cout << "current pixel i(x,y) = " << integral_pixel;
-                        if (std::isinf(integral_pixel)) {
-                            integral_pixel = static_cast<T> (0.0f);
-                        }
-                        T left_value = 0, top_left_value = 0, top_value = 0;
-                        if (x > 0) {
-                            left_value = integral_image[coffset - 1];
-                            if (y > 0) {
-                                top_left_value = integral_image[ poffset - 1];
-                            }
-                        }
-                        if (y > 0) {
-                            top_value = integral_image[ poffset];
-                        }
-                        integral_pixel += left_value + top_value - top_left_value;
-                        //std::cout << "integral pixel s(x,y) = " << integral_pixel
-                        //        << " s(x-1,y) = " << left_value << " s(x,y-1) = " << top_value
-                        //        << " s(x-1,y-1) = " << top_left_value << std::endl;
-
-                        if (valid_points_num_image) {
-                            int* valid_points_num_image_ptr = valid_points_num_image;
-                            int& valid_points_num = *(valid_points_num_image_ptr++);
-                            valid_points_num = 1;
-                            if (std::isinf(integral_pixel)) {
-                                valid_points_num = 0;
-                            }
-                            int left_valid_points = 0, top_left_valid_points = 0, top_valid_points = 0;
-                            if (x > 0) {
-                                left_valid_points = valid_points_num_image[coffset - 1];
-                                if (y > 0) {
-                                    top_left_valid_points = valid_points_num_image[ poffset - 1];
-                                }
-                            }
-                            if (y > 0) {
-                                top_valid_points = valid_points_num_image[ poffset];
-                            }
-                            valid_points_num += left_valid_points + top_valid_points - top_left_valid_points;
-                            //test = top_left_value + integral_pixel - left_value - top_value;
-                            //std::cout << "test = " << test << " orig = "  << points[coffset].range << std::endl;
-                        }
-                    }
-                }
-            }
-
-            void initialize_lookupTable(int width, int height) {
-                cv::Mat tan_theta_x(height, width, CV_32F);
-                cv::Mat tan_theta_y(height, width, CV_32F);
-                for (int r = 0; r < height; ++r) {
-                    for (int c = 0; c < width; ++c) {
-                        tan_theta_x.at<float>(r, c) = (c - cx) * inv_f;
-                        tan_theta_y.at<float>(r, c) = (y - cy) * inv_f;
-                    }
-                }
-                //iImg_tan_theta_x = myIntegralImage(tan_theta_x);
-                //iImg_tan_theta_y = myIntegralImage(tan_theta_y);
-                //iImg_tan_theta_x_sq = myIntegralImage(tan_theta_x.^2);
-                //iImg_tan_theta_y_sq = myIntegralImage(tan_theta_y.^2);
-                //iImg_tan_theta_xy = myIntegralImage(tan_theta_x.*tan_theta_y);
-            }
-
             cv::Mat img_Z;
             const float* zptr;
             int zstep;
@@ -453,11 +587,8 @@ namespace cv {
             float cx, cy, inv_f;
             cv::Mat cameraMatrix;
             mutable cv::Ptr<RgbdNormals> normalsComputer;
-
-            static cv::Mat iImg_tan_theta_x, iImg_tan_theta_y, iImg_tan_theta_xy;
-            static cv::Mat iImg_tan_theta_x_sq, iImg_tan_theta_y_sq;
-
-        };
+            static DepthIntegralImages iImgs;
+        }; /* class RgbdImage */
     } /* namespace rgbd */
 } /* namespace cv */
 
