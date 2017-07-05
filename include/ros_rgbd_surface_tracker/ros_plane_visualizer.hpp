@@ -33,15 +33,12 @@ public:
         triangle_list.scale.x = triangle_list.scale.y = triangle_list.scale.z = 1.0;
         triangle_list.pose.orientation.w = 1.0;
         triangle_list.color.a = 1.0;
+        triangle_list.color.b = 1.0;
         triangle_list.type = visualization_msgs::Marker::TRIANGLE_LIST;
         triangle_list.ns = "planes";
         this->maxplanes = std::numeric_limits<int>::max();
         vis_pub = nodeptr->advertise<visualization_msgs::Marker>("planes", 10);
     }
-    
-//    ros_plane_visualizer(const ros_plane_visualizer& orig);
-    
-//    virtual ~ros_plane_visualizer();
     
     void setFrameID(std::string frame_id_str) {
         triangle_list.header.frame_id = frame_id_str;
@@ -54,10 +51,8 @@ public:
     
     void publishPlanes(std::vector<Eigen::Vector3f> rect_points, ros::Time frame_time) {
         
-        triangle_list.header.stamp = ros::Time::now();
+        triangle_list.header.stamp = frame_time;
         std::size_t numplanes = rect_points.size()/4;
-        
-        std::cout << "numplanes: " << numplanes << "\n";
         
         if ((triangle_list.points.size()/6 + numplanes > maxplanes) && (numplanes < maxplanes)) {
             triangle_list.points.erase(triangle_list.points.begin(), triangle_list.points.begin() + 6*numplanes);
@@ -74,7 +69,8 @@ public:
         for (std::size_t planeid = 0; planeid != numplanes; planeid++) {
             
                 std::size_t offset = 4*planeid;
-                std::vector<geometry_msgs::Point> corners(4);
+                std::vector<geometry_msgs::Point> corners;
+                corners.reserve(4);
                 
                 for (std::size_t ptid = 0; ptid != 4; ++ptid) {
                     geometry_msgs::Point ptmsg;
