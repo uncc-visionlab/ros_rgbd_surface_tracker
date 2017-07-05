@@ -209,9 +209,9 @@ Eigen::Matrix<ScalarType, 3, Eigen::Dynamic> jacobianTransformedPointAxisAngle(
 }
 
 template <typename ScalarType>
-struct LMFunctor {
+class LMFunctor {
     // these functions are called by Eigen's LevenbergMarquardt optimizer
-
+public:
     const Eigen::Matrix<ScalarType, Eigen::Dynamic, 3, Eigen::RowMajor>* points;
 
     Eigen::Matrix<ScalarType, Eigen::Dynamic, 3, Eigen::RowMajor> transformed_points;
@@ -317,6 +317,19 @@ bool leastSquaresSurfaceFitLM(AlgebraicSurfaceProduct<ScalarType>& surface,
 
     return ((status > 0) ? true : false);
 }
+
+template <typename ScalarType>
+class SurfaceAlignmentOptimizer {
+    
+public:
+    SurfaceAlignmentOptimizer() {}
+    
+    AlgebraicSurfaceProduct<ScalarType> surface;
+    Eigen::Matrix<ScalarType, Eigen::Dynamic, 3, Eigen::RowMajor> data;
+    Eigen::Matrix<ScalarType, 4, 4 > transform;
+    int status;
+    
+};
 
 #endif /* __cplusplus */
 

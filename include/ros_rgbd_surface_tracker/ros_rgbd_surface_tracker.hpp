@@ -49,6 +49,7 @@ public:
         nh.param<std::string>("optical_frame", rgbd_frame_id_str, "rgbd_frame");
         
         plane_vis.setFrameID(parent_frame_id_str);
+        plane_vis.setMaxPlanes(1);
         image_pub = it.advertise("result", 1);
     };
 

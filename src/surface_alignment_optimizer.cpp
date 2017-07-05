@@ -21,12 +21,9 @@
 
 namespace cv {
     namespace rgbd {
+        
+        void planeAlignment(cv::rgbd::RgbdImage& rgbd_img, RgbdSurfaceTracker& surface_tracker) {
 
-        void RgbdSurfaceTracker::iterativeAlignment(cv::rgbd::RgbdImage& rgbd_img) {
-
-#ifdef PROFILE_CALLGRIND
-            CALLGRIND_TOGGLE_COLLECT;
-#endif 
             int tile_width = 100, tile_height = 100;
             int x0 = floor(0.5 * (rgbd_img.getWidth() - tile_width));
             int y0 = floor(0.5 * (rgbd_img.getHeight() - tile_height));
@@ -46,7 +43,8 @@ namespace cv {
             bl.x = x0;
             bl.y = y0 + tile_height;
 
-            std::vector<cv::Point2i> corners(4);
+            std::vector<cv::Point2i> corners;
+            corners.reserve(4);
             corners.push_back(bl);
             corners.push_back(br);
             corners.push_back(tr);
@@ -85,7 +83,7 @@ namespace cv {
                             rect.noise, rect.inliers, rect.outliers, rect.invalid);
                     AlgebraicSurface<double>::Ptr subsurface_ptr =
                             boost::make_shared<PlanarSurface<double>>(
-                            Eigen::RowVector4d(plane.d, plane.x, plane.y, plane.z));
+                                Eigen::RowVector4d(plane.d, plane.x, plane.y, plane.z));
                     surface.addSubSurface(subsurface_ptr);
                     have_initial_guess = true;
                 }
@@ -95,7 +93,8 @@ namespace cv {
                     subsurface->affineTransform(transform_matrix);
                     std::cout << "surface: " << subsurface->toString() << "\n";
                     
-                    PlaneVisualizationData* vis_data = this->getPlaneVisualizationData();
+                    PlaneVisualizationData* vis_data = surface_tracker.getPlaneVisualizationData();
+                    vis_data->rect_points.clear();
                     
                     for (std::size_t i = 0; i != 4; i++) {
 
@@ -115,11 +114,22 @@ namespace cv {
                 }
             }
 
+        }
+
+        void RgbdSurfaceTracker::iterativeAlignment(cv::rgbd::RgbdImage& rgbd_img) {
+
+#ifdef PROFILE_CALLGRIND
+            CALLGRIND_TOGGLE_COLLECT;
+#endif 
+            
+        planeAlignment(rgbd_img, *this);
+        
 #ifdef PROFILE_CALLGRIND
             CALLGRIND_TOGGLE_COLLECT;
 #endif
 
         }
+        
     } /* namespace rgbd */
 } /* namespace cv */
 
