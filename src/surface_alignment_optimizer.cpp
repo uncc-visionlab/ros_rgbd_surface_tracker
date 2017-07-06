@@ -116,6 +116,123 @@ namespace cv {
 
         }
 
+        void edgeAlignment(cv::rgbd::RgbdImage& rgbd_img, RgbdSurfaceTracker& surface_tracker) {
+            
+             // collecting data from two tiles in depth image
+            int tile_width = 100, tile_height = 100;
+            int half_width = floor(0.5*tile_width);
+            int half_height = floor(0.5*tile_height);
+            int x1 = floor(0.5*(rgbd_img.getWidth() - tile_width)) - 100;
+            int x2 = x1 + 200;
+            int y1 = floor(0.5*(rgbd_img.getHeight() - tile_height));
+            int y2 = y1;
+            int samples_per_tile = 100;
+            
+            std::vector<cv::Rect2i> tiles;
+            tiles.reserve(2);
+            tiles.emplace_back(cv::Rect2i(x1, y1, tile_width, tile_height));
+            tiles.emplace_back(cv::Rect2i(x2, y2, tile_width, tile_height));
+            
+            std::vector<cv::Point2i> corners;
+            corners.reserve(4*tiles.size());
+            for (auto& tile : tiles) {
+                corners.emplace_back(tile.tl());
+                corners.emplace_back(cv::Point2i(tile.x + tile.width, tile.y));
+                corners.emplace_back(tile.br());
+                corners.emplace_back(cv::Point2i(tile.x, tile.y + tile.height));
+            }
+            
+            std::vector<cv::Point3f> data, tileA_data, tileB_data;
+            data.reserve(2*samples_per_tile);
+            tileA_data.reserve(samples_per_tile);
+            tileB_data.reserve(samples_per_tile);
+
+            rgbd_img.getTileData_Uniform(
+                x1, y1, tile_width, tile_height, tileA_data, samples_per_tile);
+
+            rgbd_img.getTileData_Uniform(
+                x2, y1, tile_width, tile_height, tileB_data, samples_per_tile);
+
+            if (tileA_data.size() + tileB_data.size() > samples_per_tile) {
+
+                static bool have_initial_guess;
+
+                static AlgebraicSurfaceProduct<double> surface(3);
+                Eigen::Matrix4d transform_matrix;
+                transform_matrix.setIdentity();
+
+                bool convergence = false;
+
+                if (have_initial_guess) {
+
+                    // move points to common std::vector (this avoids copy)
+                    data = std::move(tileA_data);
+                    std::move(std::begin(tileB_data), std::end(tileB_data), std::back_inserter(data));
+
+                    // convert points to matrix form (copying unfortunatly)
+                    Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor> data_mat(data.size(), 3);
+                    for (std::size_t i = 0; i != data.size(); ++i) {
+                        data_mat.row(i) << data[i].x, data[i].y, data[i].z;
+                    }
+
+                    // run nonlinear optimization to estimate frame-frame odometry
+                    convergence = leastSquaresSurfaceFitLM<double>(surface, data_mat, transform_matrix);
+
+                } else {
+                    // fit edge for initial guess
+                    cv::Plane3f planeA, planeB;
+                    cv::RectWithError rect;
+                    rgbd_img.fitImplicitPlaneLeastSquares(tileA_data, planeA, rect.error,
+                        rect.noise, rect.inliers, rect.outliers, rect.invalid);
+                    rgbd_img.fitImplicitPlaneLeastSquares(tileB_data, planeB, rect.error,
+                        rect.noise, rect.inliers, rect.outliers, rect.invalid);
+                    AlgebraicSurface<double>::Ptr subsurfaceA_ptr = 
+                        boost::make_shared<PlanarSurface<double>>(
+                            Eigen::RowVector4d(planeA.d, planeA.x, planeA.y, planeA.z));
+                    AlgebraicSurface<double>::Ptr subsurfaceB_ptr = 
+                        boost::make_shared<PlanarSurface<double>>(
+                            Eigen::RowVector4d(planeB.d, planeB.x, planeB.y, planeB.z));
+                    surface.addSubSurface(subsurfaceA_ptr);
+                    surface.addSubSurface(subsurfaceB_ptr);
+                    have_initial_guess = true;
+                }
+
+                if (convergence) { // transform the surface and publish
+                    
+                    PlaneVisualizationData* vis_data = surface_tracker.getPlaneVisualizationData();
+                    vis_data->rect_points.clear();
+
+                    for (std::size_t i = 0; i != surface.subsurfaces.size(); ++i) {
+
+                        AlgebraicSurface<double>::Ptr subsurface = surface.subsurfaces[i];
+                        subsurface->affineTransform(transform_matrix);
+                        
+                        for (auto& cornerpx : corners) {
+
+                            if (!std::isnan(rgbd_img.getDepth().at<float>(cornerpx.y, cornerpx.x))) {
+                                
+                                cv::Point3f cornerpt = rgbd_img.backproject(cornerpx);
+
+//                                sample_pt.z = -(subsurface->coeffs(0)
+//                                        + subsurface->coeffs(1)*sample_pt.x 
+//                                        + subsurface->coeffs(2)*sample_pt.y)/subsurface->coeffs(3);
+                                
+                                vis_data->rect_points.push_back(Eigen::Vector3f(cornerpt.x, cornerpt.y, cornerpt.z));
+                                
+                            }
+
+                        }
+                    }
+                }
+
+            }
+
+        #ifdef PROFILE_CALLGRIND
+            CALLGRIND_TOGGLE_COLLECT;
+        #endif
+
+        }
+
         void RgbdSurfaceTracker::iterativeAlignment(cv::rgbd::RgbdImage& rgbd_img) {
 
 #ifdef PROFILE_CALLGRIND

@@ -340,18 +340,11 @@ public:
     
     SurfaceAlignmentOptimizer(AlgebraicSurfaceProduct<ScalarType>& surface,
         const Eigen::Matrix<ScalarType, Eigen::Dynamic, 3, Eigen::RowMajor>& points,
-        int mode = 0) : EigenSolverLM(*this) {
-        
-        this->mode = mode;
-        if (mode == 0)
-            this->num_parameters = 7;
-        else
-            throw "No other modes defined yet!";
+        int mode = 0) : SurfaceAlignmentOptimizer(mode) {
         
         this->surface = &surface;
         this->points = &points;
-        this->transform.setIdentity();
-        this->EigenSolverLM.parameters.maxfev = 25; // maximum # of iterations
+
     }
     
     int operator()(const Eigen::Matrix<ScalarType, Eigen::Dynamic, 1>& x,
@@ -449,7 +442,7 @@ public:
 template <typename ScalarType>
 bool leastSquaresSurfaceFitLM(AlgebraicSurfaceProduct<ScalarType>& surface,
         const Eigen::Matrix<ScalarType, Eigen::Dynamic, 3, Eigen::RowMajor>& points,
-        Eigen::Ref<Eigen::Matrix<ScalarType, 4, 4 >> transform) {
+        Eigen::Ref<Eigen::Matrix<ScalarType, 4, 4>> transform) {
     
     static SurfaceAlignmentOptimizer<ScalarType> optimizer(surface, points, 0);
     
