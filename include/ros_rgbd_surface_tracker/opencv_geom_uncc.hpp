@@ -67,7 +67,12 @@ namespace cv {
     public:
         typedef boost::shared_ptr<Line3_<_Tpl> > Ptr;
         typedef boost::shared_ptr<const Line3_<_Tpl> > ConstPtr;
-
+        
+        Line3_(const Point3_<_Tpl>& tip, const Point3_<_Tpl>& tail) {
+            this->p0 = tail;
+            this->v = tip - tail;
+        }
+        
         Point3_<_Tpl> getPoint(const _Tpl& lambda) const {
             Point3_<_Tpl> p;
             p.x = lambda * v.x + p0.x;
@@ -142,6 +147,19 @@ namespace cv {
             line.p0.y = (_Tpl) (planeB.x * this->d - this->x * planeB.d) / line.v.z;
             line.p0.z = 0;
             return true;
+        }
+        
+        bool intersect(const Line3_<_Tpl>& line, Point3_<_Tpl>& pt) {
+            
+//            std::cout << "line.v" << line.v << std::endl;
+            cv::Point3_<_Tpl> line_vec = line.v/cv::norm<_Tpl>(line.v);
+//            std::cout << "line_vec after norm" << line_vec << std::endl;
+//            std::cout << "norm line_vec after" << cv::norm<_Tpl>(line_vec) << std::endl;
+            cv::Point3_<_Tpl> plane_normal(*this);
+                        
+            pt = -(line.p0 + ((line.p0.dot(plane_normal) + this->d)/(line_vec.dot(plane_normal)))*line_vec);
+            return true;
+            
         }
 
         void setCoeffs(_Tpl _x, _Tpl _y, _Tpl _z, _Tpl _d) {

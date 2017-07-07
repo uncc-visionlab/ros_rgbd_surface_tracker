@@ -124,16 +124,16 @@ namespace cv {
             
             std::vector<cv::Rect2i> tiles;
             tiles.reserve(2);
-            tiles.emplace_back(cv::Rect2i(x1, y1, tile_width, tile_height));
-            tiles.emplace_back(cv::Rect2i(x2, y2, tile_width, tile_height));
+            tiles.emplace_back(x1, y1, tile_width, tile_height);
+            tiles.emplace_back(x2, y2, tile_width, tile_height);
             
             std::vector<cv::Point2i> corners;
             corners.reserve(4*tiles.size());
             for (auto& tile : tiles) {
                 corners.emplace_back(tile.tl());
-                corners.emplace_back(cv::Point2i(tile.x + tile.width, tile.y));
+                corners.emplace_back(tile.x + tile.width, tile.y);
                 corners.emplace_back(tile.br());
-                corners.emplace_back(cv::Point2i(tile.x, tile.y + tile.height));
+                corners.emplace_back(tile.x, tile.y + tile.height);
             }
             
             std::vector<cv::Point3f> data, tileA_data, tileB_data;
@@ -193,30 +193,63 @@ namespace cv {
 
                 if (convergence) { // transform the surface and publish
                     
+                    surface.affineTransform(transform_matrix);
+                    
+//                    double dot_normals = surface.subsurfaces[0]->coeffs.tail(3).dot(surface.subsurfaces[1]->coeffs.tail(3));
+//                    std::cout << "dot product normals " << dot_normals << "\n";
                     PlaneVisualizationData* vis_data = surface_tracker.getPlaneVisualizationData();
                     vis_data->rect_points.clear();
-
-                    for (std::size_t i = 0; i != surface.subsurfaces.size(); ++i) {
-
-                        AlgebraicSurface<double>::Ptr subsurface = surface.subsurfaces[i];
-                        subsurface->affineTransform(transform_matrix);
+                    
+                    cv::Mat camera_matrix = rgbd_img.getCameraMatrix();
+                    float fx = camera_matrix.at<float>(0, 0); // px
+                    float fy = camera_matrix.at<float>(1, 1); // px
+                    float cx = camera_matrix.at<float>(0, 2); // px
+                    float cy = camera_matrix.at<float>(1, 2); // px
+                    float s = 1.9e-6; // m/px
+                    float f = s*(fx + fy)/2; // m
+                    
+                    for (auto& corner_px : corners) {
                         
-                        for (auto& cornerpx : corners) {
-
-                            if (!std::isnan(rgbd_img.getDepth().at<float>(cornerpx.y, cornerpx.x))) {
+                        cv::Line3f ray(
+                            cv::Point3f(s*(corner_px.x - cx), s*(corner_px.y - cy), s*(fx + fy)/2),
+                            cv::Point3f(0, 0, 0));
+                            
+                        cv::Point3f closest_pt(0, 0, std::numeric_limits<float>::infinity());
+                        
+                        for (auto& subsurface : surface.subsurfaces) {
+                            
+                            cv::Plane3f subsurface_plane(
+                                    subsurface->coeffs(1), 
+                                    subsurface->coeffs(2), 
+                                    subsurface->coeffs(3), 
+                                    subsurface->coeffs(0));
+                            
+                            cv::Point3f intersection_pt2;
+                            subsurface_plane.intersect(ray, intersection_pt2);
+                                                
+                            if (!std::isnan(rgbd_img.getDepth().at<float>(
+                                    corner_px.y, corner_px.x))) {
                                 
-                                cv::Point3f cornerpt = rgbd_img.backproject(cornerpx);
-
-//                                sample_pt.z = -(subsurface->coeffs(0)
-//                                        + subsurface->coeffs(1)*sample_pt.x 
-//                                        + subsurface->coeffs(2)*sample_pt.y)/subsurface->coeffs(3);
+                                cv::Point3f intersection_pt = rgbd_img.backproject(corner_px);
                                 
-                                vis_data->rect_points.push_back(Eigen::Vector3f(cornerpt.x, cornerpt.y, cornerpt.z));
+                                intersection_pt.z = -(subsurface->coeffs(0)
+                                        + subsurface->coeffs(1)*intersection_pt.x 
+                                        + subsurface->coeffs(2)*intersection_pt.y)/subsurface->coeffs(3);
+                                
+                                std::cout << "intersection pt: " << intersection_pt << "\n";
+                                std::cout << "intersection pt2: " << intersection_pt2 << "\n";
+                                
+                                if (intersection_pt.z < closest_pt.z)
+                                    closest_pt = intersection_pt;
                                 
                             }
 
                         }
+                        
+                        vis_data->rect_points.emplace_back(closest_pt.x, closest_pt.y, closest_pt.z);
+                        
                     }
+                    
                 }
 
             }
@@ -225,7 +258,7 @@ namespace cv {
 
         void RgbdSurfaceTracker::iterativeAlignment(cv::rgbd::RgbdImage& rgbd_img) {
             
-            planeAlignment(rgbd_img, *this);
+            edgeAlignment(rgbd_img, *this);
 
         }
         
