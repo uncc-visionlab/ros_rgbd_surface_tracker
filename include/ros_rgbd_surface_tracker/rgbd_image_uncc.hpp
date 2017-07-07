@@ -18,6 +18,7 @@
 
 #include <iostream>
 #include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
 #include <opencv2/rgbd.hpp>
 #include <boost/shared_ptr.hpp>
 #include <ros_rgbd_surface_tracker/opencv_geom_uncc.hpp>
@@ -33,10 +34,25 @@ namespace cv {
 
         class DepthIntegralImages {
         private:
+            cv::Mat ntan_theta_x, ntan_theta_y;
             cv::Mat tan_theta_x, tan_theta_y;
             cv::Mat tan_theta_xy, tan_theta_x_sq, tan_theta_y_sq;
             int width, height;
+
+            cv::Mat _tan_theta_x_div_z;
+            cv::Mat _tan_theta_y_div_z;
+            cv::Mat _one_div_z;
+            cv::Mat _one_div_z_sq;
+            cv::Mat _ones_valid_mask;
+
+//            cv::Mat numValidPts;
+//            cv::Mat tan_theta_x_div_z;
+//            cv::Mat tan_theta_y_div_z;
+//            cv::Mat one_div_z;
+//            cv::Mat one_div_z_sq;
+
         public:
+            typedef boost::shared_ptr<DepthIntegralImages> Ptr;
 
             int getWidth() {
                 return width;
@@ -47,73 +63,58 @@ namespace cv {
             }
 
             template<typename T>
-            void computeIntegralImage(cv::Mat& input, T* integral_image, int* valid_points_num_image = nullptr) const {
+            void computeIntegralImage(cv::Mat& input, cv::Mat& integral_im) const {
+                //int type = _src.type(), depth = CV_MAT_DEPTH(type), cn = CV_MAT_CN(type);
+                //cv::Size ssize = _src.size(), isize(ssize.width + 1, ssize.height + 1);
+                //_sum.create(isize, CV_MAKETYPE(sdepth, cn));
+                //Mat src = _src.getMat(), sum = _sum.getMat();
+                T* integral_image = (T *) integral_im.data;
                 int rows = input.rows;
                 int cols = input.cols;
-                // NEED TO ASSERT THAT input HAS 1-channel TYPE FLOAT data
                 const float* input_ptr = (const float *) input.data;
                 T* integral_image_ptr = integral_image;
-                int coffset = 0, poffset = -cols;
+                T* integral_image_lu_ptr = integral_image;
+                for (int x = 0; x < cols + 1; ++x) {
+                    *integral_image_ptr++ = 0;
+                }
+                int coffset = 0, poffset = 1;
                 //T test;
+                T left_value = 0, top_left_value = 0, top_value = 0;
+                T* integral_image_l_ptr;
                 for (int y = 0; y < static_cast<int> (rows); ++y) {
-                    for (int x = 0; x < static_cast<int> (cols); ++x, ++coffset, ++poffset) {
+                    integral_image_l_ptr = integral_image_ptr;
+                    *integral_image_ptr++ = 0;
+                    for (int x = 0; x < static_cast<int> (cols); ++x) {
+                        left_value = *(integral_image_l_ptr++);
+                        top_left_value = *(integral_image_lu_ptr++);
+                        top_value = *(integral_image_lu_ptr);
                         T& integral_pixel = *(integral_image_ptr++);
-                        integral_pixel = static_cast<T> (input_ptr[coffset]);
+                        integral_pixel = static_cast<T> (*input_ptr++);
                         //std::cout << "current pixel i(" << x << ", " << y << ") = " << integral_pixel;
-                        if (std::isnan(integral_pixel)) {
-                            std::cout << "Found Nan!" << std::endl;
-                        }
-                        if (std::isinf(integral_pixel)) {
-                            std::cout << "Found Inf!" << std::endl;
-                            integral_pixel = static_cast<T> (0.0f);
-                        }
-                        T left_value = 0, top_left_value = 0, top_value = 0;
-                        if (x > 0) {
-                            left_value = integral_image[coffset - 1];
-                            if (y > 0) {
-                                top_left_value = integral_image[ poffset - 1];
-                            }
-                        }
-                        if (y > 0) {
-                            top_value = integral_image[ poffset];
-                        }
+                        //if (std::isnan(integral_pixel)) {
+                        //std::cout << "Found Nan!" << std::endl;
+                        //     integral_pixel = static_cast<T> (0.0f);
+                        // }
                         integral_pixel += left_value + top_value - top_left_value;
                         //std::cout << "integral pixel s(x,y) = " << integral_pixel
                         //        << " s(x-1,y) = " << left_value << " s(x,y-1) = " << top_value
                         //        << " s(x-1,y-1) = " << top_left_value << std::endl;
-
-                        if (valid_points_num_image) {
-                            int* valid_points_num_image_ptr = valid_points_num_image;
-                            int& valid_points_num = *(valid_points_num_image_ptr++);
-                            valid_points_num = 1;
-                            if (std::isinf(integral_pixel)) {
-                                valid_points_num = 0;
-                            }
-                            int left_valid_points = 0, top_left_valid_points = 0, top_valid_points = 0;
-                            if (x > 0) {
-                                left_valid_points = valid_points_num_image[coffset - 1];
-                                if (y > 0) {
-                                    top_left_valid_points = valid_points_num_image[ poffset - 1];
-                                }
-                            }
-                            if (y > 0) {
-                                top_valid_points = valid_points_num_image[ poffset];
-                            }
-                            valid_points_num += left_valid_points + top_valid_points - top_left_valid_points;
-                            //test = top_left_value + integral_pixel - left_value - top_value;
-                            //std::cout << "test = " << test << " orig = "  << points[coffset].range << std::endl;
-                        }
                     }
+                    integral_image_lu_ptr++;
                 }
             }
 
             template<typename T>
-            T getSum(T* iImg, cv::Rect2i& rect) const {
-                int offset_tlc = rect.y * width + rect.x;
-                int offset_trc = offset_tlc + rect.width;
-                int offset_blc = offset_tlc + rect.height*width;
-                int offset_brc = offset_blc + rect.width;
-                return iImg[offset_brc] + iImg[offset_tlc] - iImg[offset_trc] - iImg[offset_blc];
+            T getSum(cv::Mat iImg, cv::Rect2i& rect) const {
+                //                int offset_tlc = rect.y * width + rect.x;
+                //                int offset_trc = offset_tlc + rect.width+1;
+                //                int offset_blc = offset_tlc + (rect.height+1) * width;
+                //                int offset_brc = offset_blc + rect.width+1;
+                //                return iImg[offset_brc] + iImg[offset_tlc] - iImg[offset_trc] - iImg[offset_blc];
+                //return iImg.at<T>(rect.y, rect.x) + iImg.at<T>(rect.y + rect.height + 1, rect.x + rect.width + 1) -
+                //        iImg.at<T>(rect.y + rect.height + 1, rect.x) - iImg.at<T>(rect.y, rect.x + rect.width + 1);
+                return iImg.at<T>(rect.y, rect.x) + iImg.at<T>(rect.y + rect.height, rect.x + rect.width) -
+                        iImg.at<T>(rect.y + rect.height, rect.x) - iImg.at<T>(rect.y, rect.x + rect.width);
             }
 
             void initialize(int _width, int _height, float _cx, float _cy, float _inv_f) {
@@ -121,9 +122,23 @@ namespace cv {
                 height = _height;
                 cv::Mat _tan_theta_x(height, width, CV_32F);
                 cv::Mat _tan_theta_y(height, width, CV_32F);
+                ntan_theta_x = cv::Mat::zeros(height, width, CV_32F);
+                ntan_theta_y = cv::Mat::zeros(height, width, CV_32F);
                 cv::Mat _tan_theta_xy(height, width, CV_32F);
                 cv::Mat _tan_theta_x_sq(height, width, CV_32F);
                 cv::Mat _tan_theta_y_sq(height, width, CV_32F);
+                _tan_theta_x_div_z = cv::Mat::zeros(height, width, CV_32F);
+                _tan_theta_y_div_z = cv::Mat::zeros(height, width, CV_32F);
+                _one_div_z = cv::Mat::zeros(height, width, CV_32F);
+                _one_div_z_sq = cv::Mat::zeros(height, width, CV_32F);
+                _ones_valid_mask = cv::Mat::zeros(height, width, CV_32F);
+
+                cv::Mat numValidPts = cv::Mat::zeros(height + 1, width + 1, CV_32F);
+                cv::Mat tan_theta_x_div_z = cv::Mat::zeros(height + 1, width + 1, CV_64F);
+                cv::Mat tan_theta_y_div_z = cv::Mat::zeros(height + 1, width + 1, CV_64F);
+                cv::Mat one_div_z = cv::Mat::zeros(height + 1, width + 1, CV_64F);
+                cv::Mat one_div_z_sq = cv::Mat::zeros(height + 1, width + 1, CV_64F);
+
                 double ttxval, ttyval;
                 for (int r = 0; r < height; ++r) {
                     for (int c = 0; c < width; ++c) {
@@ -131,21 +146,26 @@ namespace cv {
                         ttyval = (r - _cy) * _inv_f;
                         _tan_theta_x.at<float>(r, c) = ttxval;
                         _tan_theta_y.at<float>(r, c) = ttyval;
+                        ntan_theta_x.at<float>(r, c) = ttxval;
+                        ntan_theta_y.at<float>(r, c) = ttyval;
                         _tan_theta_xy.at<float>(r, c) = ttxval*ttyval;
-                        _tan_theta_x_sq.at<float>(r, c) = ttxval*ttxval;
-                        _tan_theta_y_sq.at<float>(r, c) = ttyval*ttyval;
+                        //_tan_theta_x_sq.at<float>(r, c) = ttxval*ttxval;
+                        //_tan_theta_y_sq.at<float>(r, c) = ttyval*ttyval;
                     }
                 }
-                tan_theta_x = cv::Mat::zeros(height, width, CV_64F);
-                tan_theta_y = cv::Mat::zeros(height, width, CV_64F);
-                tan_theta_x_sq = cv::Mat::zeros(height, width, CV_64F);
-                tan_theta_y_sq = cv::Mat::zeros(height, width, CV_64F);
-                tan_theta_xy = cv::Mat::zeros(height, width, CV_64F);
-                computeIntegralImage<double>(_tan_theta_x, (double *) tan_theta_x.data);
-                computeIntegralImage<double>(_tan_theta_y, (double *) tan_theta_y.data);
-                computeIntegralImage<double>(_tan_theta_xy, (double *) tan_theta_xy.data);
-                computeIntegralImage<double>(_tan_theta_x_sq, (double *) tan_theta_x_sq.data);
-                computeIntegralImage<double>(_tan_theta_y_sq, (double *) tan_theta_y_sq.data);
+                //tan_theta_x = cv::Mat::zeros(height + 1, width + 1, CV_64F);
+                //tan_theta_y = cv::Mat::zeros(height + 1, width + 1, CV_64F);
+                //tan_theta_x_sq = cv::Mat::zeros(height + 1, width + 1, CV_64F);
+                //tan_theta_y_sq = cv::Mat::zeros(height + 1, width + 1, CV_64F);
+                //tan_theta_xy = cv::Mat::zeros(height + 1, width + 1, CV_64F);
+                //computeIntegralImage<double>(_tan_theta_x, tan_theta_x);
+                //computeIntegralImage<double>(_tan_theta_y, tan_theta_y);
+                //computeIntegralImage<double>(_tan_theta_xy, tan_theta_xy);
+                //computeIntegralImage<double>(_tan_theta_x_sq, tan_theta_x_sq);
+                //computeIntegralImage<double>(_tan_theta_y_sq, tan_theta_y_sq);
+                cv::integral(_tan_theta_x, tan_theta_x, tan_theta_x_sq, CV_64F, CV_64F);
+                cv::integral(_tan_theta_y, tan_theta_y, tan_theta_y_sq, CV_64F, CV_64F);
+                cv::integral(_tan_theta_xy, tan_theta_xy, CV_64F);
                 std::cout << "Computed integral images of (tax_x, tan_y) for "
                         << width << "x" << height << " depth images." << std::endl;
             }
@@ -163,62 +183,144 @@ namespace cv {
             }
 
             void compute(cv::Mat& depth, cv::Mat& normals) {
-                cv::Size winSize(9, 7); // width, height
-                cv::Size halfWinSize(winSize.width >> 1, winSize.height >> 1);
-                cv::Size MARGIN(10, 5);
-                int numPts = winSize.width * winSize.height;
-                cv::Mat sVals(4, 4, CV_64F);
-                cv::Rect rect(MARGIN.width - halfWinSize.width,
-                        MARGIN.height - halfWinSize.height,
-                        winSize.width, winSize.height);
-                cv::Mat _tan_theta_x_div_z(depth.size(), CV_32F);
-                cv::Mat _tan_theta_y_div_z(depth.size(), CV_32F);
-                cv::Mat _one_div_z(depth.size(), CV_32F);
-                cv::Mat _one_div_z_sq(depth.size(), CV_32F);
-                cv::Mat numValidPts(depth.size(), CV_32S);
-                cv::Mat tan_theta_x_div_z(depth.size(), CV_64F);
-                cv::Mat tan_theta_y_div_z(depth.size(), CV_64F);
-                cv::Mat one_div_z(depth.size(), CV_64F);
-                cv::Mat one_div_z_sq(depth.size(), CV_64F);
-                cv::divide(tan_theta_x, depth, _tan_theta_x_div_z);
-                cv::divide(tan_theta_x, depth, _tan_theta_y_div_z);
-                cv::divide(cv::Mat::ones(depth.size(), CV_32F), depth, _one_div_z);
-                cv::multiply(_one_div_z, _one_div_z, one_div_z_sq);
-                computeIntegralImage<double>(_tan_theta_x_div_z, (double *) tan_theta_x.data);
-                computeIntegralImage<double>(_tan_theta_y_div_z, (double *) tan_theta_y.data);
-                computeIntegralImage<double>(_one_div_z, (double *) one_div_z.data, (int *) numValidPts.data);
+                //                cv::Mat test(3, 20, CV_32F);
+                //                for (int r = 0; r < test.rows; ++r) {
+                //                    for (int c = 0; c < test.cols; ++c) {
+                //                        test.at<float>(r, c) = r * 5 + c;
+                //                    }
+                //                }
+                //                cv::Mat itest(test.rows + 1, test.cols + 1, CV_64F);
+                //                computeIntegralImage<double>(test, itest);
+                //                cv::Mat itest2;
+                //                cv::integral(test, itest2, CV_64F);
+                //                std::cout << "test = [" << test << "]" << std::endl;
+                //                std::cout << "itest = [" << itest << "]" << std::endl;
+                //                std::cout << "itest2 = [" << itest2 << "]" << std::endl;
+                //                cv::Rect ttrect(0, 1, 1, 1);
+                //                std::cout << "sum1 = " << getSum<double>(itest, ttrect) << std::endl;
+                //                std::cout << "test = " << itest.at<double>(2, 2) << std::endl;
+                //                std::cout << "test2 = " << ((double*) itest.data)[2 * itest.cols + 2] << std::endl;
+                //cv::Mat _tan_theta_x_div_z(depth.size(), CV_32F);
+                //cv::Mat _tan_theta_y_div_z(depth.size(), CV_32F);
+                //cv::Mat _one_div_z(depth.size(), CV_32F);
+                //cv::Mat _one_div_z_sq(depth.size(), CV_32F);
+                //cv::Mat _ones_valid_mask(depth.size(), CV_32F);
+
+                cv::Mat numValidPts(height + 1, width + 1, CV_32F);
+                cv::Mat tan_theta_x_div_z(height + 1, width + 1, CV_64F);
+                cv::Mat tan_theta_y_div_z(height + 1, width + 1, CV_64F);
+                cv::Mat one_div_z(height + 1, width + 1, CV_64F);
+                cv::Mat one_div_z_sq(height + 1, width + 1, CV_64F);
+                for (int r = 0; r < depth.rows; ++r) {
+                    for (int c = 0; c < depth.cols; ++c) {
+                        if (std::isnan(depth.at<float>(r, c))) {
+                            _one_div_z.at<float>(r, c) = 0;
+                            _ones_valid_mask.at<float>(r, c) = 0;
+                        } else {
+                            _one_div_z.at<float>(r, c) = 1.0f / depth.at<float>(r, c);
+                            _ones_valid_mask.at<float>(r, c) = 1;
+                        }
+                        //std::cout << "Z(" << r << ", " << c << ") = " << depth.at<float>(r, c) << std::endl;
+                        //std::cout << "iZ(" << r << ", " << c << ") = " << _one_div_z.at<float>(r, c) << std::endl;
+                        _tan_theta_x_div_z.at<float>(r, c) = ntan_theta_x.at<float>(r, c) * _one_div_z.at<float>(r, c);
+                        _tan_theta_y_div_z.at<float>(r, c) = ntan_theta_y.at<float>(r, c) * _one_div_z.at<float>(r, c);
+                        _one_div_z_sq.at<float>(r, c) = _one_div_z.at<float>(r, c) * _one_div_z.at<float>(r, c);
+                    }
+                }
+                //computeIntegralImage<double>(_tan_theta_x_div_z, tan_theta_x_div_z);
+                //computeIntegralImage<double>(_tan_theta_y_div_z, tan_theta_y_div_z);
+                //computeIntegralImage<double>(_one_div_z, one_div_z);
+                //computeIntegralImage<double>(_one_div_z_sq, one_div_z_sq);
+                //computeIntegralImage<float>(_ones_valid_mask, numValidPts);
+                cv::integral(_tan_theta_x_div_z, tan_theta_x_div_z, CV_64F);
+                cv::integral(_tan_theta_y_div_z, tan_theta_y_div_z, CV_64F);
+                cv::integral(_one_div_z, one_div_z, one_div_z_sq, CV_64F, CV_64F);
+                cv::integral(_ones_valid_mask, numValidPts, CV_32F);
+
                 cv::Rect2i trect(0, 0, width, height);
-                int badpointcount = getSum<int>((int *) numValidPts.data, trect);
-                std::cout << badpointcount << " bad points in the RGBD image." << std::endl;
-                computeIntegralImage<double>(_one_div_z_sq, (double *) one_div_z_sq.data);
-                for (int r = MARGIN.height; r < depth.rows - MARGIN.height; ++r) {
-                    rect.y++;
-                    for (int c = MARGIN.width; c < depth.cols - MARGIN.width; ++c) {
-                        sVals.at<double>(1, 0) = getSum<double>((double *) tan_theta_xy.data, rect);
-                        sVals.at<double>(2, 0) = getSum<double>((double *) tan_theta_x.data, rect);
-                        sVals.at<double>(2, 1) = getSum<double>((double *) tan_theta_y.data, rect);
-                        sVals.at<double>(3, 0) = getSum<double>((double *) tan_theta_x_div_z.data, rect);
-                        sVals.at<double>(3, 1) = getSum<double>((double *) tan_theta_y_div_z.data, rect);
-                        sVals.at<double>(3, 2) = getSum<double>((double *) one_div_z.data, rect);
+                //int badpointcount = getSum<int>((int *) numValidPts.data, trect);
+                int badpointcount = getSum<float>(numValidPts, trect);
+                //std::cout << badpointcount << " valid points in the RGBD image." << std::endl;
 
-                        sVals.at<double>(0, 1) = getSum<double>((double *) tan_theta_xy.data, rect);
-                        sVals.at<double>(0, 2) = getSum<double>((double *) tan_theta_x.data, rect);
-                        sVals.at<double>(1, 2) = getSum<double>((double *) tan_theta_y.data, rect);
-                        sVals.at<double>(0, 3) = getSum<double>((double *) tan_theta_x_div_z.data, rect);
-                        sVals.at<double>(1, 3) = getSum<double>((double *) tan_theta_y_div_z.data, rect);
-                        sVals.at<double>(2, 3) = getSum<double>((double *) one_div_z.data, rect);
+                cv::Size winSize(5, 5); // width, height
+                cv::Size halfWinSize(winSize.width >> 1, winSize.height >> 1);
+                cv::Size MARGIN(10, 10);
+                cv::Rect rect(MARGIN.width - halfWinSize.width - 1,
+                        MARGIN.height - halfWinSize.height - 1,
+                        winSize.width, winSize.height);
+                int numPts = winSize.width * winSize.height;
+                int numValidWinPts = 0;
+                cv::Mat sVals(4, 4, CV_64F);
+                cv::Point2i winCenter(MARGIN.width, MARGIN.height);
+                cv::Vec3f* normptr;
+                cv::Mat eVecs, eVals;
+                int offset_tlc, offset_trc, offset_blc, offset_brc;
 
-                        sVals.at<double>(0, 0) = getSum<double>((double *) tan_theta_x_sq.data, rect);
-                        sVals.at<double>(1, 1) = getSum<double>((double *) tan_theta_y_sq.data, rect);
-                        sVals.at<double>(2, 2) = rect.area();
-                        sVals.at<double>(3, 3) = getSum<double>((double *) one_div_z_sq.data, rect);
-                        rect.x++;
-                        //        [evec, eval] = eig(sVals);
-                        //coeffs = evec( :, 1);
-                        //% vector associated with smallest eigenvalue
-                        //normf = norm(coeffs(1 : 3));
-                        //coeffs = coeffs'./normf;
-                        //        error = sqrt(eval(1, 1)) / (normf * numPts);
+#define GETSUM(src, type, A, B, C, D) ((type *)src.data)[D] + ((type *)src.data)[A] - \
+                ((type *)src.data)[B] - ((type *)src.data)[C]
+
+                for (rect.y = MARGIN.height - halfWinSize.height - 1;
+                        rect.y < depth.rows - MARGIN.height; ++rect.y, ++winCenter.y) {
+                    winCenter.x = MARGIN.width + 1;
+                    offset_tlc = rect.y * (width + 1) + rect.x;
+                    offset_trc = offset_tlc + rect.width;
+                    offset_blc = offset_tlc + rect.height * (width + 1);
+                    offset_brc = offset_blc + rect.width;
+                    for (rect.x = MARGIN.width - halfWinSize.width - 1;
+                            rect.x < depth.cols - MARGIN.width; ++rect.x, ++winCenter.x) {
+                        numValidWinPts = getSum<float>(numValidPts, rect);
+                        //                        int numValidWinPts2 = GETSUM(numValidPts, float, offset_tlc, offset_trc, offset_blc, offset_brc);
+                        //                        std::cout << "num valid = " << numValidWinPts
+                        //                                << " num valid2 = " << numValidWinPts2 << std::endl;
+                        if (numValidWinPts == numPts) {
+                            sVals.at<double>(1, 0) = getSum<double>(tan_theta_xy, rect);
+                            sVals.at<double>(2, 0) = getSum<double>(tan_theta_x, rect);
+                            sVals.at<double>(2, 1) = getSum<double>(tan_theta_y, rect);
+                            sVals.at<double>(3, 0) = getSum<double>(tan_theta_x_div_z, rect);
+                            sVals.at<double>(3, 1) = getSum<double>(tan_theta_y_div_z, rect);
+                            sVals.at<double>(3, 2) = getSum<double>(one_div_z, rect);
+
+                            sVals.at<double>(0, 1) = sVals.at<double>(1, 0);
+                            sVals.at<double>(0, 2) = sVals.at<double>(2, 0);
+                            sVals.at<double>(1, 2) = sVals.at<double>(2, 1);
+                            sVals.at<double>(0, 3) = sVals.at<double>(3, 0);
+                            sVals.at<double>(1, 3) = sVals.at<double>(3, 1);
+                            sVals.at<double>(2, 3) = sVals.at<double>(3, 2);
+
+                            sVals.at<double>(0, 0) = getSum<double>(tan_theta_x_sq, rect);
+                            sVals.at<double>(1, 1) = getSum<double>(tan_theta_y_sq, rect);
+                            sVals.at<double>(2, 2) = numPts;
+                            sVals.at<double>(3, 3) = getSum<double>(one_div_z_sq, rect);
+
+                            //directly use the buffer allocated by OpenCV
+                            //Eigen::Map<Matrix4f> eigenT(sVals.data());
+
+                            cv::eigen(sVals, eVals, eVecs);
+                            //std::cout << "evecs = " << eVecs << std::endl;
+                            //std::cout << "evals = " << eVals << std::endl;
+                            cv::Mat coeffs = cv::Mat(eVecs, Rect(0, 3, eVecs.cols, 1));
+                            //std::cout << "coeffs = " << coeffs << std::endl;
+                            float normf = coeffs.at<double>(0, 0) * coeffs.at<double>(0, 0) +
+                                    coeffs.at<double>(0, 1) * coeffs.at<double>(0, 1) +
+                                    coeffs.at<double>(0, 2) * coeffs.at<double>(0, 2);
+                            coeffs /= sqrt(normf);
+                            //std::cout << "normf = " << normf << std::endl;
+                            //std::cout << "coeffs = " << coeffs << std::endl;
+                            float error = sqrt(eVals.at<double>(3, 0)) / (normf * numPts);
+                            normptr = ((cv::Vec3f*)normals.data);
+                            normptr += winCenter.y * width + winCenter.x;
+                            (*normptr)[0] = coeffs.at<double>(0, 0);
+                            (*normptr)[1] = coeffs.at<double>(0, 1);
+                            (*normptr)[2] = coeffs.at<double>(0, 2);
+                            //normals.at<cv::Vec3f>(winCenter.y, winCenter.x)[0] = coeffs.at<double>(0, 0);
+                            //nomrals.at<cv::Vec3f>(winCenter.y, winCenter.x)[1] = coeffs.at<double>(0, 1);
+                            //normals.at<cv::Vec3f>(winCenter.y, winCenter.x)[2] = coeffs.at<double>(0, 2);
+                            //std::cout << "normval = " << normals.at<cv::Vec3f>(winCenter.y, winCenter.x) << std::endl;
+                        }
+                        offset_tlc++;
+                        offset_trc++;
+                        offset_blc++;
+                        offset_brc++;
                     }
                 }
             }
@@ -553,6 +655,29 @@ namespace cv {
                     }
                 }
                 (*normalsComputer)(points, normals);
+
+//                cv::Mat normals2(img_Z.size(), CV_32FC3);
+//                iImgs.compute(img_Z, normals2);
+//
+//                cv::Size winSize(5, 5); // width, height
+//                cv::Size halfWinSize(winSize.width >> 1, winSize.height >> 1);
+//                cv::Size MARGIN(200, 100);
+//                cv::Rect rect(0, 0, winSize.width, winSize.height);
+//                cv::Point2i winCenter(MARGIN.width, MARGIN.height);
+//                for (rect.y = MARGIN.height - halfWinSize.height - 1;
+//                        rect.y < img_Z.rows - MARGIN.height; ++rect.y, ++winCenter.y) {
+//                    winCenter.x = MARGIN.width + 1;
+//                    for (rect.x = MARGIN.width - halfWinSize.width - 1;
+//                            rect.x < img_Z.cols - MARGIN.width; ++rect.x, ++winCenter.x) {
+//                        std::cout << "normals1(" << winCenter.x << ","
+//                                << winCenter.y << ") = " <<
+//                                normals.at<cv::Vec3f>(winCenter.y, winCenter.x) << std::endl;
+//                        std::cout << "normals2(" << winCenter.x << ","
+//                                << winCenter.y << ") = " <<
+//                                normals2.at<cv::Vec3f>(winCenter.y, winCenter.x) << std::endl;
+//                    }
+//                }
+
                 std::cout << "normals computed " << std::endl;
                 return true;
             }
@@ -587,6 +712,7 @@ namespace cv {
             float cx, cy, inv_f;
             cv::Mat cameraMatrix;
             mutable cv::Ptr<RgbdNormals> normalsComputer;
+        public:
             static DepthIntegralImages iImgs;
         }; /* class RgbdImage */
     } /* namespace rgbd */

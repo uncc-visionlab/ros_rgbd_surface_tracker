@@ -25,7 +25,9 @@ namespace cv {
             const int sobelSize = 3;
             const double sobelScale = 1. / 8.;
             int normalWinSize = 5;
-            int normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_FALS;
+            int normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_FALS; // 7.0 fps
+            //int normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_LINEMOD;
+            //int normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_SRI; // 1.14 fps
             cv::Ptr<RgbdNormals> normalsComputer;
             normalsComputer = makePtr<RgbdNormals>(rgbd_img.getDepth().rows,
                     rgbd_img.getDepth().cols,
