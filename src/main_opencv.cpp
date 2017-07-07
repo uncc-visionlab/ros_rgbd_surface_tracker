@@ -32,7 +32,7 @@ private:
 
 
     int _frame_skip;
-    int gain_status = 0;
+    int gain_status;
 
     cv::Mat ocv_rgbframe;
     cv::Mat ocv_depthframe_uint16;
@@ -56,7 +56,7 @@ private:
 public:
     typedef boost::shared_ptr<OpenNI2Driver> Ptr;
 
-    OpenNI2Driver() {
+    OpenNI2Driver() : _frame_skip(0), gain_status(0) {
     }
 
     virtual ~OpenNI2Driver() {
@@ -83,7 +83,7 @@ public:
         printf("starting\n");
         fflush(stdout);
         _device_num = 0;
-        _sync = 1;
+        _sync = 0;
         _registration = 1;
         //_depth_mode = -1; // SHOW DEPTH MODES
         //_rgb_mode = -1; // SHOW RGB MODES
@@ -331,7 +331,7 @@ public:
                     ocv_depth_vis.convertTo(ocv_depth_vis, CV_8UC3);
                     cv::imshow("DEPTH", ocv_depth_vis);
                     cv::waitKey(3);
-                    if (!(count % (_frame_skip))) {
+                    if (_frame_skip == 0 || !(count % (_frame_skip))) {
                         depthFrameReady = true;
                         di_imSize.width = frame.getWidth();
                         di_imSize.height = frame.getHeight();
@@ -340,6 +340,7 @@ public:
                         di_cameraMatrix.at<float>(1, 1) = di_imSize.height / (2 * tan(depth.getVerticalFieldOfView() / 2)); //fy
                         di_cameraMatrix.at<float>(1, 2) = di_imSize.height / 2; //cy
                         di_cameraMatrix.at<float>(2, 2) = 1;
+                        //depth.stop();
                     }
                     break;
 
@@ -383,7 +384,7 @@ public:
                         }
                     }
 #endif           
-                    if (!(count % (_frame_skip))) {
+                    if (_frame_skip == 0 || !(count % (_frame_skip))) {
                         rgbFrameReady = true;
                         rgb_imSize.width = rgbframe.getWidth();
                         rgb_imSize.height = rgbframe.getHeight();
@@ -392,6 +393,7 @@ public:
                         rgb_cameraMatrix.at<float>(1, 1) = rgb_imSize.height / (2 * tan(rgb.getVerticalFieldOfView() / 2)); //fy
                         rgb_cameraMatrix.at<float>(1, 2) = rgb_imSize.height / 2; //cy
                         rgb_cameraMatrix.at<float>(2, 2) = 1;
+                        //rgb.stop();
                     }
                     break;
                 default:
@@ -404,6 +406,8 @@ public:
                 }
                 rgbFrameReady = false;
                 depthFrameReady = false;
+                //depth.start();
+                //rgb.start();
             }
             if (!(count % num_frames_stat) && new_frame) {
                 struct timeval current_time, interval;

@@ -36,8 +36,18 @@ namespace cv {
                     normalWinSize,
                     normalMethod);
             rgbd_img.setNormalsComputer(normalsComputer);
+
+#ifdef PROFILE_CALLGRIND
+            CALLGRIND_TOGGLE_COLLECT;
+#endif
+
             rgbd_img.computeNormals();
             iterativeAlignment(rgbd_img);
+
+#ifdef PROFILE_CALLGRIND
+            CALLGRIND_TOGGLE_COLLECT;
+#endif
+
         }
     } /* namespace rgbd */
 } /* namespace cv */

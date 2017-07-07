@@ -27,7 +27,7 @@
 #include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
 #include <ros_rgbd_surface_tracker/surface_alignment_optimizer.hpp>
 
-#define PROFILE_CALLGRIND false
+#define PROFILE_CALLGRIND true
 
 #ifdef PROFILE_CALLGRIND
 #include <valgrind/callgrind.h>

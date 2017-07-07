@@ -18,7 +18,7 @@
 
     <arg name="profile_attribute" value="" unless="$(arg run_profiler)"/>
     <arg name="profile_attribute" 
-         value="valgrind &#x002d;&#x002d;tool=callgrind --instr-atstart=no" 
+         value="valgrind &#x002d;&#x002d;tool=callgrind &#x002d;&#x002d;collect-atstart=no" 
          if="$(arg run_profiler)" />
 
     <arg name="map_frame" default="optitrack" />
