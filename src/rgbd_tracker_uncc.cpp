@@ -8,6 +8,8 @@
 #include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>
 
+extern int supermain(int, char **);
+
 namespace cv {
     namespace rgbd {
 
@@ -22,32 +24,18 @@ namespace cv {
         }
 
         void RgbdSurfaceTracker::segmentDepth(cv::rgbd::RgbdImage& rgbd_img) {
-            const int sobelSize = 3;
-            const double sobelScale = 1. / 8.;
-            int normalWinSize = 5;
-            int normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_FALS; // 7.0 fps
-            //int normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_LINEMOD;
-            //int normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_SRI; // 1.14 fps
-            cv::Ptr<RgbdNormals> normalsComputer;
-            normalsComputer = makePtr<RgbdNormals>(rgbd_img.getDepth().rows,
-                    rgbd_img.getDepth().cols,
-                    rgbd_img.getDepth().depth(),
-                    rgbd_img.getCameraMatrix(),
-                    normalWinSize,
-                    normalMethod);
-            rgbd_img.setNormalsComputer(normalsComputer);
 
 #ifdef PROFILE_CALLGRIND
             CALLGRIND_TOGGLE_COLLECT;
 #endif
 
             rgbd_img.computeNormals();
-            iterativeAlignment(rgbd_img);
+            //iterativeAlignment(rgbd_img);
 
 #ifdef PROFILE_CALLGRIND
             CALLGRIND_TOGGLE_COLLECT;
 #endif
-
+            //supermain(0,nullptr);
         }
     } /* namespace rgbd */
 } /* namespace cv */
