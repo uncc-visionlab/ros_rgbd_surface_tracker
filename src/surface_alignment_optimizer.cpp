@@ -13,12 +13,6 @@
 #include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>
 
-#define PROFILE_CALLGRIND false
-
-#ifdef PROFILE_CALLGRIND
-#include <valgrind/callgrind.h>
-#endif
-
 namespace cv {
     namespace rgbd {
         
@@ -227,23 +221,11 @@ namespace cv {
 
             }
 
-        #ifdef PROFILE_CALLGRIND
-            CALLGRIND_TOGGLE_COLLECT;
-        #endif
-
         }
 
         void RgbdSurfaceTracker::iterativeAlignment(cv::rgbd::RgbdImage& rgbd_img) {
-
-#ifdef PROFILE_CALLGRIND
-            CALLGRIND_TOGGLE_COLLECT;
-#endif 
             
-        planeAlignment(rgbd_img, *this);
-        
-#ifdef PROFILE_CALLGRIND
-            CALLGRIND_TOGGLE_COLLECT;
-#endif
+            planeAlignment(rgbd_img, *this);
 
         }
         

@@ -34,11 +34,6 @@
 //#include <ros_rgbd_surface_tracker/plane.h>
 //#include <ros_rgbd_surface_tracker/planes.h>
 
-#define PROFILE_CALLGRIND false
-
-#ifdef PROFILE_CALLGRIND
-#include <valgrind/callgrind.h>
-#endif
 
 //typedef float Scalar;
 typedef double Scalar;
