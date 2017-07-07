@@ -13,6 +13,13 @@
     <arg name="record_cameras" default="false" />
     <arg name="run_rviz" default="true" />
     <arg name="run_surface_tracker" default="true" />
+    
+    <arg name="run_profiler" value="false" />
+
+    <arg name="profile_attribute" value="" unless="$(arg run_profiler)"/>
+    <arg name="profile_attribute" 
+         value="valgrind &#x002d;&#x002d;tool=callgrind --instr-atstart=no" 
+         if="$(arg run_profiler)" />
 
     <arg name="map_frame" default="optitrack" />
     <arg name="rgb_optical_frame" default="rgb_optical_frame" />
@@ -71,9 +78,9 @@
     <group ns="$(arg camera)">
         <node name="camera_info_relay" pkg="topic_tools" type="relay" output="screen"
               args="rgb/camera_info ir/camera_info"/>
-        
         <node name="ros_rgbd_surface_tracker" pkg="ros_rgbd_surface_tracker" 
-              type="ros_rgbd_surface_tracker" output="screen" if="$(arg run_surface_tracker)">    
+              type="ros_rgbd_surface_tracker" launch-prefix="$(arg profile_attribute)"
+              output="screen" if="$(arg run_surface_tracker)">    
             <remap from="rgb/input_image" to="rgb/image_raw"/>
             <remap from="depth_registered/input_image" to="depth_registered/image_raw"/>
             <param name="map_frame" value = "$(arg map_frame)"/>
