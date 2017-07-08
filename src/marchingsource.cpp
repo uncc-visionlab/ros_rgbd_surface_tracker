@@ -17,10 +17,16 @@
 
 #include "stdio.h"
 #include "math.h"
+
+#include <Eigen/Dense>
+#include <Eigen/Geometry>
+
 //This program requires the OpenGL and GLUT libraries
 // You can obtain them for free from http://www.opengl.org
 #include "GL/glut.h"
-#include "ros_rgbd_surface_tracker/surface_alignment_optimizer.hpp"
+
+#include <ros_rgbd_surface_tracker/surface_alignment_optimizer.hpp>
+#include <ros_rgbd_surface_tracker/AlgebraicSurface.hpp>
 
 struct GLvector {
     GLfloat fX;
@@ -32,7 +38,7 @@ struct GLvector {
 // rather than in pages and pages of unrolled code.
 
 //a2fVertexOffset lists the positions, relative to vertex0, of each of the 8 vertices of a cube
-static const GLfloat a2fVertexOffset[8][3] ={
+static GLfloat a2fVertexOffset[8][3] = {
     {0.0, 0.0, 0.0},
     {1.0, 0.0, 0.0},
     {1.0, 1.0, 0.0},
@@ -44,7 +50,7 @@ static const GLfloat a2fVertexOffset[8][3] ={
 };
 
 //a2iEdgeConnection lists the index of the endpoint vertices for each of the 12 edges of the cube
-static const GLint a2iEdgeConnection[12][2] ={
+static const GLint a2iEdgeConnection[12][2] = {
     {0, 1},
     {1, 2},
     {2, 3},
@@ -60,7 +66,7 @@ static const GLint a2iEdgeConnection[12][2] ={
 };
 
 //a2fEdgeDirection lists the direction vector (vertex1-vertex0) for each edge in the cube
-static const GLfloat a2fEdgeDirection[12][3] ={
+static const GLfloat a2fEdgeDirection[12][3] = {
     {1.0, 0.0, 0.0},
     {0.0, 1.0, 0.0},
     {-1.0, 0.0, 0.0},
@@ -76,7 +82,7 @@ static const GLfloat a2fEdgeDirection[12][3] ={
 };
 
 //a2iTetrahedronEdgeConnection lists the index of the endpoint vertices for each of the 6 edges of the tetrahedron
-static const GLint a2iTetrahedronEdgeConnection[6][2] ={
+static const GLint a2iTetrahedronEdgeConnection[6][2] = {
     {0, 1},
     {1, 2},
     {2, 0},
@@ -87,7 +93,7 @@ static const GLint a2iTetrahedronEdgeConnection[6][2] ={
 
 //a2iTetrahedronEdgeConnection lists the index of verticies from a cube 
 // that made up each of the six tetrahedrons within the cube
-static const GLint a2iTetrahedronsInACube[6][4] ={
+static const GLint a2iTetrahedronsInACube[6][4] = {
     {0, 5, 1, 6},
     {0, 1, 2, 6},
     {0, 2, 3, 6},
@@ -113,7 +119,8 @@ static const GLfloat afSpecularBlue [] = {0.25, 0.25, 1.00, 1.00};
 GLenum ePolygonMode = GL_FILL;
 GLint iDataSetSize = 16;
 GLfloat fStepSize = 1.0 / iDataSetSize;
-GLfloat fTargetValue = 48.0;
+//GLfloat fTargetValue = 48.0;
+GLfloat fTargetValue = 0.0;
 GLfloat fTime = 0.0;
 GLvector sSourcePoint[3];
 GLboolean bSpin = true;
@@ -121,6 +128,7 @@ GLboolean bMove = true;
 GLboolean bLight = true;
 
 PlaneVisualizationData* vis_data_ptr;
+AlgebraicSurface<float>* surf_ptr;
 
 void vIdle();
 void vDrawScene();
@@ -133,6 +141,7 @@ GLvoid vSetTime(GLfloat fTime);
 GLfloat fSample1(GLfloat fX, GLfloat fY, GLfloat fZ);
 GLfloat fSample2(GLfloat fX, GLfloat fY, GLfloat fZ);
 GLfloat fSample3(GLfloat fX, GLfloat fY, GLfloat fZ);
+GLfloat surfaceEvaluate(GLfloat fX, GLfloat fY, GLfloat fZ);
 GLfloat(*fSample)(GLfloat fX, GLfloat fY, GLfloat fZ) = fSample1;
 
 GLvoid vMarchingCubes(PlaneVisualizationData& vis_data);
@@ -140,51 +149,68 @@ GLvoid vMarchCube1(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale, PlaneVisu
 GLvoid vMarchCube2(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale, PlaneVisualizationData& vis_data);
 GLvoid(*vMarchCube)(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale, PlaneVisualizationData& vis_data) = vMarchCube1;
 
-int supermain(int argc, char **argv, PlaneVisualizationData& vis_data) {
+int supermain(AlgebraicSurface<float>& surf, PlaneVisualizationData& vis_data, 
+        Eigen::MatrixXf cube, float cubesize, float levelset) {
     vis_data_ptr = &vis_data;
-    GLfloat afPropertiesAmbient [] = {0.50, 0.50, 0.50, 1.00};
-    GLfloat afPropertiesDiffuse [] = {0.75, 0.75, 0.75, 1.00};
-    GLfloat afPropertiesSpecular[] = {1.00, 1.00, 1.00, 1.00};
+    iDataSetSize = 1.0f / cubesize;
+    fTargetValue = levelset;
+    for (int row = 0; row < 8; ++row) {
+        for (int col = 0; col < 3; ++col) {
+            a2fVertexOffset[row][col] = cube(row, col);
+        }
+    }
+    surf_ptr = &surf;
+    fSample = surfaceEvaluate;
+    vMarchingCubes(vis_data);
+    //        GLfloat afPropertiesAmbient [] = {0.50, 0.50, 0.50, 1.00};
+    //        GLfloat afPropertiesDiffuse [] = {0.75, 0.75, 0.75, 1.00};
+    //        GLfloat afPropertiesSpecular[] = {1.00, 1.00, 1.00, 1.00};
+    //        GLsizei iWidth = 640.0;
+    //        GLsizei iHeight = 480.0;
+    //        int argc = 0;
+    //        char **argv = NULL;
+    //        glutInit(&argc, argv);
+    //        glutInitWindowPosition(0, 0);
+    //        glutInitWindowSize(iWidth, iHeight);
+    //        glutInitDisplayMode(GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE);
+    //        glutCreateWindow("Marching Cubes");
+    //        glutDisplayFunc(vDrawScene);
+    //        glutIdleFunc(vIdle);
+    //        glutReshapeFunc(vResize);
+    //        glutKeyboardFunc(vKeyboard);
+    //        glutSpecialFunc(vSpecial);
+    //
+    //        glClearColor(0.0, 0.0, 0.0, 1.0);
+    //        glClearDepth(1.0);
+    //    
+    //        glEnable(GL_DEPTH_TEST);
+    //        glEnable(GL_LIGHTING);
+    //        glPolygonMode(GL_FRONT_AND_BACK, ePolygonMode);
+    //
+    //        glLightfv(GL_LIGHT0, GL_AMBIENT, afPropertiesAmbient);
+    //        glLightfv(GL_LIGHT0, GL_DIFFUSE, afPropertiesDiffuse);
+    //        glLightfv(GL_LIGHT0, GL_SPECULAR, afPropertiesSpecular);
+    //        glLightModelf(GL_LIGHT_MODEL_TWO_SIDE, 1.0);
+    //    
+    //        glEnable(GL_LIGHT0);
+    //    
+    //        glMaterialfv(GL_BACK, GL_AMBIENT, afAmbientGreen);
+    //        glMaterialfv(GL_BACK, GL_DIFFUSE, afDiffuseGreen);
+    //        glMaterialfv(GL_FRONT, GL_AMBIENT, afAmbientBlue);
+    //        glMaterialfv(GL_FRONT, GL_DIFFUSE, afDiffuseBlue);
+    //        glMaterialfv(GL_FRONT, GL_SPECULAR, afSpecularWhite);
+    //        glMaterialf(GL_FRONT, GL_SHININESS, 25.0);
+    //    
+    //        vResize(iWidth, iHeight);
+    //    
+    //        vPrintHelp();
+    //        glutMainLoop();
+}
 
-    GLsizei iWidth = 640.0;
-    GLsizei iHeight = 480.0;
-
-    glutInit(&argc, argv);
-    glutInitWindowPosition(0, 0);
-    glutInitWindowSize(iWidth, iHeight);
-    glutInitDisplayMode(GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE);
-    glutCreateWindow("Marching Cubes");
-    glutDisplayFunc(vDrawScene);
-    glutIdleFunc(vIdle);
-    glutReshapeFunc(vResize);
-    glutKeyboardFunc(vKeyboard);
-    glutSpecialFunc(vSpecial);
-
-    glClearColor(0.0, 0.0, 0.0, 1.0);
-    glClearDepth(1.0);
-
-    glEnable(GL_DEPTH_TEST);
-    glEnable(GL_LIGHTING);
-    glPolygonMode(GL_FRONT_AND_BACK, ePolygonMode);
-
-    glLightfv(GL_LIGHT0, GL_AMBIENT, afPropertiesAmbient);
-    glLightfv(GL_LIGHT0, GL_DIFFUSE, afPropertiesDiffuse);
-    glLightfv(GL_LIGHT0, GL_SPECULAR, afPropertiesSpecular);
-    glLightModelf(GL_LIGHT_MODEL_TWO_SIDE, 1.0);
-
-    glEnable(GL_LIGHT0);
-
-    glMaterialfv(GL_BACK, GL_AMBIENT, afAmbientGreen);
-    glMaterialfv(GL_BACK, GL_DIFFUSE, afDiffuseGreen);
-    glMaterialfv(GL_FRONT, GL_AMBIENT, afAmbientBlue);
-    glMaterialfv(GL_FRONT, GL_DIFFUSE, afDiffuseBlue);
-    glMaterialfv(GL_FRONT, GL_SPECULAR, afSpecularWhite);
-    glMaterialf(GL_FRONT, GL_SHININESS, 25.0);
-
-    vResize(iWidth, iHeight);
-
-    vPrintHelp();
-    glutMainLoop();
+GLfloat surfaceEvaluate(GLfloat fX, GLfloat fY, GLfloat fZ) {
+    Eigen::RowVector3f pt(fX, fY, fZ);
+    //std::cout << "pt = " << pt << " eval = " << surf_ptr->evaluate(pt) << std::endl;
+    return (GLfloat) surf_ptr->evaluate(pt);
 }
 
 GLvoid vPrintHelp() {
@@ -231,14 +257,14 @@ void vKeyboard(unsigned char cKey, int iX, int iY) {
             }
             glPolygonMode(GL_FRONT_AND_BACK, ePolygonMode);
         }
-        break;
+            break;
         case '+':
         case '=':
         {
             ++iDataSetSize;
             fStepSize = 1.0 / iDataSetSize;
         }
-        break;
+            break;
         case '-':
         {
             if (iDataSetSize > 1) {
@@ -246,7 +272,7 @@ void vKeyboard(unsigned char cKey, int iX, int iY) {
                 fStepSize = 1.0 / iDataSetSize;
             }
         }
-        break;
+            break;
         case 'c':
         {
             if (vMarchCube == vMarchCube1) {
@@ -255,7 +281,7 @@ void vKeyboard(unsigned char cKey, int iX, int iY) {
                 vMarchCube = vMarchCube1; //Use Marching Cubes
             }
         }
-        break;
+            break;
         case 's':
         {
             if (fSample == fSample1) {
@@ -266,7 +292,7 @@ void vKeyboard(unsigned char cKey, int iX, int iY) {
                 fSample = fSample1;
             }
         }
-        break;
+            break;
         case 'l':
         {
             if (bLight) {
@@ -288,24 +314,24 @@ void vSpecial(int iKey, int iX, int iY) {
                 fTargetValue *= 1.1;
             }
         }
-        break;
+            break;
         case GLUT_KEY_PAGE_DOWN:
         {
             if (fTargetValue > 1.0) {
                 fTargetValue /= 1.1;
             }
         }
-        break;
+            break;
         case GLUT_KEY_HOME:
         {
             bSpin = !bSpin;
         }
-        break;
+            break;
         case GLUT_KEY_END:
         {
             bMove = !bMove;
         }
-        break;
+            break;
     }
 }
 
@@ -558,6 +584,7 @@ GLvoid vMarchCube1(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale, PlaneVisu
             glVertex3f(asEdgeVertex[iVertex].fX, asEdgeVertex[iVertex].fY, asEdgeVertex[iVertex].fZ);
 
             tri.vertices[iCorner] = Eigen::Vector3f(asEdgeVertex[iVertex].fX, asEdgeVertex[iVertex].fY, asEdgeVertex[iVertex].fZ);
+            //std::cout << "vert = " << tri.vertices[iCorner] << std::endl;
             vis_data.triangles.push_back(tri);
         }
     }
@@ -678,7 +705,7 @@ GLvoid vMarchingCubes(PlaneVisualizationData& vis_data) {
 // This table lists the edges intersected by the surface for all 16 possible vertex states
 // There are 6 edges.  For each entry in the table, if edge #n is intersected, then bit #n is set to 1
 
-GLint aiTetrahedronEdgeFlags[16] ={
+GLint aiTetrahedronEdgeFlags[16] = {
     0x00, 0x0d, 0x13, 0x1e, 0x26, 0x2b, 0x35, 0x38, 0x38, 0x35, 0x2b, 0x26, 0x1e, 0x13, 0x0d, 0x00,
 };
 
@@ -689,7 +716,7 @@ GLint aiTetrahedronEdgeFlags[16] ={
 //
 // I generated this table by hand
 
-GLint a2iTetrahedronTriangles[16][7] ={
+GLint a2iTetrahedronTriangles[16][7] = {
     {-1, -1, -1, -1, -1, -1, -1},
     { 0, 3, 2, -1, -1, -1, -1},
     { 0, 1, 4, -1, -1, -1, -1},
@@ -718,7 +745,7 @@ GLint a2iTetrahedronTriangles[16][7] ={
 // This table lists the edges intersected by the surface for all 256 possible vertex states
 // There are 12 edges.  For each entry in the table, if edge #n is intersected, then bit #n is set to 1
 
-GLint aiCubeEdgeFlags[256] ={
+GLint aiCubeEdgeFlags[256] = {
     0x000, 0x109, 0x203, 0x30a, 0x406, 0x50f, 0x605, 0x70c, 0x80c, 0x905, 0xa0f, 0xb06, 0xc0a, 0xd03, 0xe09, 0xf00,
     0x190, 0x099, 0x393, 0x29a, 0x596, 0x49f, 0x795, 0x69c, 0x99c, 0x895, 0xb9f, 0xa96, 0xd9a, 0xc93, 0xf99, 0xe90,
     0x230, 0x339, 0x033, 0x13a, 0x636, 0x73f, 0x435, 0x53c, 0xa3c, 0xb35, 0x83f, 0x936, 0xe3a, 0xf33, 0xc39, 0xd30,
@@ -745,7 +772,7 @@ GLint aiCubeEdgeFlags[256] ={
 //
 //  I found this table in an example program someone wrote long ago.  It was probably generated by hand
 
-GLint a2iTriangleConnectionTable[256][16] ={
+GLint a2iTriangleConnectionTable[256][16] = {
     {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
     {0, 8, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
     {0, 1, 9, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},

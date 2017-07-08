@@ -30,6 +30,9 @@
 
 #include <boost/shared_ptr.hpp>
 
+#include <Eigen/Dense>
+#include <Eigen/Geometry>
+
 #define SAFETY_CHECKS true
 
 template <typename ScalarType>
@@ -466,7 +469,7 @@ public:
             RowVectorXs one_coeff(1);
             one_coeff.setOnes();
 
-            AlgebraicSurface<double> poly(one_coeff, surface.dimension, 0); // 0 degree polynomial
+            AlgebraicSurface<ScalarType> poly(one_coeff, surface.dimension, 0); // 0 degree polynomial
             for (int j = 0; j < surface.dimension; j++) {
                 // for each dimension
                 RowVectorXs trans(surface.dimension + 1);
