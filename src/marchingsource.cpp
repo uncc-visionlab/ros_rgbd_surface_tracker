@@ -13,11 +13,14 @@
 // This code is public domain.
 //
 
+#include <opencv2/core/matx.hpp>
+
 #include "stdio.h"
 #include "math.h"
 //This program requires the OpenGL and GLUT libraries
 // You can obtain them for free from http://www.opengl.org
 #include "GL/glut.h"
+#include "ros_rgbd_surface_tracker/surface_alignment_optimizer.hpp"
 
 struct GLvector
 {
@@ -108,12 +111,12 @@ GLfloat fSample2(GLfloat fX, GLfloat fY, GLfloat fZ);
 GLfloat fSample3(GLfloat fX, GLfloat fY, GLfloat fZ);
 GLfloat (*fSample)(GLfloat fX, GLfloat fY, GLfloat fZ) = fSample1;
 
-GLvoid vMarchingCubes();
-GLvoid vMarchCube1(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale);
-GLvoid vMarchCube2(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale);
-GLvoid (*vMarchCube)(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale) = vMarchCube1;
+GLvoid vMarchingCubes(PlaneVisualizationData& vis_data);
+GLvoid vMarchCube1(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale, PlaneVisualizationData& vis_data);
+GLvoid vMarchCube2(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale, PlaneVisualizationData& vis_data);
+GLvoid (*vMarchCube)(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale, PlaneVisualizationData& vis_data) = vMarchCube1;
 
-int supermain(int argc, char **argv) 
+int supermain(int argc, char **argv)
 { 
         GLfloat afPropertiesAmbient [] = {0.50, 0.50, 0.50, 1.00}; 
         GLfloat afPropertiesDiffuse [] = {0.75, 0.75, 0.75, 1.00}; 
@@ -342,8 +345,11 @@ void vDrawScene()
 
         glPushMatrix(); 
         glTranslatef(-0.5, -0.5, -0.5);
+        
+        PlaneVisualizationData vis_data;
+        
         glBegin(GL_TRIANGLES);
-                vMarchingCubes();
+                vMarchingCubes(vis_data);
         glEnd();
         glPopMatrix(); 
 
@@ -491,7 +497,7 @@ GLvoid vGetNormal(GLvector &rfNormal, GLfloat fX, GLfloat fY, GLfloat fZ)
 
 
 //vMarchCube1 performs the Marching Cubes algorithm on a single cube
-GLvoid vMarchCube1(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale)
+GLvoid vMarchCube1(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale, PlaneVisualizationData& vis_data)
 {
         extern GLint aiCubeEdgeFlags[256];
         extern GLint a2iTriangleConnectionTable[256][16];
@@ -552,7 +558,9 @@ GLvoid vMarchCube1(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale)
         {
                 if(a2iTriangleConnectionTable[iFlagIndex][3*iTriangle] < 0)
                         break;
-
+                
+                PlaneVisualizationData::Tri tri;
+                
                 for(iCorner = 0; iCorner < 3; iCorner++)
                 {
                         iVertex = a2iTriangleConnectionTable[iFlagIndex][3*iTriangle+iCorner];
@@ -561,6 +569,9 @@ GLvoid vMarchCube1(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale)
                         glColor3f(sColor.fX, sColor.fY, sColor.fZ);
                         glNormal3f(asEdgeNorm[iVertex].fX,   asEdgeNorm[iVertex].fY,   asEdgeNorm[iVertex].fZ);
                         glVertex3f(asEdgeVertex[iVertex].fX, asEdgeVertex[iVertex].fY, asEdgeVertex[iVertex].fZ);
+                        
+                        tri.vertices[iCorner] = Eigen::Vector3f(asEdgeVertex[iVertex].fX, asEdgeVertex[iVertex].fY, asEdgeVertex[iVertex].fZ);
+                        vis_data.triangles.push_back(tri);
                 }
         }
 }
@@ -672,14 +683,14 @@ GLvoid vMarchCube2(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale)
         
 
 //vMarchingCubes iterates over the entire dataset, calling vMarchCube on each cube
-GLvoid vMarchingCubes()
+GLvoid vMarchingCubes(PlaneVisualizationData& vis_data)
 {
         GLint iX, iY, iZ;
         for(iX = 0; iX < iDataSetSize; iX++)
         for(iY = 0; iY < iDataSetSize; iY++)
         for(iZ = 0; iZ < iDataSetSize; iZ++)
         {
-                vMarchCube(iX*fStepSize, iY*fStepSize, iZ*fStepSize, fStepSize);
+                vMarchCube(iX*fStepSize, iY*fStepSize, iZ*fStepSize, fStepSize, vis_data);
         }
 }
 

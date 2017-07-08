@@ -27,6 +27,12 @@
 
 class PlaneVisualizationData {
 public:
+    class Tri {
+    public:
+        std::array<Eigen::Vector3f, 3> vertices;
+    };
+    
+    std::vector<Tri> triangles;
     std::vector<Eigen::Vector3f> rect_points;
 
     PlaneVisualizationData() {

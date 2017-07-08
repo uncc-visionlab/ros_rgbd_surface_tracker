@@ -195,8 +195,6 @@ namespace cv {
                     
                     surface.affineTransform(transform_matrix);
                     
-//                    double dot_normals = surface.subsurfaces[0]->coeffs.tail(3).dot(surface.subsurfaces[1]->coeffs.tail(3));
-//                    std::cout << "dot product normals " << dot_normals << "\n";
                     PlaneVisualizationData* vis_data = surface_tracker.getPlaneVisualizationData();
                     vis_data->rect_points.clear();
                     
@@ -224,25 +222,11 @@ namespace cv {
                                     subsurface->coeffs(3), 
                                     subsurface->coeffs(0));
                             
-                            cv::Point3f intersection_pt2;
-                            subsurface_plane.intersect(ray, intersection_pt2);
-                                                
-                            if (!std::isnan(rgbd_img.getDepth().at<float>(
-                                    corner_px.y, corner_px.x))) {
+                            cv::Point3f intersection_pt;
+                            subsurface_plane.intersect(ray, intersection_pt);
                                 
-                                cv::Point3f intersection_pt = rgbd_img.backproject(corner_px);
-                                
-                                intersection_pt.z = -(subsurface->coeffs(0)
-                                        + subsurface->coeffs(1)*intersection_pt.x 
-                                        + subsurface->coeffs(2)*intersection_pt.y)/subsurface->coeffs(3);
-                                
-                                std::cout << "intersection pt: " << intersection_pt << "\n";
-                                std::cout << "intersection pt2: " << intersection_pt2 << "\n";
-                                
-                                if (intersection_pt.z < closest_pt.z)
-                                    closest_pt = intersection_pt;
-                                
-                            }
+                            if (intersection_pt.z < closest_pt.z)
+                                closest_pt = intersection_pt;
 
                         }
                         
