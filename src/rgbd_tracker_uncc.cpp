@@ -8,7 +8,7 @@
 #include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>
 
-extern int supermain(int, char **);
+extern int supermain(int, char **, PlaneVisualizationData& vis_data);
 
 namespace cv {
     namespace rgbd {
@@ -34,8 +34,11 @@ namespace cv {
 
 #ifdef PROFILE_CALLGRIND
             CALLGRIND_TOGGLE_COLLECT;
-#endif
-            //supermain(0,nullptr);
+#endif      
+            PlaneVisualizationData* vis_data = this->getPlaneVisualizationData();
+            supermain(0, nullptr, *vis_data);
+            std::cout << "num tris from marching cubes: " << vis_data->triangles.size() << std::endl;
+            
         }
     } /* namespace rgbd */
 } /* namespace cv */
