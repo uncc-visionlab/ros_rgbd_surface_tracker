@@ -143,7 +143,8 @@ void ROS_RgbdSurfaceTracker::rgbdImageCallback(const sensor_msgs::ImageConstPtr&
     rgbdSurfTracker.segmentDepth(rgbd_img);
 
     PlaneVisualizationData* vis_data = rgbdSurfTracker.getPlaneVisualizationData();
-    plane_vis.publishPlanes(*vis_data, depth_msg->header.stamp);
+    plane_vis.clearMarkerList();
+    plane_vis.publishTriangleMesh(*vis_data, depth_msg->header.stamp);
     
     if (image_pub.getNumSubscribers() > 0) {
         //show input with augmented information

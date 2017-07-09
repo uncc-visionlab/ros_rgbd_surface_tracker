@@ -37,6 +37,7 @@ public:
         triangle_list.type = visualization_msgs::Marker::TRIANGLE_LIST;
         triangle_list.ns = "planes";
         this->maxplanes = std::numeric_limits<int>::max();
+        this->maxtris = std::numeric_limits<int>::max();
         vis_pub = nodeptr->advertise<visualization_msgs::Marker>("planes", 10);
     }
     
@@ -47,6 +48,11 @@ public:
     void setMaxPlanes(std::size_t maxplanes) {
         this->maxplanes = maxplanes;
         
+    }
+    
+    void clearMarkerList() {
+        this->triangle_list.points.clear();
+        this->triangle_list.colors.clear();
     }
     
     void publishPlanes(const PlaneVisualizationData& vis_data, 
@@ -101,11 +107,56 @@ public:
         }
         
     }
+    
+    void publishTriangleMesh(const PlaneVisualizationData& vis_data, 
+            ros::Time timestamp = ros::Time::now()) {
+        
+        if (vis_pub.getNumSubscribers() > 0) {
+            triangle_list.header.stamp = timestamp;
+            std::size_t incoming_tris = vis_data.triangles.size();
+
+            if ((this->triangle_list.points.size() + 3*incoming_tris > maxtris) 
+                    && (incoming_tris < maxtris)) {
+                triangle_list.points.erase(triangle_list.points.begin(), 
+                        triangle_list.points.begin() + 3*incoming_tris);
+                triangle_list.colors.erase(triangle_list.colors.begin(), 
+                        triangle_list.colors.begin() + 3*incoming_tris);
+                triangle_list.points.reserve(triangle_list.points.size() + 3*incoming_tris);
+                triangle_list.colors.reserve(triangle_list.points.size() + 3*incoming_tris);
+            } else if (incoming_tris >= maxtris) {
+                triangle_list.points.clear();
+                triangle_list.colors.clear();
+                triangle_list.points.reserve(3*maxtris);
+                triangle_list.colors.reserve(3*maxtris);
+            }
+
+            for (auto& tri : vis_data.triangles) {
+                
+                for (std::size_t pt = 0; pt != 3; ++pt) {
+                    
+                    geometry_msgs::Point ptmsg;
+                    ptmsg.x = tri.vertices[pt](0);
+                    ptmsg.y = tri.vertices[pt](1);
+                    ptmsg.z = tri.vertices[pt](2);
+
+                    this->triangle_list.points.push_back(ptmsg);
+                }
+                
+            }
+        
+            ROS_DEBUG("Publishing %i triangle markers = %i vertices.", 
+                (int)triangle_list.points.size()/3, (int)triangle_list.points.size());
+
+            vis_pub.publish(triangle_list);
+        }
+        
+    }
 
 private:
     ros::Publisher vis_pub;
     visualization_msgs::Marker triangle_list;
     int maxplanes;
+    int maxtris;
 
 };
 

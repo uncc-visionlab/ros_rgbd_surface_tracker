@@ -40,6 +40,7 @@ namespace cv {
 #endif      
             
             PlaneVisualizationData* vis_data_ptr = this->getPlaneVisualizationData();
+            vis_data_ptr->triangles.clear();
             AlgebraicSurface<float> surf(Eigen::RowVector4f(-0.5, 0, 0, 1), 3, 1);
             Eigen::Matrix<float, 8, 3> cube;
             cube << -1, -1,  0,
@@ -51,12 +52,9 @@ namespace cv {
                      1,  1,  1,
                     -1,  1,  1;
             cube *= 8;
-            //std::cout << "cube = " << cube << std::endl;
-            float cubesize = 0.5;
-            float levelset = 0;
             
             Polygonizer<float> poly(&surf, vis_data_ptr);
-            poly.cube_size = 0.5;
+            poly.cube_size = 1;
             poly.level_set = 0;
             poly.polygonize();
             
