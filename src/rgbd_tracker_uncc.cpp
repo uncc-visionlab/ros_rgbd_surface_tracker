@@ -8,6 +8,7 @@
 #include <ros_rgbd_surface_tracker/AlgebraicSurface.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>
+#include <ros_rgbd_surface_tracker/Polygonizer.hpp>
 
 extern int supermain(AlgebraicSurface<float>& surf, PlaneVisualizationData& vis_data,
          Eigen::MatrixXf cube, float cubesize, float levelset);
@@ -37,25 +38,29 @@ namespace cv {
 #ifdef PROFILE_CALLGRIND
             CALLGRIND_TOGGLE_COLLECT;
 #endif      
-            PlaneVisualizationData* vis_data = this->getPlaneVisualizationData();
-            AlgebraicSurface<float> surf(3, 1);
-            surf.coeffs = Eigen::RowVector4f(-0.5, 0, 0, 1);
-            Eigen::MatrixXf cube(8,3);
-            cube << -1, -1, 0,
-                    1, -1, 0, 
-                    1, 1, 0,
-                    -1, 1, 0,
-                    -1, -1, 1, 
-                    1, -1, 1, 
-                    1, 1, 1,
-                    -1, 1, 1;
+            
+            PlaneVisualizationData* vis_data_ptr = this->getPlaneVisualizationData();
+            AlgebraicSurface<float> surf(Eigen::RowVector4f(-0.5, 0, 0, 1), 3, 1);
+            Eigen::Matrix<float, 8, 3> cube;
+            cube << -1, -1,  0,
+                     1, -1,  0,
+                     1,  1,  0,
+                    -1,  1,  0,
+                    -1, -1,  1,
+                     1, -1,  1,
+                     1,  1,  1,
+                    -1,  1,  1;
             cube *= 8;
             //std::cout << "cube = " << cube << std::endl;
             float cubesize = 0.5;
             float levelset = 0;
-            supermain(surf, *vis_data, cube, cubesize, levelset);
             
-            std::cout << "num tris from marching cubes: " << vis_data->triangles.size() << std::endl;
+            Polygonizer<float> poly(&surf, vis_data_ptr);
+            poly.cube_size = 0.5;
+            poly.level_set = 0;
+            poly.polygonize();
+            
+            std::cout << "num tris from marching cubes: " << vis_data_ptr->triangles.size() << std::endl;
 
         }
     } /* namespace rgbd */
