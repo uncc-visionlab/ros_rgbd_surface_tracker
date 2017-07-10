@@ -132,6 +132,17 @@ public:
 
             for (auto& tri : vis_data.triangles) {
                 
+                Eigen::Vector3f v1 = tri.vertices[1] - tri.vertices[0];
+                Eigen::Vector3f v2 = tri.vertices[2] - tri.vertices[0];
+                Eigen::Vector3f normal = v1.cross(v2).normalized();
+                
+                // colors based on normal vector (x,y,z) -> (r,g,b)
+                std_msgs::ColorRGBA colormsg;
+                colormsg.a = 1.0;
+                colormsg.r = std::abs(normal(0));
+                colormsg.g = std::abs(normal(1));
+                colormsg.b = std::abs(normal(2));
+                
                 for (std::size_t pt = 0; pt != 3; ++pt) {
                     
                     geometry_msgs::Point ptmsg;
@@ -140,6 +151,7 @@ public:
                     ptmsg.z = tri.vertices[pt](2);
 
                     this->triangle_list.points.push_back(ptmsg);
+                    this->triangle_list.colors.push_back(colormsg);
                 }
                 
             }

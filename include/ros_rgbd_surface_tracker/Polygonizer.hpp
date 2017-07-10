@@ -42,22 +42,29 @@ class Polygonizer {
     
 public:
     
-    Polygonizer();
-    
-    Polygonizer(AlgebraicSurface<ScalarType>* surface_ptr, PlaneVisualizationData* vis_data_ptr) {
-        this->surface_ptr = surface_ptr;
-        this->vis_data_ptr = vis_data_ptr;
-        
-    }
-    
-    
     struct vector {
         ScalarType x;
         ScalarType y;
         ScalarType z;
     };
     
+    struct EvaluationVolume {
+        
+        // meters
+        ScalarType length;
+        ScalarType width;
+        ScalarType height;
+        
+        vector num_blocks;
+    };
     
+    Polygonizer();
+    
+    Polygonizer(AlgebraicSurfaceProduct<ScalarType>* surface_ptr, PlaneVisualizationData* vis_data_ptr) {
+        this->surface_ptr = surface_ptr;
+        this->vis_data_ptr = vis_data_ptr;
+        
+    }
 
     ScalarType getOffset(ScalarType value1, ScalarType value2, ScalarType value_desired) {
         // finds the approximate point of intersection of the surface
@@ -76,9 +83,10 @@ public:
     }
     
     void marchCubes() {
-        for (std::size_t ix = 0; ix < this->dataset_size; ++ix)
-            for (std::size_t iy = 0; iy < this->dataset_size; ++iy)
-                for (std::size_t iz = 0; iz < this->dataset_size; ++iz) {
+        int half = std::round((ScalarType)this->dataset_size/2.0);
+        for (int ix = -half; ix < half; ++ix)
+            for (int iy = -half; iy < half; ++iy)
+                for (int iz = -half; iz < half; ++iz) {
                     marchSingleCube(ix*this->step_size, iy*this->step_size, iz*this->step_size, this->step_size);
                 }
         
@@ -124,12 +132,12 @@ public:
         for (edge = 0; edge < 12; edge++) {
             //if there is an intersection on this edge
             if (edge_flags & (1 << edge)) {
-                offset = this->getOffset(cube_value[ this->edge_connection[edge][0] ],
-                        cube_value[ this->edge_connection[edge][1] ], this->level_set);
+                offset = this->getOffset(cube_value[this->edge_connection[edge][0]],
+                        cube_value[this->edge_connection[edge][1]], this->level_set);
 
-                edge_vertex[edge].x = x + (this->vertex_offset[ this->edge_connection[edge][0] ][0] + offset * this->edge_direction[edge][0]) * scale;
-                edge_vertex[edge].y = y + (this->vertex_offset[ this->edge_connection[edge][0] ][1] + offset * this->edge_direction[edge][1]) * scale;
-                edge_vertex[edge].z = z + (this->vertex_offset[ this->edge_connection[edge][0] ][2] + offset * this->edge_direction[edge][2]) * scale;
+                edge_vertex[edge].x = x + (this->vertex_offset[this->edge_connection[edge][0]][0] + offset * this->edge_direction[edge][0]) * scale;
+                edge_vertex[edge].y = y + (this->vertex_offset[this->edge_connection[edge][0]][1] + offset * this->edge_direction[edge][1]) * scale;
+                edge_vertex[edge].z = z + (this->vertex_offset[this->edge_connection[edge][0]][2] + offset * this->edge_direction[edge][2]) * scale;
                 
             }
         }
@@ -156,7 +164,9 @@ public:
     int dataset_size = 16;
     ScalarType step_size = 1.0f/this->dataset_size;
     ScalarType level_set = 0.0;
-    AlgebraicSurface<ScalarType>* surface_ptr;
+    
+    EvaluationVolume vol;
+    AlgebraicSurfaceProduct<ScalarType>* surface_ptr;
     PlaneVisualizationData* vis_data_ptr;
 
     ScalarType vertex_offset[8][3] = {
