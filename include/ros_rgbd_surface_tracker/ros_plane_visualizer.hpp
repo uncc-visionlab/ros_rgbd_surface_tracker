@@ -145,7 +145,7 @@ public:
             }
         
             ROS_DEBUG("Publishing %i triangle markers = %i vertices.", 
-                (int)triangle_list.points.size()/3, (int)triangle_list.points.size());
+                (int)vis_data.triangles.size(), (int)triangle_list.points.size());
 
             vis_pub.publish(triangle_list);
         }

@@ -150,9 +150,11 @@ GLvoid vMarchCube2(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale, PlaneVisu
 GLvoid(*vMarchCube)(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale, PlaneVisualizationData& vis_data) = vMarchCube1;
 
 int supermain(AlgebraicSurface<float>& surf, PlaneVisualizationData& vis_data, 
-        Eigen::MatrixXf cube, float cubesize, float levelset) {
+        const Eigen::Matrix<float, 8, 3>& cube, float cubesize, float levelset) {
+    
     vis_data_ptr = &vis_data;
     iDataSetSize = 1.0f / cubesize;
+    fStepSize = 1.0 / iDataSetSize;
     fTargetValue = levelset;
     for (int row = 0; row < 8; ++row) {
         for (int col = 0; col < 3; ++col) {
@@ -162,49 +164,49 @@ int supermain(AlgebraicSurface<float>& surf, PlaneVisualizationData& vis_data,
     surf_ptr = &surf;
     fSample = surfaceEvaluate;
     vMarchingCubes(vis_data);
-    //        GLfloat afPropertiesAmbient [] = {0.50, 0.50, 0.50, 1.00};
-    //        GLfloat afPropertiesDiffuse [] = {0.75, 0.75, 0.75, 1.00};
-    //        GLfloat afPropertiesSpecular[] = {1.00, 1.00, 1.00, 1.00};
-    //        GLsizei iWidth = 640.0;
-    //        GLsizei iHeight = 480.0;
-    //        int argc = 0;
-    //        char **argv = NULL;
-    //        glutInit(&argc, argv);
-    //        glutInitWindowPosition(0, 0);
-    //        glutInitWindowSize(iWidth, iHeight);
-    //        glutInitDisplayMode(GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE);
-    //        glutCreateWindow("Marching Cubes");
-    //        glutDisplayFunc(vDrawScene);
-    //        glutIdleFunc(vIdle);
-    //        glutReshapeFunc(vResize);
-    //        glutKeyboardFunc(vKeyboard);
-    //        glutSpecialFunc(vSpecial);
-    //
-    //        glClearColor(0.0, 0.0, 0.0, 1.0);
-    //        glClearDepth(1.0);
-    //    
-    //        glEnable(GL_DEPTH_TEST);
-    //        glEnable(GL_LIGHTING);
-    //        glPolygonMode(GL_FRONT_AND_BACK, ePolygonMode);
-    //
-    //        glLightfv(GL_LIGHT0, GL_AMBIENT, afPropertiesAmbient);
-    //        glLightfv(GL_LIGHT0, GL_DIFFUSE, afPropertiesDiffuse);
-    //        glLightfv(GL_LIGHT0, GL_SPECULAR, afPropertiesSpecular);
-    //        glLightModelf(GL_LIGHT_MODEL_TWO_SIDE, 1.0);
-    //    
-    //        glEnable(GL_LIGHT0);
-    //    
-    //        glMaterialfv(GL_BACK, GL_AMBIENT, afAmbientGreen);
-    //        glMaterialfv(GL_BACK, GL_DIFFUSE, afDiffuseGreen);
-    //        glMaterialfv(GL_FRONT, GL_AMBIENT, afAmbientBlue);
-    //        glMaterialfv(GL_FRONT, GL_DIFFUSE, afDiffuseBlue);
-    //        glMaterialfv(GL_FRONT, GL_SPECULAR, afSpecularWhite);
-    //        glMaterialf(GL_FRONT, GL_SHININESS, 25.0);
-    //    
-    //        vResize(iWidth, iHeight);
-    //    
-    //        vPrintHelp();
-    //        glutMainLoop();
+            GLfloat afPropertiesAmbient [] = {0.50, 0.50, 0.50, 1.00};
+            GLfloat afPropertiesDiffuse [] = {0.75, 0.75, 0.75, 1.00};
+            GLfloat afPropertiesSpecular[] = {1.00, 1.00, 1.00, 1.00};
+            GLsizei iWidth = 640.0;
+            GLsizei iHeight = 480.0;
+            int argc = 0;
+            char **argv = NULL;
+            glutInit(&argc, argv);
+            glutInitWindowPosition(0, 0);
+            glutInitWindowSize(iWidth, iHeight);
+            glutInitDisplayMode(GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE);
+            glutCreateWindow("Marching Cubes");
+            glutDisplayFunc(vDrawScene);
+            glutIdleFunc(vIdle);
+            glutReshapeFunc(vResize);
+            glutKeyboardFunc(vKeyboard);
+            glutSpecialFunc(vSpecial);
+    
+            glClearColor(0.0, 0.0, 0.0, 1.0);
+            glClearDepth(1.0);
+        
+            glEnable(GL_DEPTH_TEST);
+            glEnable(GL_LIGHTING);
+            glPolygonMode(GL_FRONT_AND_BACK, ePolygonMode);
+    
+            glLightfv(GL_LIGHT0, GL_AMBIENT, afPropertiesAmbient);
+            glLightfv(GL_LIGHT0, GL_DIFFUSE, afPropertiesDiffuse);
+            glLightfv(GL_LIGHT0, GL_SPECULAR, afPropertiesSpecular);
+            glLightModelf(GL_LIGHT_MODEL_TWO_SIDE, 1.0);
+        
+            glEnable(GL_LIGHT0);
+        
+            glMaterialfv(GL_BACK, GL_AMBIENT, afAmbientGreen);
+            glMaterialfv(GL_BACK, GL_DIFFUSE, afDiffuseGreen);
+            glMaterialfv(GL_FRONT, GL_AMBIENT, afAmbientBlue);
+            glMaterialfv(GL_FRONT, GL_DIFFUSE, afDiffuseBlue);
+            glMaterialfv(GL_FRONT, GL_SPECULAR, afSpecularWhite);
+            glMaterialf(GL_FRONT, GL_SHININESS, 25.0);
+        
+            vResize(iWidth, iHeight);
+        
+            vPrintHelp();
+            glutMainLoop();
 }
 
 GLfloat surfaceEvaluate(GLfloat fX, GLfloat fY, GLfloat fZ) {
@@ -322,12 +324,12 @@ void vSpecial(int iKey, int iX, int iY) {
             }
         }
             break;
-        case GLUT_KEY_HOME:
+        case GLUT_KEY_UP:
         {
             bSpin = !bSpin;
         }
             break;
-        case GLUT_KEY_END:
+        case GLUT_KEY_DOWN:
         {
             bMove = !bMove;
         }
@@ -585,8 +587,10 @@ GLvoid vMarchCube1(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale, PlaneVisu
 
             tri.vertices[iCorner] = Eigen::Vector3f(asEdgeVertex[iVertex].fX, asEdgeVertex[iVertex].fY, asEdgeVertex[iVertex].fZ);
             //std::cout << "vert = " << tri.vertices[iCorner] << std::endl;
-            vis_data.triangles.push_back(tri);
+            
         }
+        
+        vis_data.triangles.push_back(tri);
     }
 }
 

@@ -11,7 +11,7 @@
 #include <ros_rgbd_surface_tracker/Polygonizer.hpp>
 
 extern int supermain(AlgebraicSurface<float>& surf, PlaneVisualizationData& vis_data,
-         Eigen::MatrixXf cube, float cubesize, float levelset);
+         const Eigen::Matrix<float, 8, 3>& cube, float cubesize, float levelset);
 
 namespace cv {
     namespace rgbd {
@@ -41,7 +41,8 @@ namespace cv {
             
             PlaneVisualizationData* vis_data_ptr = this->getPlaneVisualizationData();
             vis_data_ptr->triangles.clear();
-            AlgebraicSurface<float> surf(Eigen::RowVector4f(-0.5, 0, 0, 1), 3, 1);
+            vis_data_ptr->rect_points.clear();
+            AlgebraicSurface<float> surf(Eigen::RowVector4f(-0.8, 0, 0, 1), 3, 1);
             Eigen::Matrix<float, 8, 3> cube;
             cube << -1, -1,  0,
                      1, -1,  0,
@@ -51,13 +52,23 @@ namespace cv {
                      1, -1,  1,
                      1,  1,  1,
                     -1,  1,  1;
-            cube *= 8;
+            cube *= 1;
+            
+            float cubesize = 0.1;
+            float levelset = 0;
+//            supermain(surf, *vis_data_ptr, cube, cubesize, levelset);
             
             Polygonizer<float> poly(&surf, vis_data_ptr);
-            poly.cube_size = 1;
+            poly.dataset_size = 1.0/cubesize;
+            poly.step_size = cubesize;
             poly.level_set = 0;
+            for (int row = 0; row < 8; ++row) {
+                for (int col = 0; col < 3; ++col) {
+                    poly.vertex_offset[row][col] = cube(row, col);
+                }
+            }   
             poly.polygonize();
-            
+     
             std::cout << "num tris from marching cubes: " << vis_data_ptr->triangles.size() << std::endl;
 
         }

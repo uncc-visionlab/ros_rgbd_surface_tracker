@@ -76,12 +76,16 @@ public:
     }
     
     void marchCubes() {
-        int iX, iY, iZ;
         for (std::size_t ix = 0; ix < this->dataset_size; ++ix)
             for (std::size_t iy = 0; iy < this->dataset_size; ++iy)
                 for (std::size_t iz = 0; iz < this->dataset_size; ++iz) {
                     marchSingleCube(ix*this->step_size, iy*this->step_size, iz*this->step_size, this->step_size);
                 }
+        
+//        for (auto& tri : this->vis_data_ptr->triangles) {
+//            std::cout << tri.vertices[0].transpose() << " | " << tri.vertices[1].transpose() << " | " << tri.vertices[2].transpose() << "\n";
+//            
+//        }
     }
     
     void marchSingleCube(ScalarType x, ScalarType y, ScalarType z, ScalarType scale) {
@@ -90,7 +94,6 @@ public:
         ScalarType offset;
         ScalarType cube_value[8];
         vector edge_vertex[12];
-        vector edge_norm[12];
 
         //Make a local copy of the values at the cube's corners
         for (vertex = 0; vertex < 8; vertex++) {
@@ -128,11 +131,6 @@ public:
                 edge_vertex[edge].y = y + (this->vertex_offset[ this->edge_connection[edge][0] ][1] + offset * this->edge_direction[edge][1]) * scale;
                 edge_vertex[edge].z = z + (this->vertex_offset[ this->edge_connection[edge][0] ][2] + offset * this->edge_direction[edge][2]) * scale;
                 
-                Eigen::Matrix<ScalarType, 1, 3> edge_eigen(edge_vertex[edge].x, edge_vertex[edge].y, edge_vertex[edge].z);
-                edge_norm[edge].x = this->surface_ptr->evaluateDerivative(0, edge_eigen);
-                edge_norm[edge].y = this->surface_ptr->evaluateDerivative(1, edge_eigen);
-                edge_norm[edge].z = this->surface_ptr->evaluateDerivative(2, edge_eigen);
-                
             }
         }
 
@@ -143,17 +141,23 @@ public:
                 break;
 
             PlaneVisualizationData::Tri tri;
-
+            
             for (corner = 0; corner < 3; corner++) {
                 vertex = this->triangle_connection_table[flag_index][3 * triangle + corner];
 
                 tri.vertices[corner] = Eigen::Vector3f(edge_vertex[vertex].x, edge_vertex[vertex].y, edge_vertex[vertex].z);
-                //std::cout << "vert = " << tri.vertices[corner] << std::endl;
-                this->vis_data_ptr->triangles.push_back(tri);
+                
             }
+            
+            this->vis_data_ptr->triangles.push_back(tri);
         }
     }
-        
+    
+    int dataset_size = 16;
+    ScalarType step_size = 1.0f/this->dataset_size;
+    ScalarType level_set = 0.0;
+    AlgebraicSurface<ScalarType>* surface_ptr;
+    PlaneVisualizationData* vis_data_ptr;
 
     ScalarType vertex_offset[8][3] = {
         // lists the positions, relative to vertex0, of each of the 8 vertices of a cube
@@ -488,14 +492,6 @@ public:
         {0, 3, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
         {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}
     };
-    
-    
-    int dataset_size = 16;
-    ScalarType cube_size;
-    ScalarType step_size = 1.0/this->dataset_size;
-    ScalarType level_set = 0.0;
-    AlgebraicSurface<ScalarType>* surface_ptr;
-    PlaneVisualizationData* vis_data_ptr;
     
 };
 
