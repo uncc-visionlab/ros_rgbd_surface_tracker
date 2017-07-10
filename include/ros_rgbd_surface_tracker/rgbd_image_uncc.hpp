@@ -17,6 +17,7 @@
 #ifdef __cplusplus
 
 #include <iostream>
+#include <unordered_map>
 
 #include <boost/shared_ptr.hpp>
 
@@ -58,6 +59,7 @@ namespace cv {
             cv::Mat one_div_z;
             cv::Mat one_div_z_sq;
 
+            std::unordered_map<int, cv::Mat> matMap;
         public:
             typedef boost::shared_ptr<DepthIntegralImages> Ptr;
 
@@ -132,6 +134,52 @@ namespace cv {
                         iImg.at<T>(rect.y + rect.height, rect.x) - iImg.at<T>(rect.y, rect.x + rect.width);
             }
 
+
+#define GETSUM(src, type, A, B, C, D) ((type *)src.data)[D] + ((type *)src.data)[A] - \
+                ((type *)src.data)[B] - ((type *)src.data)[C]                
+
+            void computeMat_LUT() {
+                cv::Size halfWinSize(winSize.width >> 1, winSize.height >> 1);
+                // roi should be a parameter
+                cv::Point2i roiTLC(halfWinSize.width, halfWinSize.height);
+                cv::Rect roi(roiTLC.x, roiTLC.y, width - 2 * roiTLC.x, height - 2 * roiTLC.y);
+
+                cv::Rect slidingWindow(roiTLC.x - halfWinSize.width,
+                        roiTLC.y - halfWinSize.height,
+                        winSize.width, winSize.height);
+                int offset_tlc, offset_trc, offset_blc, offset_brc;
+                cv::Point2i winCenter;
+                cv::Mat MtM(3, 3, CV_32F);
+                //cv::Mat iMtM;
+                float *mtm_ptr;
+                int numPts = slidingWindow.area();
+                for (winCenter.y = roi.y; winCenter.y < roi.y + roi.height; ++winCenter.y, ++slidingWindow.y) {
+                    offset_tlc = slidingWindow.y * (width + 1) + roi.x;
+                    offset_trc = offset_tlc + slidingWindow.width;
+                    offset_blc = offset_tlc + slidingWindow.height * (width + 1);
+                    offset_brc = offset_blc + slidingWindow.width;
+                    for (winCenter.x = roi.x; winCenter.x < roi.x + roi.width; ++winCenter.x) {
+                        mtm_ptr = MtM.ptr<float>(0, 0);
+                        *mtm_ptr++ = GETSUM(tan_theta_x_sq, double, offset_tlc, offset_trc, offset_blc, offset_brc);
+                        *mtm_ptr++ = GETSUM(tan_theta_xy, double, offset_tlc, offset_trc, offset_blc, offset_brc);
+                        *mtm_ptr++ = GETSUM(tan_theta_x, double, offset_tlc, offset_trc, offset_blc, offset_brc);
+                        *mtm_ptr++ = MtM.at<float>(0, 1);
+                        *mtm_ptr++ = GETSUM(tan_theta_y_sq, double, offset_tlc, offset_trc, offset_blc, offset_brc);
+                        *mtm_ptr++ = GETSUM(tan_theta_y, double, offset_tlc, offset_trc, offset_blc, offset_brc);
+                        *mtm_ptr++ = MtM.at<float>(0, 2);
+                        *mtm_ptr++ = MtM.at<float>(1, 2);
+                        *mtm_ptr++ = numPts;
+                        cv::Mat iMtM = MtM.inv();
+                        int key = winCenter.y * width + winCenter.x;
+                        matMap.insert({key, iMtM});
+                        offset_tlc++;
+                        offset_trc++;
+                        offset_blc++;
+                        offset_brc++;
+                    }
+                }
+            }
+
             void initialize(int _width, int _height, float _cx, float _cy, float _inv_f,
                     cv::Size _winSize) {
                 width = _width;
@@ -183,6 +231,7 @@ namespace cv {
                 cv::integral(_tan_theta_x, tan_theta_x, tan_theta_x_sq, CV_64F, CV_64F);
                 cv::integral(_tan_theta_y, tan_theta_y, tan_theta_y_sq, CV_64F, CV_64F);
                 cv::integral(_tan_theta_xy, tan_theta_xy, CV_64F);
+                computeMat_LUT();
                 std::cout << "Computed integral images of (tax_x, tan_y) for "
                         << width << "x" << height << " depth images." << std::endl;
             }
@@ -199,30 +248,15 @@ namespace cv {
                 compute(depth_ori, normals);
             }
 
-
-#define GETSUM(src, type, A, B, C, D) ((type *)src.data)[D] + ((type *)src.data)[A] - \
-                ((type *)src.data)[B] - ((type *)src.data)[C]                
-
             void compute(const cv::Mat& depth, cv::Mat& normals) {
-                //cv::Mat _tan_theta_x_div_z(depth.size(), CV_32F);
-                //cv::Mat _tan_theta_y_div_z(depth.size(), CV_32F);
-                //cv::Mat _one_div_z(depth.size(), CV_32F);
-                //cv::Mat _one_div_z_sq(depth.size(), CV_32F);
-                //cv::Mat _ones_valid_mask(depth.size(), CV_32F);
-
-                //cv::Mat numValidPts(height + 1, width + 1, CV_32F);
-                //cv::Mat tan_theta_x_div_z(height + 1, width + 1, CV_64F);
-                //cv::Mat tan_theta_y_div_z(height + 1, width + 1, CV_64F);
-                //cv::Mat one_div_z(height + 1, width + 1, CV_64F);
-                //cv::Mat one_div_z_sq(height + 1, width + 1, CV_64F);
-                float *depth_ptr = (float *) depth.data;
-                float *_one_div_z_ptr = (float *) _one_div_z.data;
-                float *_ones_valid_mask_ptr = (float *) _ones_valid_mask.data;
-                float *_tan_theta_x_div_z_ptr = (float *) _tan_theta_x_div_z.data;
-                float *_tan_theta_y_div_z_ptr = (float *) _tan_theta_y_div_z.data;
-                float *_one_div_z_sq_ptr = (float *) _one_div_z_sq.data;
-                float *ntan_theta_x_ptr = (float *) ntan_theta_x.data;
-                float *ntan_theta_y_ptr = (float *) ntan_theta_y.data;
+                const float *depth_ptr = depth.ptr<float>(0, 0);
+                float *_ones_valid_mask_ptr = _ones_valid_mask.ptr<float>(0, 0);
+                float *_tan_theta_x_div_z_ptr = _tan_theta_x_div_z.ptr<float>(0, 0);
+                float *_tan_theta_y_div_z_ptr = _tan_theta_y_div_z.ptr<float>(0, 0);
+                float *_one_div_z_ptr = _one_div_z.ptr<float>(0, 0);
+                float *_one_div_z_sq_ptr = _one_div_z_sq.ptr<float>(0, 0);
+                float *ntan_theta_x_ptr = ntan_theta_x.ptr<float>(0, 0);
+                float *ntan_theta_y_ptr = ntan_theta_y.ptr<float>(0, 0);
                 for (int pixNum = 0; pixNum < depth.rows * depth.cols; ++pixNum) {
                     if (std::isnan(depth_ptr[pixNum])) {
                         _one_div_z_ptr[pixNum] = 0;
@@ -262,7 +296,7 @@ namespace cv {
                 cv::Size halfWinSize(winSize.width >> 1, winSize.height >> 1);
                 int numcomp = 0;
                 // roi should be a parameter
-                cv::Point2i roiTLC(halfWinSize.width + 2, halfWinSize.height + 2);
+                cv::Point2i roiTLC(halfWinSize.width, halfWinSize.height);
                 //cv::Point2i roiTLC(315, 235);
                 cv::Rect roi(roiTLC.x, roiTLC.y, width - 2 * roiTLC.x, height - 2 * roiTLC.y);
 
@@ -278,9 +312,9 @@ namespace cv {
                     offset_brc = offset_blc + slidingWindow.width;
                     normptr = normals.ptr<cv::Vec3f>(winCenter.y, roi.x);
                     for (winCenter.x = roi.x; winCenter.x < roi.x + roi.width; ++winCenter.x) {
-                        if (std::isnan(depth_ptr[winCenter.y * width + winCenter.x])) {
-                            continue;
-                        }
+                        //if (std::isnan(depth_ptr[winCenter.y * width + winCenter.x])) {
+                        //    continue;
+                        //}
                         numValidWinPts = GETSUM(numValidPts, float, offset_tlc, offset_trc, offset_blc, offset_brc);
                         if (numValidWinPts == numPts) {
                             s_ptr = (double *) sVals.data;
@@ -301,11 +335,6 @@ namespace cv {
                             *s_ptr++ = sVals.at<double>(2, 3);
                             *s_ptr++ = GETSUM(one_div_z_sq, double, offset_tlc, offset_trc, offset_blc, offset_brc);
                             //std::cout << "svals = " << sVals << std::endl;
-                            //directly use the buffer allocated by OpenCV
-                            //Eigen::Map<Eigen::Matrix4d> eigenT((double *) sVals.data);
-                            //es.compute(eigenT);
-                            //std::cout << "The eigenvalues of A are:" << std::endl << es.eigenvalues() << std::endl;
-                            //std::cout << "The matrix of eigenvectors, V, is:" << std::endl << es.eigenvectors() << std::endl;
                             cv::eigen(sVals, eVals, eVecs);
                             //std::cout << "evecs = " << eVecs << std::endl;
                             //std::cout << "evals = " << eVals << std::endl;
@@ -316,7 +345,6 @@ namespace cv {
                                     coeffs_ptr[dim] = -coeffs_ptr[dim];
                                 }
                             }
-                            //std::cout << "coeffs = " << coeffs << std::endl;
                             float normf = 0;
                             for (int dim = 0; dim < 3; ++dim) {
                                 normf += (coeffs_ptr[dim])*(coeffs_ptr[dim]);
@@ -326,9 +354,10 @@ namespace cv {
                             //std::cout << "normf = " << normf << std::endl;
                             //std::cout << "coeffs = " << coeffs << std::endl;
                             float error = sqrt(eVals.at<double>(3, 0)) / (normf * numPts);
-                            (*normptr)[0] = coeffs_ptr[0];
-                            (*normptr)[1] = coeffs_ptr[1];
-                            (*normptr)[2] = coeffs_ptr[2];
+                            cv::Vec3f& normVal = *normptr;
+                            normVal[0] = coeffs_ptr[0];
+                            normVal[1] = coeffs_ptr[1];
+                            normVal[2] = coeffs_ptr[2];
                             //std::cout << "normval = " << normals.at<cv::Vec3f>(winCenter.y, winCenter.x) << std::endl;
                             numcomp++;
                         }
@@ -343,13 +372,13 @@ namespace cv {
             }
 
             void compute2(const cv::Mat& depth, cv::Mat& normals) {
-                float *depth_ptr = (float *) depth.data;
-                float *_one_div_z_ptr = (float *) _one_div_z.data;
-                float *_ones_valid_mask_ptr = (float *) _ones_valid_mask.data;
-                float *_tan_theta_x_div_z_ptr = (float *) _tan_theta_x_div_z.data;
-                float *_tan_theta_y_div_z_ptr = (float *) _tan_theta_y_div_z.data;
-                float *ntan_theta_x_ptr = (float *) ntan_theta_x.data;
-                float *ntan_theta_y_ptr = (float *) ntan_theta_y.data;
+                const float *depth_ptr = depth.ptr<float>(0, 0);
+                float *_one_div_z_ptr = _one_div_z.ptr<float>(0, 0);
+                float *_ones_valid_mask_ptr = _ones_valid_mask.ptr<float>(0, 0);
+                float *_tan_theta_x_div_z_ptr = _tan_theta_x_div_z.ptr<float>(0, 0);
+                float *_tan_theta_y_div_z_ptr = _tan_theta_y_div_z.ptr<float>(0, 0);
+                float *ntan_theta_x_ptr = ntan_theta_x.ptr<float>(0, 0);
+                float *ntan_theta_y_ptr = ntan_theta_y.ptr<float>(0, 0);
                 for (int pixNum = 0; pixNum < depth.rows * depth.cols; ++pixNum) {
                     if (std::isnan(depth_ptr[pixNum])) {
                         _one_div_z_ptr[pixNum] = 0;
@@ -371,13 +400,18 @@ namespace cv {
                 cv::Mat MtM(3, 3, CV_32F);
                 cv::Mat iMtM(3, 3, CV_32F);
                 cv::Mat Mtb(3, 1, CV_32F);
+                cv::Mat sol(3, 1, CV_32F);
                 cv::Mat coeffs(1, 4, CV_32F);
-                float *mtm_ptr, *mtb_ptr, *sol_ptr, *coeffs_ptr;
+                float *mtm_ptr, *mtb_ptr, *imtm_ptr, *sol_ptr, *coeffs_ptr;
+                mtb_ptr = Mtb.ptr<float>(0);
+                sol_ptr = sol.ptr<float>(0);
+                coeffs_ptr = coeffs.ptr<float>(0);
+
                 cv::Vec3f *normptr;
                 cv::Size halfWinSize(winSize.width >> 1, winSize.height >> 1);
                 int numcomp = 0;
                 // roi should be a parameter
-                cv::Point2i roiTLC(halfWinSize.width + 2, halfWinSize.height + 2);
+                cv::Point2i roiTLC(halfWinSize.width, halfWinSize.height);
                 //cv::Point2i roiTLC(315, 235);
                 cv::Rect roi(roiTLC.x, roiTLC.y, width - 2 * roiTLC.x, height - 2 * roiTLC.y);
 
@@ -392,33 +426,39 @@ namespace cv {
                     offset_blc = offset_tlc + slidingWindow.height * (width + 1);
                     offset_brc = offset_blc + slidingWindow.width;
                     normptr = normals.ptr<cv::Vec3f>(winCenter.y, roi.x);
-                    for (winCenter.x = roi.x; winCenter.x < roi.x + roi.width; ++winCenter.x) {
-                        if (std::isnan(depth_ptr[winCenter.y * width + winCenter.x])) {
-                            continue;
-                        }
+                    int key = winCenter.y * width + roi.x;
+                    for (winCenter.x = roi.x; winCenter.x < roi.x + roi.width; ++winCenter.x, ++key) {
+                        //                        if (std::isnan(depth_ptr[winCenter.y * width + winCenter.x])) {
+                        //                            continue;
+                        //                        }
                         numValidWinPts = GETSUM(numValidPts, float, offset_tlc, offset_trc, offset_blc, offset_brc);
                         if (numValidWinPts == numPts) {
-                            mtm_ptr = (float *) MtM.data;
-                            *mtm_ptr++ = GETSUM(tan_theta_x_sq, double, offset_tlc, offset_trc, offset_blc, offset_brc);
-                            *mtm_ptr++ = GETSUM(tan_theta_xy, double, offset_tlc, offset_trc, offset_blc, offset_brc);
-                            *mtm_ptr++ = GETSUM(tan_theta_x, double, offset_tlc, offset_trc, offset_blc, offset_brc);
-                            *mtm_ptr++ = MtM.at<float>(0, 1);
-                            *mtm_ptr++ = GETSUM(tan_theta_y_sq, double, offset_tlc, offset_trc, offset_blc, offset_brc);
-                            *mtm_ptr++ = GETSUM(tan_theta_y, double, offset_tlc, offset_trc, offset_blc, offset_brc);
-                            *mtm_ptr++ = MtM.at<float>(0, 2);
-                            *mtm_ptr++ = MtM.at<float>(1, 2);
-                            *mtm_ptr++ = numPts;
-
-                            mtb_ptr = (float *) Mtb.data;
-                            *mtb_ptr++ = GETSUM(tan_theta_x_div_z, double, offset_tlc, offset_trc, offset_blc, offset_brc);
-                            *mtb_ptr++ = GETSUM(tan_theta_y_div_z, double, offset_tlc, offset_trc, offset_blc, offset_brc);
-                            *mtb_ptr++ = GETSUM(one_div_z, double, offset_tlc, offset_trc, offset_blc, offset_brc);
+                            //                            //mtm_ptr = MtM.ptr<float>(0, 0);
+                            //                            //*mtm_ptr++ = GETSUM(tan_theta_x_sq, double, offset_tlc, offset_trc, offset_blc, offset_brc);
+                            //                            //*mtm_ptr++ = GETSUM(tan_theta_xy, double, offset_tlc, offset_trc, offset_blc, offset_brc);
+                            //                            //*mtm_ptr++ = GETSUM(tan_theta_x, double, offset_tlc, offset_trc, offset_blc, offset_brc);
+                            //                            //*mtm_ptr++ = MtM.at<float>(0, 1);
+                            //                            //*mtm_ptr++ = GETSUM(tan_theta_y_sq, double, offset_tlc, offset_trc, offset_blc, offset_brc);
+                            //                            //*mtm_ptr++ = GETSUM(tan_theta_y, double, offset_tlc, offset_trc, offset_blc, offset_brc);
+                            //                            //*mtm_ptr++ = MtM.at<float>(0, 2);
+                            //                            //*mtm_ptr++ = MtM.at<float>(1, 2);
+                            //                            //*mtm_ptr++ = numPts;
+                            //                            //iMtM = MtM.inv();
+                            //
+                            mtb_ptr[0] = GETSUM(tan_theta_x_div_z, double, offset_tlc, offset_trc, offset_blc, offset_brc);
+                            mtb_ptr[1] = GETSUM(tan_theta_y_div_z, double, offset_tlc, offset_trc, offset_blc, offset_brc);
+                            mtb_ptr[2] = GETSUM(one_div_z, double, offset_tlc, offset_trc, offset_blc, offset_brc);
                             //std::cout << "MtM = " << MtM << std::endl;
-                            iMtM = MtM.inv();
-                            //std::cout << "iMtM = " << iMtM << std::endl;
-                            cv::Mat sol = iMtM*Mtb;
-                            sol_ptr = sol.ptr<float>(0);
-                            coeffs_ptr = coeffs.ptr<float>(0);
+                            imtm_ptr = matMap[key].ptr<float>(0, 0);
+                            //if (iMtM.empty()) {
+                            //    std::cout << "Key for matrix inverse not found!" << std::endl;
+                            //}
+                            //std::cout << "iMtM" << winCenter << " = " << iMtM << std::endl;
+                            //std::cout << "iMtM2 = " << iMtM2 << std::endl;
+                            sol_ptr[0] = imtm_ptr[0] * mtb_ptr[0] + imtm_ptr[1] * mtb_ptr[1] + imtm_ptr[2] * mtb_ptr[2];
+                            sol_ptr[1] = imtm_ptr[3] * mtb_ptr[0] + imtm_ptr[4] * mtb_ptr[1] + imtm_ptr[5] * mtb_ptr[2];
+                            sol_ptr[2] = imtm_ptr[6] * mtb_ptr[0] + imtm_ptr[7] * mtb_ptr[1] + imtm_ptr[8] * mtb_ptr[2];
+                            //cv::Mat sol = iMtM*Mtb;
                             float normf = 0;
                             for (int dim = 0; dim < 2; ++dim) {
                                 coeffs_ptr[dim] = sol_ptr[dim];
@@ -435,9 +475,10 @@ namespace cv {
                             //std::cout << "normf = " << normf << std::endl;
                             //std::cout << "coeffs = " << coeffs << std::endl;
                             //float error = sqrt(eVals.at<double>(3, 0)) / (normf * numPts);
-                            (*normptr)[0] = coeffs_ptr[0];
-                            (*normptr)[1] = coeffs_ptr[1];
-                            (*normptr)[2] = coeffs_ptr[2];
+                            cv::Vec3f& normVal = *normptr;
+                            normVal[0] = coeffs_ptr[0];
+                            normVal[1] = coeffs_ptr[1];
+                            normVal[2] = coeffs_ptr[2];
                             //std::cout << "normval = " << normals.at<cv::Vec3f>(winCenter.y, winCenter.x) << std::endl;
                             numcomp++;
                         }
@@ -471,13 +512,6 @@ namespace cv {
                 //lptr = img_L.ptr<uchar>();
                 istep = (int) (_img_I.step / _img_I.elemSize1());
                 zstep = (int) (_img_Z.step / _img_Z.elemSize1());
-                //                for (int r=0; r < height; r++) {
-                //                    for (int c=0; c < width; c++) {
-                //                            //const float& depth = zptr[r * img_Z.cols + c];
-                //                            std::cout << "depth = " <<_img_Z.at<float>(r,c) << std::endl;                        
-                //                    }
-                //                }
-
                 //lstep = (int) (_img_L.step / _img_L.elemSize1());
                 cameraMatrix = cv::Mat::zeros(3, 3, CV_32F);
                 cameraMatrix.at<float>(0, 0) = _f;
@@ -774,45 +808,51 @@ namespace cv {
                 int normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_FALS; // 7.0 fps
                 //int normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_LINEMOD;
                 //int normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_SRI; // 1.14 fps
-                cv::Ptr<RgbdNormals> normalsComputer;
-                normalsComputer = makePtr<RgbdNormals>(getDepth().rows,
-                        getDepth().cols,
-                        getDepth().depth(),
-                        getCameraMatrix(),
-                        normalWinSize,
-                        normalMethod);
-                setNormalsComputer(normalsComputer);
+                                cv::Ptr<RgbdNormals> normalsComputer;
+                                normalsComputer = makePtr<RgbdNormals>(getDepth().rows,
+                                        getDepth().cols,
+                                        getDepth().depth(),
+                                        getCameraMatrix(),
+                                        normalWinSize,
+                                        normalMethod);
+                                setNormalsComputer(normalsComputer);
+                
+                                cv::Mat normals(getDepth().size(), CV_32FC3);
+                                cv::Mat points(getDepth().size(), CV_32FC3);
+                                for (int r = 0; r < getDepth().rows; ++r) {
+                                    for (int c = 0; c < getDepth().cols; ++c) {
+                                        const float& depth = zptr[r * zstep + c];
+                                        points.at<cv::Point3f>(r, c).x = (c - cx) * inv_f*depth;
+                                        points.at<cv::Point3f>(r, c).y = (r - cy) * inv_f*depth;
+                                        points.at<cv::Point3f>(r, c).z = depth;
+                                    }
+                                }
+                                (*normalsComputer)(points, normals);
+                
+                                cv::Mat normals2(getDepth().size(), CV_32FC3);
+                                iImgs.compute(getDepth(), normals2);
+                cv::Mat normals3(getDepth().size(), CV_32FC3);
+                iImgs.compute2(getDepth(), normals3);
 
-                cv::Mat normals(getDepth().size(), CV_32FC3);
-                cv::Mat points(getDepth().size(), CV_32FC3);
-                for (int r = 0; r < getDepth().rows; ++r) {
-                    for (int c = 0; c < getDepth().cols; ++c) {
-                        const float& depth = zptr[r * zstep + c];
-                        points.at<cv::Point3f>(r, c).x = (c - cx) * inv_f*depth;
-                        points.at<cv::Point3f>(r, c).y = (r - cy) * inv_f*depth;
-                        points.at<cv::Point3f>(r, c).z = depth;
-                    }
-                }
-                (*normalsComputer)(points, normals);
-
-                cv::Mat normals2(getDepth().size(), CV_32FC3);
-                iImgs.compute2(getDepth(), normals2);
-
-                cv::Point2i tlc(315, 235);
+                                cv::Point2i tlc(315, 235);
                 cv::Rect roi(tlc.x, tlc.y, width - 2 * tlc.x, height - 2 * tlc.y);
                 cv::Point2i winCenter;
-                cv::Vec3f *normptr, *normptr2;
+                cv::Vec3f *normptr, *normptr2, *normptr3;
                 for (winCenter.y = roi.y; winCenter.y < roi.y + roi.height; ++winCenter.y) {
                     normptr = normals.ptr<cv::Vec3f>(winCenter.y, roi.x);
                     normptr2 = normals2.ptr<cv::Vec3f>(winCenter.y, roi.x);
+                    normptr3 = normals3.ptr<cv::Vec3f>(winCenter.y, roi.x);
                     for (winCenter.x = roi.x; winCenter.x < roi.x + roi.width; ++winCenter.x) {
-                        std::cout << " normals1(" << winCenter.x << ","
+                        std::cout << " normals_fals(" << winCenter.x << ","
                                 << winCenter.y << ") = " << *normptr << std::endl;
-                        std::cout << " normals2(" << winCenter.x << ","
+                        std::cout << " normals_impl(" << winCenter.x << ","
                                 << winCenter.y << ") = " << *normptr2 << std::endl;
+                        std::cout << " normals_expl(" << winCenter.x << ","
+                                << winCenter.y << ") = " << *normptr3 << std::endl;
                         std::cout << " normals diff_error(" << (*normptr - *normptr2) << ")" << std::endl;
                         normptr++;
                         normptr2++;
+                        normptr3++;
                     }
                 }
 
