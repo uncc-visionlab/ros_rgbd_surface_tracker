@@ -141,42 +141,31 @@ namespace cv {
                 ((type *)src.data)[B] - ((type *)src.data)[C]                
 
             void computeMat_LUT() {
-                cv::Size halfWinSize(winSize.width >> 1, winSize.height >> 1);
-                // roi should be a parameter
-                cv::Point2i roiTLC(halfWinSize.width, halfWinSize.height);
-                cv::Rect roi(roiTLC.x, roiTLC.y, width - 2 * roiTLC.x, height - 2 * roiTLC.y);
-
-                cv::Rect slidingWindow(roiTLC.x - halfWinSize.width,
-                        roiTLC.y - halfWinSize.height,
-                        winSize.width, winSize.height);
-                int offset_tlc, offset_trc, offset_blc, offset_brc;
-                cv::Point2i winCenter;
                 cv::Mat MtM(3, 3, CV_32F);
                 float *mtm_ptr;
-                int numPts = slidingWindow.area();
-                for (winCenter.y = roi.y; winCenter.y < roi.y + roi.height; ++winCenter.y, ++slidingWindow.y) {
-                    offset_tlc = slidingWindow.y * (width + 1) + roi.x;
-                    offset_trc = offset_tlc + slidingWindow.width;
-                    offset_blc = offset_tlc + slidingWindow.height * (width + 1);
-                    offset_brc = offset_blc + slidingWindow.width;
-                    for (winCenter.x = roi.x; winCenter.x < roi.x + roi.width; ++winCenter.x) {
+                int numPts = winSize.area();
+
+                // sliding window on integral image 
+                // the integral images have one more row and column than the source image
+                ImageWindow imWin(one_div_z.size(), winSize);
+                cv::Point2i *ibegin = imWin.begin(), *iend = imWin.end();
+                for (int y = ibegin->y; y < iend->y - 1; ++y) {
+                    imWin.centerOn(ibegin->x, y);
+                    int key = y * width + ibegin->x;
+                    for (int x = ibegin->x; x < iend->x - 1; ++x, ++key) {
                         mtm_ptr = MtM.ptr<float>(0, 0);
-                        *mtm_ptr++ = GETSUM(tan_theta_x_sq, double, offset_tlc, offset_trc, offset_blc, offset_brc);
-                        *mtm_ptr++ = GETSUM(tan_theta_xy, double, offset_tlc, offset_trc, offset_blc, offset_brc);
-                        *mtm_ptr++ = GETSUM(tan_theta_x, double, offset_tlc, offset_trc, offset_blc, offset_brc);
+                        *mtm_ptr++ = GETSUM(tan_theta_x_sq, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                        *mtm_ptr++ = GETSUM(tan_theta_xy, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                        *mtm_ptr++ = GETSUM(tan_theta_x, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
                         *mtm_ptr++ = MtM.at<float>(0, 1);
-                        *mtm_ptr++ = GETSUM(tan_theta_y_sq, double, offset_tlc, offset_trc, offset_blc, offset_brc);
-                        *mtm_ptr++ = GETSUM(tan_theta_y, double, offset_tlc, offset_trc, offset_blc, offset_brc);
+                        *mtm_ptr++ = GETSUM(tan_theta_y_sq, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                        *mtm_ptr++ = GETSUM(tan_theta_y, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
                         *mtm_ptr++ = MtM.at<float>(0, 2);
                         *mtm_ptr++ = MtM.at<float>(1, 2);
                         *mtm_ptr++ = numPts;
                         cv::Mat iMtM = MtM.inv();
-                        int key = winCenter.y * width + winCenter.x;
                         matMap.insert({key, iMtM});
-                        offset_tlc++;
-                        offset_trc++;
-                        offset_blc++;
-                        offset_brc++;
+                        imWin.shiftRight();
                     }
                 }
             }
@@ -252,18 +241,18 @@ namespace cv {
             }
 
             class ImageWindow {
-                int tlc, trc, blc, brc, ctr;
                 cv::Size winSize;
                 cv::Size imSize;
-                cv::Point2i begin, end;
+                cv::Point2i _begin, _end;
             public:
+                int tlc, trc, blc, brc, ctr;
 
                 ImageWindow(cv::Size _imSize, cv::Size _winSize) :
                 imSize(_imSize),
                 winSize(_winSize),
-                begin(winSize.width >> 1, winSize.height >> 1),
-                end(width - begin.x, height - begin.y) {
-                    centerOn(cv::Point2i(winSize.width >> 1, winSize.height >> 1));
+                _begin(winSize.width >> 1, winSize.height >> 1),
+                _end(imSize.width - _begin.x, imSize.height - _begin.y) {
+                    centerOn(winSize.width >> 1, winSize.height >> 1);
                 }
 
                 void shiftRight() {
@@ -274,19 +263,20 @@ namespace cv {
                     ctr++;
                 }
 
-                void centerOn(cv::Point2i pt) {
-                    tlc = pt.y * imSize.width + pt.x;
+                void centerOn(int x, int y) {
+                    tlc = y * imSize.width + x;
                     trc = tlc + winSize.width;
                     blc = tlc + winSize.height * imSize.width;
                     brc = blc + winSize.width;
+                    ctr = (y + (winSize.height >> 1)) * imSize.width + (winSize.width >> 1);
                 }
 
                 Point2i* end() {
-                    return &end;
+                    return &_end;
                 }
-                
+
                 Point2i* begin() {
-                    return &begin;
+                    return &_begin;
                 }
             };
 
@@ -322,57 +312,45 @@ namespace cv {
                 cv::integral(_one_div_z, one_div_z, one_div_z_sq, CV_64F, CV_64F);
                 cv::integral(_ones_valid_mask, numValidPts, CV_32F);
 
-                //cv::Rect2i trect(0, 0, width, height);
-                //int badpointcount = getSum<int>((int *) numValidPts.data, trect);
-                //int badpointcount = getSum<float>(numValidPts, trect);
-                //std::cout << badpointcount << " valid points in the RGBD image." << std::endl;
-
                 int numPts = winSize.width * winSize.height;
                 int numValidWinPts = 0;
                 cv::Mat sVals(4, 4, CV_64F);
                 double *s_ptr, *coeffs_ptr;
-                cv::Vec3f *normptr;
                 cv::Mat eVecs = cv::Mat::zeros(4, 4, CV_64F);
                 cv::Mat eVals = cv::Mat::zeros(4, 1, CV_64F);
                 //cv::Mat coeffs = cv::Mat(eVecs, Rect(0, 3, eVecs.cols, 1));
-                cv::Size halfWinSize(winSize.width >> 1, winSize.height >> 1);
+                cv::Vec3f *normptr;
                 int numcomp = 0;
-                // roi should be a parameter
-                cv::Point2i roiTLC(halfWinSize.width, halfWinSize.height);
-                cv::Rect roi(roiTLC.x, roiTLC.y, width - 2 * roiTLC.x, height - 2 * roiTLC.y);
 
-                cv::Rect slidingWindow(roiTLC.x - halfWinSize.width,
-                        roiTLC.y - halfWinSize.height,
-                        winSize.width, winSize.height);
-                int offset_tlc, offset_trc, offset_blc, offset_brc;
-                cv::Point2i winCenter;
-                for (winCenter.y = roi.y; winCenter.y < roi.y + roi.height; ++winCenter.y, ++slidingWindow.y) {
-                    offset_tlc = slidingWindow.y * (width + 1) + roi.x;
-                    offset_trc = offset_tlc + slidingWindow.width;
-                    offset_blc = offset_tlc + slidingWindow.height * (width + 1);
-                    offset_brc = offset_blc + slidingWindow.width;
-                    normptr = normals.ptr<cv::Vec3f>(winCenter.y, roi.x);
-                    for (winCenter.x = roi.x; winCenter.x < roi.x + roi.width; ++winCenter.x) {
-                        if (!std::isnan(depth_ptr[winCenter.y * width + winCenter.x])) {
-                            numValidWinPts = GETSUM(numValidPts, float, offset_tlc, offset_trc, offset_blc, offset_brc);
+                // sliding window on integral image 
+                // the integral images have one more row and column than the source image
+                ImageWindow imWin(one_div_z.size(), winSize);
+                cv::Point2i *ibegin = imWin.begin(), *iend = imWin.end();
+                for (int y = ibegin->y; y < iend->y - 1; ++y) {
+                    imWin.centerOn(ibegin->x, y);
+                    normptr = normals.ptr<cv::Vec3f>(y, ibegin->x);
+                    int key = y * width + ibegin->x;
+                    for (int x = ibegin->x; x < iend->x - 1; ++x, ++key) {
+                        if (!std::isnan(depth_ptr[key])) {
+                            numValidWinPts = GETSUM(numValidPts, float, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
                             if (numValidWinPts == numPts) {
                                 s_ptr = (double *) sVals.data;
-                                *s_ptr++ = GETSUM(tan_theta_x_sq, double, offset_tlc, offset_trc, offset_blc, offset_brc);
-                                *s_ptr++ = GETSUM(tan_theta_xy, double, offset_tlc, offset_trc, offset_blc, offset_brc);
-                                *s_ptr++ = GETSUM(tan_theta_x, double, offset_tlc, offset_trc, offset_blc, offset_brc);
-                                *s_ptr++ = GETSUM(tan_theta_x_div_z, double, offset_tlc, offset_trc, offset_blc, offset_brc);
+                                *s_ptr++ = GETSUM(tan_theta_x_sq, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                                *s_ptr++ = GETSUM(tan_theta_xy, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                                *s_ptr++ = GETSUM(tan_theta_x, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                                *s_ptr++ = GETSUM(tan_theta_x_div_z, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
                                 *s_ptr++ = sVals.at<double>(0, 1);
-                                *s_ptr++ = GETSUM(tan_theta_y_sq, double, offset_tlc, offset_trc, offset_blc, offset_brc);
-                                *s_ptr++ = GETSUM(tan_theta_y, double, offset_tlc, offset_trc, offset_blc, offset_brc);
-                                *s_ptr++ = GETSUM(tan_theta_y_div_z, double, offset_tlc, offset_trc, offset_blc, offset_brc);
+                                *s_ptr++ = GETSUM(tan_theta_y_sq, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                                *s_ptr++ = GETSUM(tan_theta_y, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                                *s_ptr++ = GETSUM(tan_theta_y_div_z, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
                                 *s_ptr++ = sVals.at<double>(0, 2);
                                 *s_ptr++ = sVals.at<double>(1, 2);
                                 *s_ptr++ = numPts;
-                                *s_ptr++ = GETSUM(one_div_z, double, offset_tlc, offset_trc, offset_blc, offset_brc);
+                                *s_ptr++ = GETSUM(one_div_z, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
                                 *s_ptr++ = sVals.at<double>(0, 3);
                                 *s_ptr++ = sVals.at<double>(1, 3);
                                 *s_ptr++ = sVals.at<double>(2, 3);
-                                *s_ptr++ = GETSUM(one_div_z_sq, double, offset_tlc, offset_trc, offset_blc, offset_brc);
+                                *s_ptr++ = GETSUM(one_div_z_sq, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
                                 //std::cout << "svals = " << sVals << std::endl;
                                 cv::eigen(sVals, eVals, eVecs);
                                 //std::cout << "evecs = " << eVecs << std::endl;
@@ -401,14 +379,10 @@ namespace cv {
                                 numcomp++;
                             } // numValidPts = windowArea 
                         } // depth at wincenter != nan
-                        offset_tlc++;
-                        offset_trc++;
-                        offset_blc++;
-                        offset_brc++;
+                        imWin.shiftRight();
                         normptr++;
                     }
                 }
-                std::cout << "Computed " << numcomp << " normals." << std::endl;
             }
 
             void computeExplicit_Impl(const cv::Mat& depth, cv::Mat& normals) {
@@ -443,32 +417,24 @@ namespace cv {
                 cv::Mat sol(3, 1, CV_32F);
                 cv::Mat coeffs(1, 4, CV_32F);
                 float *mtm_ptr, *mtb_ptr, *imtm_ptr, *sol_ptr, *coeffs_ptr;
+                imtm_ptr = iMtM.ptr<float>(0, 0);
                 mtb_ptr = Mtb.ptr<float>(0);
                 sol_ptr = sol.ptr<float>(0);
                 coeffs_ptr = coeffs.ptr<float>(0);
-
                 cv::Vec3f *normptr;
-                cv::Size halfWinSize(winSize.width >> 1, winSize.height >> 1);
                 int numcomp = 0;
-                // roi should be a parameter
-                cv::Point2i roiTLC(halfWinSize.width, halfWinSize.height);
-                cv::Rect roi(roiTLC.x, roiTLC.y, width - 2 * roiTLC.x, height - 2 * roiTLC.y);
 
-                cv::Rect slidingWindow(roiTLC.x - halfWinSize.width,
-                        roiTLC.y - halfWinSize.height,
-                        winSize.width, winSize.height);
-                int offset_tlc, offset_trc, offset_blc, offset_brc;
-                cv::Point2i winCenter;
-                for (winCenter.y = roi.y; winCenter.y < roi.y + roi.height; ++winCenter.y, ++slidingWindow.y) {
-                    offset_tlc = slidingWindow.y * (width + 1) + roi.x;
-                    offset_trc = offset_tlc + slidingWindow.width;
-                    offset_blc = offset_tlc + slidingWindow.height * (width + 1);
-                    offset_brc = offset_blc + slidingWindow.width;
-                    normptr = normals.ptr<cv::Vec3f>(winCenter.y, roi.x);
-                    int key = winCenter.y * width + roi.x;
-                    for (winCenter.x = roi.x; winCenter.x < roi.x + roi.width; ++winCenter.x, ++key) {
-                        if (!std::isnan(depth_ptr[winCenter.y * width + winCenter.x])) {
-                            numValidWinPts = GETSUM(numValidPts, float, offset_tlc, offset_trc, offset_blc, offset_brc);
+                // sliding window on integral image 
+                // the integral images have one more row and column than the source image
+                ImageWindow imWin(one_div_z.size(), winSize);
+                cv::Point2i *ibegin = imWin.begin(), *iend = imWin.end();
+                for (int y = ibegin->y; y < iend->y - 1; ++y) {
+                    imWin.centerOn(ibegin->x, y);
+                    normptr = normals.ptr<cv::Vec3f>(y, ibegin->x);
+                    int key = y * width + ibegin->x;
+                    for (int x = ibegin->x; x < iend->x - 1; ++x, ++key) {
+                        if (!std::isnan(depth_ptr[key])) {
+                            numValidWinPts = GETSUM(numValidPts, float, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
                             if (numValidWinPts == numPts) {
 #ifndef CACHE_INVERSE
                                 mtm_ptr = MtM.ptr<float>(0, 0);
@@ -492,9 +458,9 @@ namespace cv {
                                 //std::cout << "MtM = " << MtM << std::endl;
                                 //std::cout << "iMtM" << winCenter << " = " << iMtM << std::endl;
                                 //std::cout << "iMtM2 = " << iMtM2 << std::endl;
-                                mtb_ptr[0] = GETSUM(tan_theta_x_div_z, double, offset_tlc, offset_trc, offset_blc, offset_brc);
-                                mtb_ptr[1] = GETSUM(tan_theta_y_div_z, double, offset_tlc, offset_trc, offset_blc, offset_brc);
-                                mtb_ptr[2] = GETSUM(one_div_z, double, offset_tlc, offset_trc, offset_blc, offset_brc);
+                                mtb_ptr[0] = GETSUM(tan_theta_x_div_z, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                                mtb_ptr[1] = GETSUM(tan_theta_y_div_z, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                                mtb_ptr[2] = GETSUM(one_div_z, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
 
                                 //cv::Mat sol = iMtM*Mtb;
                                 sol_ptr[0] = imtm_ptr[0] * mtb_ptr[0] + imtm_ptr[1] * mtb_ptr[1] + imtm_ptr[2] * mtb_ptr[2];
@@ -525,14 +491,10 @@ namespace cv {
                                 numcomp++;
                             } // numValidPts = windowArea 
                         } // depth at wincenter != nan
-                        offset_tlc++;
-                        offset_trc++;
-                        offset_blc++;
-                        offset_brc++;
+                        imWin.shiftRight();
                         normptr++;
                     }
                 }
-                std::cout << "Computed " << numcomp << " normals." << std::endl;
             }
         }; /*class DepthIntegralImages */
 
@@ -851,53 +813,53 @@ namespace cv {
                 int normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_FALS; // 7.0 fps
                 //int normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_LINEMOD;
                 //int normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_SRI; // 1.14 fps
-                cv::Ptr<RgbdNormals> normalsComputer;
-                normalsComputer = makePtr<RgbdNormals>(getDepth().rows,
-                        getDepth().cols,
-                        getDepth().depth(),
-                        getCameraMatrix(),
-                        normalWinSize,
-                        normalMethod);
-                setNormalsComputer(normalsComputer);
+                //                cv::Ptr<RgbdNormals> normalsComputer;
+                //                normalsComputer = makePtr<RgbdNormals>(getDepth().rows,
+                //                        getDepth().cols,
+                //                        getDepth().depth(),
+                //                        getCameraMatrix(),
+                //                        normalWinSize,
+                //                        normalMethod);
+                //                setNormalsComputer(normalsComputer);
+                //
+                //                cv::Mat normals(getDepth().size(), CV_32FC3);
+                //                cv::Mat points(getDepth().size(), CV_32FC3);
+                //                for (int r = 0; r < getDepth().rows; ++r) {
+                //                    for (int c = 0; c < getDepth().cols; ++c) {
+                //                        const float& depth = zptr[r * zstep + c];
+                //                        points.at<cv::Point3f>(r, c).x = (c - cx) * inv_f*depth;
+                //                        points.at<cv::Point3f>(r, c).y = (r - cy) * inv_f*depth;
+                //                        points.at<cv::Point3f>(r, c).z = depth;
+                //                    }
+                //                }
+                //                (*normalsComputer)(points, normals);
 
-                cv::Mat normals(getDepth().size(), CV_32FC3);
-                cv::Mat points(getDepth().size(), CV_32FC3);
-                for (int r = 0; r < getDepth().rows; ++r) {
-                    for (int c = 0; c < getDepth().cols; ++c) {
-                        const float& depth = zptr[r * zstep + c];
-                        points.at<cv::Point3f>(r, c).x = (c - cx) * inv_f*depth;
-                        points.at<cv::Point3f>(r, c).y = (r - cy) * inv_f*depth;
-                        points.at<cv::Point3f>(r, c).z = depth;
-                    }
-                }
-                (*normalsComputer)(points, normals);
-
-                cv::Mat normals2(getDepth().size(), CV_32FC3);
-                iImgs.computeImplicit_Impl(getDepth(), normals2);
+                //                cv::Mat normals2(getDepth().size(), CV_32FC3);
+                //                iImgs.computeImplicit_Impl(getDepth(), normals2);
                 cv::Mat normals3(getDepth().size(), CV_32FC3);
                 iImgs.computeExplicit_Impl(getDepth(), normals3);
 
-                cv::Point2i tlc(315, 235);
-                cv::Rect roi(tlc.x, tlc.y, width - 2 * tlc.x, height - 2 * tlc.y);
-                cv::Point2i winCenter;
-                cv::Vec3f *normptr, *normptr2, *normptr3;
-                for (winCenter.y = roi.y; winCenter.y < roi.y + roi.height; ++winCenter.y) {
-                    normptr = normals.ptr<cv::Vec3f>(winCenter.y, roi.x);
-                    normptr2 = normals2.ptr<cv::Vec3f>(winCenter.y, roi.x);
-                    normptr3 = normals3.ptr<cv::Vec3f>(winCenter.y, roi.x);
-                    for (winCenter.x = roi.x; winCenter.x < roi.x + roi.width; ++winCenter.x) {
-                        std::cout << " normals_fals(" << winCenter.x << ","
-                                << winCenter.y << ") = " << *normptr << std::endl;
-                        std::cout << " normals_impl(" << winCenter.x << ","
-                                << winCenter.y << ") = " << *normptr2 << std::endl;
-                        std::cout << " normals_expl(" << winCenter.x << ","
-                                << winCenter.y << ") = " << *normptr3 << std::endl;
-                        std::cout << " normals diff_error(" << (*normptr - *normptr2) << ")" << std::endl;
-                        normptr++;
-                        normptr2++;
-                        normptr3++;
-                    }
-                }
+                //                cv::Point2i tlc(315, 235);
+                //                cv::Rect roi(tlc.x, tlc.y, width - 2 * tlc.x, height - 2 * tlc.y);
+                //                cv::Point2i winCenter;
+                //                cv::Vec3f *normptr, *normptr2, *normptr3;
+                //                for (winCenter.y = roi.y; winCenter.y < roi.y + roi.height; ++winCenter.y) {
+                //                    normptr = normals.ptr<cv::Vec3f>(winCenter.y, roi.x);
+                //                    normptr2 = normals2.ptr<cv::Vec3f>(winCenter.y, roi.x);
+                //                    normptr3 = normals3.ptr<cv::Vec3f>(winCenter.y, roi.x);
+                //                    for (winCenter.x = roi.x; winCenter.x < roi.x + roi.width; ++winCenter.x) {
+                //                        std::cout << " normals_fals(" << winCenter.x << ","
+                //                                << winCenter.y << ") = " << *normptr << std::endl;
+                //                        std::cout << " normals_impl(" << winCenter.x << ","
+                //                                << winCenter.y << ") = " << *normptr2 << std::endl;
+                //                        std::cout << " normals_expl(" << winCenter.x << ","
+                //                                << winCenter.y << ") = " << *normptr3 << std::endl;
+                //                        std::cout << " normals diff_error(" << (*normptr - *normptr2) << ")" << std::endl;
+                //                        normptr++;
+                //                        normptr2++;
+                //                        normptr3++;
+                //                    }
+                //                }
 
                 std::cout << "normals computed " << std::endl;
                 return true;
