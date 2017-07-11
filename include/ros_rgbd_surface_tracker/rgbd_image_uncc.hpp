@@ -17,6 +17,7 @@
 #ifdef __cplusplus
 
 #include <iostream>
+#include <limits>
 #include <unordered_map>
 
 #include <boost/shared_ptr.hpp>
@@ -60,6 +61,9 @@ namespace cv {
             cv::Mat tan_theta_y_div_z;
             cv::Mat one_div_z;
             cv::Mat one_div_z_sq;
+
+            cv::Mat dz_dx, dz_dy, d2z_dx2, d2z_dxdy, d2z_dy2;
+            cv::Mat idz_dx, idz_dy, id2z_dx2, id2z_dxdy, id2z_dy2;
 
             std::unordered_map<int, cv::Mat> matMap;
         public:
@@ -168,6 +172,12 @@ namespace cv {
                         imWin.shiftRight();
                     }
                 }
+
+                dz_dx = cv::Mat::zeros(height, width, CV_32F);
+                dz_dy = cv::Mat::zeros(height, width, CV_32F);
+                d2z_dx2 = cv::Mat::zeros(height, width, CV_32F);
+                d2z_dy2 = cv::Mat::zeros(height, width, CV_32F);
+                d2z_dxdy = cv::Mat::zeros(height, width, CV_32F);
             }
 
             void initialize(int _width, int _height, float _cx, float _cy, float _inv_f,
@@ -228,6 +238,10 @@ namespace cv {
                         << width << "x" << height << " depth images." << std::endl;
             }
 
+            void computeCurvatureFiniteDiff_Impl(const cv::Mat& depth, cv::Mat& normals); 
+            
+            void plucker(const cv::Mat& depth, cv::Mat& mean_curvature, cv::Mat& axes);
+
             void operator()(cv::InputArray depth_in, cv::OutputArray normals_out) {
                 Mat depth_ori = depth_in.getMat();
 
@@ -280,7 +294,7 @@ namespace cv {
                 }
             };
 
-            void computeImplicit_Impl(const cv::Mat& depth, cv::Mat& normals) {
+            void computeImplicit_Impl(const cv::Mat& depth, cv::Mat & normals) {
                 const float *depth_ptr = depth.ptr<float>(0, 0);
                 float *_ones_valid_mask_ptr = _ones_valid_mask.ptr<float>(0, 0);
                 float *_tan_theta_x_div_z_ptr = _tan_theta_x_div_z.ptr<float>(0, 0);
@@ -385,7 +399,7 @@ namespace cv {
                 }
             }
 
-            void computeExplicit_Impl(const cv::Mat& depth, cv::Mat& normals) {
+            void computeExplicit_Impl(const cv::Mat& depth, cv::Mat & normals) {
                 const float *depth_ptr = depth.ptr<float>(0, 0);
                 float *_one_div_z_ptr = _one_div_z.ptr<float>(0, 0);
                 float *_ones_valid_mask_ptr = _ones_valid_mask.ptr<float>(0, 0);
@@ -809,7 +823,7 @@ namespace cv {
             }
 
             bool computeNormals() {
-                int normalWinSize = 7;
+                int normalWinSize = iImgs.getWindowSize().width;
                 int normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_FALS; // 7.0 fps
                 //int normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_LINEMOD;
                 //int normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_SRI; // 1.14 fps
@@ -834,12 +848,12 @@ namespace cv {
                 //                }
                 //                (*normalsComputer)(points, normals);
 
-                //                cv::Mat normals2(getDepth().size(), CV_32FC3);
-                //                iImgs.computeImplicit_Impl(getDepth(), normals2);
+                //                                cv::Mat normals2(getDepth().size(), CV_32FC3);
+                //                                iImgs.computeImplicit_Impl(getDepth(), normals2);
                 cv::Mat normals3(getDepth().size(), CV_32FC3);
                 iImgs.computeExplicit_Impl(getDepth(), normals3);
-
-                //                cv::Point2i tlc(315, 235);
+                iImgs.computeCurvatureFiniteDiff_Impl(getDepth(), normals3);
+                //                                cv::Point2i tlc(315, 235);
                 //                cv::Rect roi(tlc.x, tlc.y, width - 2 * tlc.x, height - 2 * tlc.y);
                 //                cv::Point2i winCenter;
                 //                cv::Vec3f *normptr, *normptr2, *normptr3;
