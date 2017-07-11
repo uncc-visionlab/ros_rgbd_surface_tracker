@@ -40,56 +40,32 @@ class Polygonizer {
      * Performs marching cubes on an implicit polynomial (AlgebraicSurface)
      */
 
+    using Vector3s = Eigen::Matrix<ScalarType, 3, 1>;
+    
 public:
-
-    struct Vector {
-
-        Vector() : x(), y(), z() {
-        }
-
-        Vector(ScalarType _x, ScalarType _y, ScalarType _z) : x(_x), y(_y), z(_z) {
-        }
-
-        ScalarType x;
-        ScalarType y;
-        ScalarType z;
-
-    };
-
+    
     struct EvaluationVolume {
 
         EvaluationVolume() : position(), size(), num_blocks() {
         }
+        
+        EvaluationVolume(const Eigen::Ref<const Vector3s>& _position, 
+                const Eigen::Ref<const Vector3s>& _size,
+                const Eigen::Ref<const Vector3s>& _num_blocks) 
+        : position(_position(0), _position(1), _position(2)), 
+        size(_size(0), _size(1), _size(2)), 
+        num_blocks(_num_blocks(0), _num_blocks(1), _num_blocks(2)) {}
 
         EvaluationVolume(ScalarType posx, ScalarType posy, ScalarType posz,
                 ScalarType sizex, ScalarType sizey, ScalarType sizez,
                 ScalarType blocksx, ScalarType blocksy, ScalarType blocksz)
         : position(posx, posy, posz),
         size(sizex, sizey, sizez),
-        num_blocks(blocksx, blocksy, blocksz) {
-        }
+        num_blocks(blocksx, blocksy, blocksz) {}
 
-        void setPosition(ScalarType x, ScalarType y, ScalarType z) {
-            this->position.x = x;
-            this->position.y = y;
-            this->position.z = z;
-        }
-
-        void setSize(ScalarType x, ScalarType y, ScalarType z) {
-            this->size.x = x;
-            this->size.y = y;
-            this->size.z = z;
-        }
-
-        void setBlocks(ScalarType x, ScalarType y, ScalarType z) {
-            this->num_blocks.x = x;
-            this->num_blocks.y = y;
-            this->num_blocks.z = z;
-        }
-
-        Vector position; // meters
-        Vector size; // meters
-        Vector num_blocks;
+        Vector3s position; // meters
+        Vector3s size; // meters
+        Vector3s num_blocks;
 
     };
 
@@ -117,38 +93,35 @@ public:
     }
 
     void marchCubes() {
-        Vector trans(
-                this->volume.position.x - this->volume.size.x / 2.0,
-                this->volume.position.y - this->volume.size.y / 2.0,
-                this->volume.position.z - this->volume.size.z / 2.0);
 
-        Vector step(
-                this->volume.size.x / this->volume.num_blocks.x,
-                this->volume.size.y / this->volume.num_blocks.y,
-                this->volume.size.z / this->volume.num_blocks.z);
-
-        for (int ix = 0; ix < this->volume.num_blocks.x; ++ix)
-            for (int iy = 0; iy < this->volume.num_blocks.y; ++iy)
-                for (int iz = 0; iz < this->volume.num_blocks.z; ++iz) {
-                    marchSingleCube(ix * step.x + trans.x, iy * step.y + trans.y, iz * step.z + trans.z, step);
+        Vector3s trans = this->volume.position - this->volume.size/2.0;
+        Vector3s step = this->volume.size.cwiseQuotient(this->volume.num_blocks);
+        
+        for (int ix = 0; ix < this->volume.num_blocks(0); ++ix)
+            for (int iy = 0; iy < this->volume.num_blocks(1); ++iy)
+                for (int iz = 0; iz < this->volume.num_blocks(2); ++iz) {
+                    marchSingleCube(Vector3s(ix, iy, iz).cwiseProduct(step) + trans, step);
+                            
+//                            Vector3s(ix * step(0) + trans(0), iy * step(1) + trans(1), iz * step(2) + trans(2)), step);
                 }
 
     }
 
-    void marchSingleCube(ScalarType x, ScalarType y, ScalarType z, const Vector& step) {
-
+    void marchSingleCube(const Vector3s& pos, const Vector3s& step) {
+        
         int corner, vertex, vertex_test, edge, triangle, flag_index, edge_flags;
         ScalarType offset;
         ScalarType cube_value[8];
-        Vector edge_vertex[12];
+        Vector3s edge_vertex[12];
 
         //Make a local copy of the values at the cube's corners
         for (vertex = 0; vertex < 8; vertex++) {
             cube_value[vertex] = surface_ptr->evaluate(
                     Eigen::Matrix<ScalarType, 1, 3>(
-                    x + vertex_offset[vertex][0] * step.x,
-                    y + vertex_offset[vertex][1] * step.y,
-                    z + vertex_offset[vertex][2] * step.z));
+                    pos(0) + vertex_offset[vertex][0] * step(0),
+                    pos(1) + vertex_offset[vertex][1] * step(1),
+                    pos(2) + vertex_offset[vertex][2] * step(2)));
+            
         }
 
         //Find which vertices are inside of the surface and which are outside
@@ -166,35 +139,31 @@ public:
             return;
         }
 
-        Vector surfPt;
-        ScalarType cvalue, evalue;
         //Find the point of intersection of the surface with each edge
         //Then find the normal to the surface at those points
         for (edge = 0; edge < 12; edge++) {
             //if there is an intersection on this edge
             if (edge_flags & (1 << edge)) {
-                offset = 0.5;
-                evalue = cube_value[edge_connection[edge][1]];
-                do {
-                    surfPt.x = x + (vertex_offset[edge_connection[edge][0]][0] + offset * edge_direction[edge][0]) * step.x;
-                    surfPt.y = y + (vertex_offset[edge_connection[edge][0]][1] + offset * edge_direction[edge][1]) * step.y;
-                    surfPt.z = z + (vertex_offset[edge_connection[edge][0]][2] + offset * edge_direction[edge][2]) * step.z;
-                    cvalue = surface_ptr->evaluate(
-                            Eigen::Matrix<ScalarType, 1, 3>(
-                            surfPt.x,
-                            surfPt.y,
-                            surfPt.z));
-                    offset += 0.1*(this->level_set - cvalue)/(evalue-cvalue);
-                } while (std::abs<ScalarType>(this->level_set - cvalue) > 1e-2);
-                //offset = getOffset(cube_value[edge_connection[edge][0]],
-                //        cube_value[edge_connection[edge][1]], this->level_set);
-
-                //edge_vertex[edge].x = x + (vertex_offset[edge_connection[edge][0]][0] + offset * edge_direction[edge][0]) * step.x;
-                //edge_vertex[edge].y = y + (vertex_offset[edge_connection[edge][0]][1] + offset * edge_direction[edge][1]) * step.y;
-                //edge_vertex[edge].z = z + (vertex_offset[edge_connection[edge][0]][2] + offset * edge_direction[edge][2]) * step.z;
-                edge_vertex[edge].x = x + surfPt.x;
-                edge_vertex[edge].y = y + surfPt.y;
-                edge_vertex[edge].z = z + surfPt.z;
+                
+                Vector3s p1(pos(0) + vertex_offset[edge_connection[edge][0]][0]*step(0), 
+                        pos(1) + vertex_offset[edge_connection[edge][0]][1]*step(1), 
+                        pos(2) + vertex_offset[edge_connection[edge][0]][2]*step(2));
+                Vector3s p2(pos(0) + (vertex_offset[edge_connection[edge][0]][0] + edge_direction[edge][0]) * step(0), 
+                        pos(1) + (vertex_offset[edge_connection[edge][0]][1] + edge_direction[edge][1]) * step(1), 
+                        pos(2) + (vertex_offset[edge_connection[edge][0]][2] + edge_direction[edge][2]) * step(2));
+                Vector3s p;
+                
+                converge(p1, p2, cube_value[edge_connection[edge][0]], p);
+                
+                
+//                offset = getOffset(cube_value[edge_connection[edge][0]],
+//                        cube_value[edge_connection[edge][1]], this->level_set);
+//                
+//                edge_vertex[edge](0) = pos(0) + (vertex_offset[edge_connection[edge][0]][0] + offset * edge_direction[edge][0]) * step(0);
+//                edge_vertex[edge](1) = pos(1) + (vertex_offset[edge_connection[edge][0]][1] + offset * edge_direction[edge][1]) * step(1);
+//                edge_vertex[edge](2) = pos(2) + (vertex_offset[edge_connection[edge][0]][2] + offset * edge_direction[edge][2]) * step(2);
+                
+                edge_vertex[edge] = p;
 
             }
         }
@@ -210,7 +179,7 @@ public:
             for (corner = 0; corner < 3; corner++) {
                 vertex = triangle_connection_table[flag_index][3 * triangle + corner];
 
-                tri.vertices[corner] = Eigen::Vector3f(edge_vertex[vertex].x, edge_vertex[vertex].y, edge_vertex[vertex].z);
+                tri.vertices[corner] = edge_vertex[vertex].template cast<float>();
 
             }
 
@@ -226,6 +195,41 @@ public:
 
 
 private:
+    
+    /*
+    v  = function evaluation at P1
+    p1 = Point on one side of the surface
+    p2 = Point on opposite side of the surface
+    p  = Point of convergence which lies on the surface
+    or as close to the surface as possible after RES
+    iterations
+     */
+    void converge(const Vector3s& p1, const Vector3s& p2, ScalarType v, Vector3s& p) {
+        int maxiter = 10;
+        
+        int i = 0;
+        Vector3s pos;
+        Vector3s neg;
+        
+        if (v < 0) {
+            pos = p2;
+            neg = p1;
+        } else {
+            pos = p1;
+            neg = p2;
+        }
+        while (i < maxiter) {
+            i++;
+            p = 0.5*(pos + neg);
+            
+            if ((this->surface_ptr->evaluate(p.transpose()) - this->level_set) > 0.0) {
+                pos = p;
+            } else {
+                neg = p;
+            }
+            
+        }
+    }
 
     static ScalarType getOffset(ScalarType value1, ScalarType value2, ScalarType value_desired) {
         // finds the approximate point of intersection of the surface

@@ -296,7 +296,7 @@ namespace cv {
                     vis_data_ptr->triangles.clear();
                     
                     static Polygonizer<double> poly(
-                        Polygonizer<double>::EvaluationVolume(0, 0, 3, 1, 1, 6, 20, 20, 20),
+                        Polygonizer<double>::EvaluationVolume(0, 0, 3, 1, 1, 6, 40, 40, 40),
                         &surface, 
                         vis_data_ptr);
                     poly.polygonize();

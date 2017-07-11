@@ -623,9 +623,133 @@ public:
         
         return;
     }
-    
+
 };
+
+template <typename ScalarType>
+class CornerSurface : public AlgebraicSurface<ScalarType> {
+    using RowVector3s =  Eigen::Matrix<ScalarType, 1, 3>;
+    using RowVectorXs =  Eigen::Matrix<ScalarType, 1, Eigen::Dynamic>;
+    using MatrixXs = Eigen::Matrix<ScalarType, Eigen::Dynamic, Eigen::Dynamic>;
     
+public:
+
+//    static RowVector3s inexactGetPoint(Plane p, Plane q, Plane r) {
+//        RowVector3s pt = new RowVector3s();
+//        double[][] m;
+//        m = new double[][] {
+//            {
+//                p.b, p.c, p.d
+//            },
+//            {
+//                q.b, q.c, q.d
+//            },
+//            {
+//                r.b, r.c, r.d
+//            }
+//        };
+//        double x = Plane.inexactDeterminant3x3(m);
+//        m = new double[][] {
+//            {
+//                p.a, p.c, p.d
+//            },
+//            {
+//                q.a, q.c, q.d
+//            },
+//            {
+//                r.a, r.c, r.d
+//            }
+//        };
+//        double y = -Plane.inexactDeterminant3x3(m);
+//        m = new double[][] {
+//            {
+//                p.a, p.b, p.d
+//            },
+//            {
+//                q.a, q.b, q.d
+//            },
+//            {
+//                r.a, r.b, r.d
+//            }
+//        };
+//        double z = Plane.inexactDeterminant3x3(m);
+//        m = new double[][] {
+//            {
+//                p.a, p.b, p.c
+//            },
+//            {
+//                q.a, q.b, q.c
+//            },
+//            {
+//                r.a, r.b, r.c
+//            }
+//        };
+//        double w = -Plane.inexactDeterminant3x3(m);
+//        if (Plane.signum(w) == 0) {
+//            System.out.println("w = " + w + " bi-1 = " + p + " bi = " + q + " s = " + r);
+//            boolean isCoincident = Plane.coincident(p, q);
+//            return null;
+//        }
+//        pt.x = (float) (x / w); //x.doubleValue() / w.doubleValue();
+//        pt.y = (float) (y / w); //y.doubleValue() / w.doubleValue();
+//        pt.z = (float) (z / w); //z.doubleValue() / w.doubleValue();
+//        //        RowVector3s n1 = new RowVector3s(p.a, p.b, p.c);
+//        //        RowVector3s n2 = new RowVector3s(q.a, q.b, q.c);
+//        //        RowVector3s n3 = new RowVector3s(r.a, r.b, r.c);
+//        //        n1.normalize();
+//        //        n2.normalize();
+//        //        n3.normalize();
+//        //        RowVector3s pt = new RowVector3s();
+//        //        RowVector3s tmp = new RowVector3s();
+//        //        tmp.cross(n2, n3);
+//        //        tmp.scale(p.d);
+//        //        pt.set(tmp);
+//        //        tmp.cross(n3, n1);
+//        //        tmp.scale(q.d);
+//        //        pt.add(tmp);
+//        //        tmp.cross(n1, n2);
+//        //        tmp.scale(r.d);
+//        //        pt.add(tmp);
+//        //        tmp.cross(n2, n3);
+//        //        pt.scale(1.0f / n1.dot(tmp));
+//        //        if (pt.x == Float.NaN || pt.x == Float.POSITIVE_INFINITY
+//        //                || pt.x == Float.NEGATIVE_INFINITY
+//        //                || pt.y == Float.NaN || pt.y == Float.POSITIVE_INFINITY
+//        //                || pt.y == Float.NEGATIVE_INFINITY
+//        //                || pt.z == Float.NaN || pt.z == Float.POSITIVE_INFINITY
+//        //                || pt.z == Float.NEGATIVE_INFINITY) {
+//        //            System.out.println("PolygonOfPlanes::inexactGetPoint() - Unstable result computing BRep for polygon.");
+//        //            return null;
+//        //        }
+//        return pt;
+//    }
+//
+//    static double inexactDeterminant3x3(double[][] m) {
+//        double[][] m00_minor = {
+//            {m[1][1], m[1][2]},
+//            {m[2][1], m[2][2]}};
+//        double[][] m01_minor = {
+//            {m[1][0], m[1][2]},
+//            {m[2][0], m[2][2]}};
+//        double[][] m02_minor = {
+//            {m[1][0], m[1][1]},
+//            {m[2][0], m[2][1]}};
+//        double det = m[0][0] * inexactDeterminant2x2(m00_minor)
+//                - m[0][1] * inexactDeterminant2x2(m01_minor)
+//                + m[0][2] * inexactDeterminant2x2(m02_minor);
+//        return det;
+//    }
+//
+//    static double inexactDeterminant2x2(double[][] m) {
+//        double det = m[0][0] * m[1][1] - m[0][1] * m[1][0];
+//        return det;
+//    }
+
+
+
+};
+
+
 template <typename ScalarType>
 class AlgebraicSurfaceProduct {
     using RowVectorXs =  Eigen::Matrix<ScalarType, 1, Eigen::Dynamic>;
