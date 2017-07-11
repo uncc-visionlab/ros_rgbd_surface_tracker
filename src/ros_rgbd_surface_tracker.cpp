@@ -90,7 +90,8 @@ void ROS_RgbdSurfaceTracker::depthImageCallback(const sensor_msgs::ImageConstPtr
     float fx = cameraMatrix.at<float>(0, 0);
     float fy = cameraMatrix.at<float>(1, 1);
     cv::rgbd::RgbdImage rgbd_img(_ocv_rgbframe, _ocv_depthframe_float, cx, cy, fx);
-    rgbdSurfTracker.segmentDepth(rgbd_img);
+    cv::Mat rgb_result = _ocv_rgbframe.clone();
+    rgbdSurfTracker.segmentDepth(rgbd_img, rgb_result);
 
     if (image_pub.getNumSubscribers() > 0) {
         cv::Mat resultImg = cv::Mat::zeros(imSize, CV_8UC3);
@@ -99,7 +100,7 @@ void ROS_RgbdSurfaceTracker::depthImageCallback(const sensor_msgs::ImageConstPtr
         out_msg.header.frame_id = depth_msg->header.frame_id;
         out_msg.header.stamp = depth_msg->header.stamp;
         out_msg.encoding = sensor_msgs::image_encodings::RGB8;
-        out_msg.image = resultImg;
+        out_msg.image = rgb_result;
         image_pub.publish(out_msg.toImageMsg());
     }
 }
@@ -140,7 +141,8 @@ void ROS_RgbdSurfaceTracker::rgbdImageCallback(const sensor_msgs::ImageConstPtr&
     float fx = cameraMatrix.at<float>(0, 0);
     float fy = cameraMatrix.at<float>(1, 1);
     cv::rgbd::RgbdImage rgbd_img(_ocv_rgbframe, _ocv_depthframe_float, cx, cy, fx);
-    rgbdSurfTracker.segmentDepth(rgbd_img);
+    cv::Mat rgb_result = _ocv_rgbframe.clone();
+    rgbdSurfTracker.segmentDepth(rgbd_img, rgb_result);
 
     PlaneVisualizationData* vis_data = rgbdSurfTracker.getPlaneVisualizationData();
     plane_vis.clearMarkerList();
@@ -152,7 +154,7 @@ void ROS_RgbdSurfaceTracker::rgbdImageCallback(const sensor_msgs::ImageConstPtr&
         out_msg.header.frame_id = depth_msg->header.frame_id;
         out_msg.header.stamp = depth_msg->header.stamp;
         out_msg.encoding = sensor_msgs::image_encodings::BGR8;
-        out_msg.image = _ocv_rgbframe;
+        out_msg.image = rgb_result;
         image_pub.publish(out_msg.toImageMsg());
     }
 }

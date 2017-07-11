@@ -71,7 +71,7 @@
     <arg name="file_3" default="astra-rgbd-camera.bag"/>
     <arg name="bag_delay" default="5" />
     <node pkg="rosbag" type="play" name="player" output="screen" 
-          args="--delay=$(arg bag_delay) -r 1 --clock $(arg path)/../../../../../bagfiles/$(arg file_3) "
+          args="--delay=$(arg bag_delay) --rate=1 --quiet --clock $(arg path)/../../../../../bagfiles/$(arg file_3) "
           if="$(arg play_bagfile)"/>
     <!-- END Play from .bag file sensor configuration -->
 
@@ -80,7 +80,7 @@
               args="rgb/camera_info ir/camera_info"/>
         <node name="ros_rgbd_surface_tracker" pkg="ros_rgbd_surface_tracker" 
               type="ros_rgbd_surface_tracker" launch-prefix="$(arg profile_attribute)"
-              output="screen" if="$(arg run_surface_tracker)">    
+              output="screen" if="$(arg run_surface_tracker)">
             <remap from="rgb/input_image" to="rgb/image_raw"/>
             <remap from="depth_registered/input_image" to="depth_registered/image_raw"/>
             <param name="map_frame" value = "$(arg map_frame)"/>

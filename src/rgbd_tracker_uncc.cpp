@@ -4,13 +4,16 @@
  * and open the template in the editor.
  */
 #include <iostream>      /* printf, scanf, puts, NULL */
+
+#include <opencv2/highgui.hpp>
 #include <opencv2/rgbd.hpp>
+
 #include <ros_rgbd_surface_tracker/AlgebraicSurface.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>
 
 extern int supermain(AlgebraicSurface<float>& surf, PlaneVisualizationData& vis_data,
-         const Eigen::Matrix<float, 8, 3>& cube, float cubesize, float levelset);
+        const Eigen::Matrix<float, 8, 3>& cube, float cubesize, float levelset);
 
 namespace cv {
     namespace rgbd {
@@ -22,17 +25,21 @@ namespace cv {
             float fx = _rgb_cameraMatrix.at<float>(0, 0);
             float fy = _rgb_cameraMatrix.at<float>(1, 1);
             cv::rgbd::RgbdImage rgbd_img(_ocv_rgbframe, _ocv_depthframe_float, cx, cy, fx);
-            segmentDepth(rgbd_img);
+            cv::Mat rgb_result = _ocv_rgbframe;
+            segmentDepth(rgbd_img, rgb_result);
+            cv::imshow("RGB Result", rgb_result);
+            cv::waitKey(3);
         }
 
-        void RgbdSurfaceTracker::segmentDepth(cv::rgbd::RgbdImage& rgbd_img) {
+        void RgbdSurfaceTracker::segmentDepth(cv::rgbd::RgbdImage& rgbd_img, cv::Mat& rgb_result) {
 
 #ifdef PROFILE_CALLGRIND
             CALLGRIND_TOGGLE_COLLECT;
 #endif
 
-            rgbd_img.computeNormals();
-            iterativeAlignment(rgbd_img);
+            //rgbd_img.computeNormals();
+            iterativeAlignment(rgbd_img, rgb_result);
+
 
 #ifdef PROFILE_CALLGRIND
             CALLGRIND_TOGGLE_COLLECT;

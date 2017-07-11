@@ -46,7 +46,7 @@ namespace cv {
             virtual ~RgbdSurfaceTracker() {
             };
 
-            void segmentDepth(cv::rgbd::RgbdImage& rgbd_img);
+            void segmentDepth(cv::rgbd::RgbdImage& rgbd_img, cv::Mat& result);
 
             void callback(cv::Mat& _ocv_rgbframe, cv::Mat& _ocv_depthframe_float,
                     cv::Mat& _rgb_distortionCoeffs, cv::Mat& _rgb_cameraMatrix);
@@ -55,7 +55,7 @@ namespace cv {
                 return &vis_data;
             }
             
-            void iterativeAlignment(cv::rgbd::RgbdImage& rgbd_img);
+            void iterativeAlignment(cv::rgbd::RgbdImage& rgbd_img, cv::Mat& rgb_result);
         private:
             // -------------------------
             // Disabling default copy constructor and default
