@@ -201,9 +201,12 @@ namespace cv {
                     vis_data_ptr->triangles.clear();
                     
                     static Polygonizer<double> poly(&surface, vis_data_ptr);
-                    poly.dataset_size = 20;
-                    poly.step_size = 4.0f/poly.dataset_size;
-                    poly.level_set = 0; 
+                    poly.volume.size.x = 6.0;
+                    poly.volume.size.y = 4.0;
+                    poly.volume.size.z = 5.0;
+                    poly.volume.num_blocks.x = 10;
+                    poly.volume.num_blocks.y = 10;
+                    poly.volume.num_blocks.z = 10;
                     poly.polygonize();
                     
 //                    cv::Mat camera_matrix = rgbd_img.getCameraMatrix();

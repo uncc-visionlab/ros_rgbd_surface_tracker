@@ -42,20 +42,15 @@ class Polygonizer {
     
 public:
     
-    struct vector {
+    struct Vector {
         ScalarType x;
         ScalarType y;
         ScalarType z;
     };
     
     struct EvaluationVolume {
-        
-        // meters
-        ScalarType length;
-        ScalarType width;
-        ScalarType height;
-        
-        vector num_blocks;
+        Vector size; // meters
+        Vector num_blocks;
     };
     
     Polygonizer();
@@ -65,29 +60,32 @@ public:
         this->vis_data_ptr = vis_data_ptr;
         
     }
-
-    ScalarType getOffset(ScalarType value1, ScalarType value2, ScalarType value_desired) {
-        // finds the approximate point of intersection of the surface
-        // between two points with the values value1 and value2
-        double delta = value2 - value1;
-
-        if (delta == 0.0) {
-            return 0.5;
-        }
-        return (value_desired - value1) / delta;
+    
+    Polygonizer(EvaluationVolume& volume, AlgebraicSurfaceProduct<ScalarType>* surface_ptr, PlaneVisualizationData* vis_data_ptr) {
+        this->volume = volume;
+        this->surface_ptr = surface_ptr;
+        this->vis_data_ptr = vis_data_ptr;
+        
     }
-    
-    
+
     void polygonize() {
         this->marchCubes();
     }
     
     void marchCubes() {
-        int half = std::round((ScalarType)this->dataset_size/2.0);
-        for (int ix = -half; ix < half; ++ix)
-            for (int iy = -half; iy < half; ++iy)
-                for (int iz = -half; iz < half; ++iz) {
-                    marchSingleCube(ix*this->step_size, iy*this->step_size, iz*this->step_size, this->step_size);
+        Vector half;
+        half.x = this->volume.size.x/2.0;
+        half.y = this->volume.size.y/2.0;
+        
+        Vector step;
+        step.x = this->volume.size.x/this->volume.num_blocks.x;
+        step.y = this->volume.size.x/this->volume.num_blocks.y;
+        step.z = this->volume.size.x/this->volume.num_blocks.z;
+
+        for (int ix = 0; ix < this->volume.num_blocks.x; ++ix)
+            for (int iy = 0; iy < this->volume.num_blocks.y; ++iy)
+                for (int iz = 0; iz < this->volume.num_blocks.z; ++iz) {
+                    marchSingleCube(ix*step.x - half.x, iy*step.y - half.y, iz*step.z, step);
                 }
         
 //        for (auto& tri : this->vis_data_ptr->triangles) {
@@ -96,20 +94,20 @@ public:
 //        }
     }
     
-    void marchSingleCube(ScalarType x, ScalarType y, ScalarType z, ScalarType scale) {
+    void marchSingleCube(ScalarType x, ScalarType y, ScalarType z, Vector step) {
 
         int corner, vertex, vertex_test, edge, triangle, flag_index, edge_flags;
         ScalarType offset;
         ScalarType cube_value[8];
-        vector edge_vertex[12];
+        Vector edge_vertex[12];
 
         //Make a local copy of the values at the cube's corners
         for (vertex = 0; vertex < 8; vertex++) {
             cube_value[vertex] = surface_ptr->evaluate(
                     Eigen::Matrix<ScalarType, 1, 3>(
-                        x + this->vertex_offset[vertex][0] * scale,
-                        y + this->vertex_offset[vertex][1] * scale,
-                        z + this->vertex_offset[vertex][2] * scale));
+                        x + vertex_offset[vertex][0]*step.x,
+                        y + vertex_offset[vertex][1]*step.y,
+                        z + vertex_offset[vertex][2]*step.z));
         }
 
         //Find which vertices are inside of the surface and which are outside
@@ -120,7 +118,7 @@ public:
         }
 
         //Find which edges are intersected by the surface
-        edge_flags = this->cube_edge_flags[flag_index];
+        edge_flags = cube_edge_flags[flag_index];
         
         //If the cube is entirely inside or outside of the surface, then there will be no intersections
         if (edge_flags == 0) {
@@ -132,12 +130,12 @@ public:
         for (edge = 0; edge < 12; edge++) {
             //if there is an intersection on this edge
             if (edge_flags & (1 << edge)) {
-                offset = this->getOffset(cube_value[this->edge_connection[edge][0]],
-                        cube_value[this->edge_connection[edge][1]], this->level_set);
+                offset = getOffset(cube_value[edge_connection[edge][0]],
+                        cube_value[edge_connection[edge][1]], this->level_set);
 
-                edge_vertex[edge].x = x + (this->vertex_offset[this->edge_connection[edge][0]][0] + offset * this->edge_direction[edge][0]) * scale;
-                edge_vertex[edge].y = y + (this->vertex_offset[this->edge_connection[edge][0]][1] + offset * this->edge_direction[edge][1]) * scale;
-                edge_vertex[edge].z = z + (this->vertex_offset[this->edge_connection[edge][0]][2] + offset * this->edge_direction[edge][2]) * scale;
+                edge_vertex[edge].x = x + (vertex_offset[edge_connection[edge][0]][0] + offset * edge_direction[edge][0]) * step.x;
+                edge_vertex[edge].y = y + (vertex_offset[edge_connection[edge][0]][1] + offset * edge_direction[edge][1]) * step.y;
+                edge_vertex[edge].z = z + (vertex_offset[edge_connection[edge][0]][2] + offset * edge_direction[edge][2]) * step.z;
                 
             }
         }
@@ -145,31 +143,43 @@ public:
 
         // Iterate over triangles found, max five per cube
         for (triangle = 0; triangle < 5; triangle++) {
-            if (this->triangle_connection_table[flag_index][3 * triangle] < 0)
+            if (triangle_connection_table[flag_index][3 * triangle] < 0)
                 break;
 
             PlaneVisualizationData::Tri tri;
             
             for (corner = 0; corner < 3; corner++) {
-                vertex = this->triangle_connection_table[flag_index][3 * triangle + corner];
+                vertex = triangle_connection_table[flag_index][3 * triangle + corner];
 
                 tri.vertices[corner] = Eigen::Vector3f(edge_vertex[vertex].x, edge_vertex[vertex].y, edge_vertex[vertex].z);
                 
             }
             
             this->vis_data_ptr->triangles.push_back(tri);
+            
         }
     }
     
-    int dataset_size = 16;
-    ScalarType step_size = 1.0f/this->dataset_size;
     ScalarType level_set = 0.0;
-    
-    EvaluationVolume vol;
+    EvaluationVolume volume;
     AlgebraicSurfaceProduct<ScalarType>* surface_ptr;
     PlaneVisualizationData* vis_data_ptr;
+    
+    
+private:
+    
+    static ScalarType getOffset(ScalarType value1, ScalarType value2, ScalarType value_desired) {
+        // finds the approximate point of intersection of the surface
+        // between two points with the values value1 and value2
+        double delta = value2 - value1;
 
-    ScalarType vertex_offset[8][3] = {
+        if (delta == 0.0) {
+            return 0.5;
+        }
+        return (value_desired - value1) / delta;
+    }
+
+    static constexpr int vertex_offset[8][3] = {
         // lists the positions, relative to vertex0, of each of the 8 vertices of a cube
         {0.0, 0.0, 0.0},
         {1.0, 0.0, 0.0},
@@ -181,7 +191,7 @@ public:
         {0.0, 1.0, 1.0}
     };
     
-    int edge_connection[12][2] = {
+    static constexpr int edge_connection[12][2] = {
         // lists the index of the endpoint vertices for each of the 12 edges of the cube
         {0, 1},
         {1, 2},
@@ -197,7 +207,7 @@ public:
         {3, 7}
     };
     
-    ScalarType edge_direction[12][3] = {
+    static constexpr int edge_direction[12][3] = {
         // lists the direction vector (vertex1-vertex0) for each edge in the cube
         {1.0, 0.0, 0.0},
         {0.0, 1.0, 0.0},
@@ -213,7 +223,7 @@ public:
         {0.0, 0.0, 1.0}
     };
 
-    int cube_edge_flags[256] = {
+    static constexpr int cube_edge_flags[256] = {
         // For any edge, if one vertex is inside of the surface and the other is outside of the surface
         //  then the edge intersects the surface
         // For each of the 8 vertices of the cube can be two possible states : either inside or outside of the surface
@@ -239,7 +249,7 @@ public:
         0xf00, 0xe09, 0xd03, 0xc0a, 0xb06, 0xa0f, 0x905, 0x80c, 0x70c, 0x605, 0x50f, 0x406, 0x30a, 0x203, 0x109, 0x000
     };
     
-    int triangle_connection_table[256][16] = {
+    static constexpr int triangle_connection_table[256][16] = {
         //  For each of the possible vertex states listed in cube_edge_flags there is a specific triangulation
         //  of the edge intersection points. triangle_connection_table lists all of them in the form of
         //  0-5 edge triples with the list terminated by the invalid value -1.
@@ -505,7 +515,20 @@ public:
     
 };
 
+template <typename ScalarType>
+constexpr int Polygonizer<ScalarType>::vertex_offset[8][3];
 
+template <typename ScalarType>
+constexpr int Polygonizer<ScalarType>::edge_connection[12][2];
+
+template <typename ScalarType>
+constexpr int Polygonizer<ScalarType>::edge_direction[12][3];
+
+template <typename ScalarType>
+constexpr int Polygonizer<ScalarType>::cube_edge_flags[256];
+
+template <typename ScalarType>
+constexpr int Polygonizer<ScalarType>::triangle_connection_table[256][16];
 
 
 #endif /* POLIGONIZER_HPP */
