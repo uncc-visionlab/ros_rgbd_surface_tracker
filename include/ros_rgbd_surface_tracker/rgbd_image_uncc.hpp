@@ -238,9 +238,10 @@ namespace cv {
                         << width << "x" << height << " depth images." << std::endl;
             }
 
-            void computeCurvatureFiniteDiff_Impl(const cv::Mat& depth, cv::Mat& normals); 
-            
-            void plucker(const cv::Mat& depth, cv::Mat& mean_curvature, cv::Mat& axes);
+            void computeCurvatureFiniteDiff_Impl(const cv::Mat& depth, cv::Mat& normals);
+
+            void plucker(cv::Mat& points, cv::Mat& normals,
+                    cv::Mat& axisVecs, cv::Mat& axisDirs);
 
             void operator()(cv::InputArray depth_in, cv::OutputArray normals_out) {
                 Mat depth_ori = depth_in.getMat();
@@ -837,22 +838,25 @@ namespace cv {
                 //                setNormalsComputer(normalsComputer);
                 //
                 //                cv::Mat normals(getDepth().size(), CV_32FC3);
-                //                cv::Mat points(getDepth().size(), CV_32FC3);
-                //                for (int r = 0; r < getDepth().rows; ++r) {
-                //                    for (int c = 0; c < getDepth().cols; ++c) {
-                //                        const float& depth = zptr[r * zstep + c];
-                //                        points.at<cv::Point3f>(r, c).x = (c - cx) * inv_f*depth;
-                //                        points.at<cv::Point3f>(r, c).y = (r - cy) * inv_f*depth;
-                //                        points.at<cv::Point3f>(r, c).z = depth;
-                //                    }
-                //                }
+                cv::Mat points(getDepth().size(), CV_32FC3);
+                for (int r = 0; r < getDepth().rows; ++r) {
+                    for (int c = 0; c < getDepth().cols; ++c) {
+                        const float& depth = zptr[r * zstep + c];
+                        points.at<cv::Point3f>(r, c).x = (c - cx) * inv_f*depth;
+                        points.at<cv::Point3f>(r, c).y = (r - cy) * inv_f*depth;
+                        points.at<cv::Point3f>(r, c).z = depth;
+                    }
+                }
                 //                (*normalsComputer)(points, normals);
 
                 //                                cv::Mat normals2(getDepth().size(), CV_32FC3);
                 //                                iImgs.computeImplicit_Impl(getDepth(), normals2);
                 cv::Mat normals3(getDepth().size(), CV_32FC3);
                 iImgs.computeExplicit_Impl(getDepth(), normals3);
-                iImgs.computeCurvatureFiniteDiff_Impl(getDepth(), normals3);
+                //iImgs.computeCurvatureFiniteDiff_Impl(getDepth(), normals3);
+                cv::Mat axisVecs(1, 3, CV_32F);
+                cv::Mat axisDirs(1, 3, CV_32F);
+                iImgs.plucker(points, normals3, axisVecs, axisDirs);
                 //                                cv::Point2i tlc(315, 235);
                 //                cv::Rect roi(tlc.x, tlc.y, width - 2 * tlc.x, height - 2 * tlc.y);
                 //                cv::Point2i winCenter;

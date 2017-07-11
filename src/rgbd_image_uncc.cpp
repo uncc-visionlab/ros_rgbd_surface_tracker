@@ -4,6 +4,7 @@
  * and open the template in the editor.
  */
 #include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
+#include <opencv2/core/core.hpp>
 namespace cv {
     namespace rgbd {
 
@@ -15,8 +16,60 @@ namespace cv {
                     cv::rgbd::RgbdImage::iImgs.getWidth() == width;
         }
 
-        void DepthIntegralImages::plucker(const cv::Mat& depth, cv::Mat& mean_curvature, cv::Mat& axes) {
-
+        void DepthIntegralImages::plucker(cv::Mat& points, cv::Mat& normals,
+                cv::Mat& axisVecs, cv::Mat& axisDirs) {
+            static cv::Mat quadraticConstraints = cv::Mat::zeros(6, 6, CV_32F);
+            quadraticConstraints.at<float>(0, 0) = 1.0f;
+            quadraticConstraints.at<float>(1, 1) = 1.0f;
+            quadraticConstraints.at<float>(2, 2) = 1.0f;
+            cv::Mat pluckerScatter = cv::Mat::zeros(6, 6, CV_32F);
+            float normf;
+            cv::Point2i tlc(315, 235);
+            cv::Rect roi(tlc.x, tlc.y, width - tlc.x, height - tlc.y);
+            for (int y = roi.y; y < roi.y + roi.height; ++y) {
+                cv::Vec3f* pt_ptr = points.ptr<cv::Vec3f>(y, roi.x);
+                cv::Vec3f* norm_ptr = normals.ptr<cv::Vec3f>(y, roi.x);
+                for (int x = roi.x; x < roi.x + roi.width; ++x, ++pt_ptr, ++norm_ptr) {
+                    cv::Vec3f& pt = *pt_ptr;
+                    cv::Vec3f& norm = *norm_ptr;
+                    if (std::isnan(norm[0]) || std::isnan(pt[0])) {
+                        continue;
+                    }
+                    cv::Vec6f pluckerLineVec(norm[0], norm[1], norm[2],
+                            pt[1] * norm[2] - pt[2] * norm[1],
+                            pt[2] * norm[0] - pt[0] * norm[2],
+                            pt[0] * norm[1] - pt[1] * norm[2]);
+                    //normf = 1.0f / std::sqrt(pluckerLineVec.dot(pluckerLineVec));
+                    //pluckerLineVec *= normf;
+                    // form upper triangular scatter matrix
+                    float *pluckerScatter_ptr = pluckerScatter.ptr<float>(0, 0);
+                    for (int row = 0; row < 6; ++row) {
+                        pluckerScatter_ptr += row;
+                        for (int col = row; col < 6; ++col, ++pluckerScatter_ptr) {
+                            *pluckerScatter_ptr += pluckerLineVec[row] * pluckerLineVec[col];
+                        }
+                    }
+                }
+            }
+            //std::cout << "pluckerScatter = " << pluckerScatter << std::endl;
+            cv::completeSymm(pluckerScatter);
+            //std::cout << "pluckerScatter = " << pluckerScatter << std::endl;
+            cv::Mat ipluckerScatter = pluckerScatter.inv();
+            cv::Mat ipluckerConstrained = ipluckerScatter*quadraticConstraints;
+            cv::Mat U, W, Vt;
+            cv::SVDecomp(ipluckerConstrained, W, U, Vt);
+            //std::cout << "U = " << U << std::endl;
+            //std::cout << "W = " << W << std::endl;
+            //std::cout << "Vt = " << Vt << std::endl;
+            cv::Vec6f pluckerAxisLine = cv::Mat(U, cv::Rect(0, 0, 1, U.cols));
+            cv::Vec3f linePt(pluckerAxisLine[0], pluckerAxisLine[1], pluckerAxisLine[2]);
+            cv::Vec3f lineDir(pluckerAxisLine[3], pluckerAxisLine[4], pluckerAxisLine[5]);
+            //std::cout << "pt = " << linePt << " dir = " << lineDir << std::endl;
+            lineDir = lineDir.cross(linePt);
+            //std::cout << "pt = " << linePt << " dir = " << lineDir << std::endl;
+            normf = 1.0f / std::sqrt(lineDir.dot(lineDir));
+            lineDir *= normf;
+            std::cout << "pt = " << linePt << " dir = " << lineDir << std::endl;
         }
 
         void DepthIntegralImages::computeCurvatureFiniteDiff_Impl(const cv::Mat& depth, cv::Mat& normals) {
