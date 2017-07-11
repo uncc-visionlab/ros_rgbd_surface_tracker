@@ -115,27 +115,11 @@ namespace cv {
             
              // collecting data from two tiles in depth image
             int tile_width = 100, tile_height = 100;
-            int half_width = floor(0.5*tile_width);
-            int half_height = floor(0.5*tile_height);
             int x1 = floor(0.5*(rgbd_img.getWidth() - tile_width)) - 100;
             int x2 = x1 + 200;
             int y1 = floor(0.5*(rgbd_img.getHeight() - tile_height));
             int y2 = y1;
             int samples_per_tile = 100;
-            
-//            std::vector<cv::Rect2i> tiles;
-//            tiles.reserve(2);
-//            tiles.emplace_back(x1, y1, tile_width, tile_height);
-//            tiles.emplace_back(x2, y2, tile_width, tile_height);
-//            
-//            std::vector<cv::Point2i> corners;
-//            corners.reserve(4*tiles.size());
-//            for (auto& tile : tiles) {
-//                corners.emplace_back(tile.tl());
-//                corners.emplace_back(tile.x + tile.width, tile.y);
-//                corners.emplace_back(tile.br());
-//                corners.emplace_back(tile.x, tile.y + tile.height);
-//            }
             
             std::vector<cv::Point3f> data, tileA_data, tileB_data;
             data.reserve(2*samples_per_tile);
@@ -200,56 +184,19 @@ namespace cv {
                     vis_data_ptr->rect_points.clear();
                     vis_data_ptr->triangles.clear();
                     
-                    static Polygonizer<double> poly(&surface, vis_data_ptr);
-                    poly.volume.size.x = 6.0;
-                    poly.volume.size.y = 4.0;
-                    poly.volume.size.z = 5.0;
-                    poly.volume.num_blocks.x = 10;
-                    poly.volume.num_blocks.y = 10;
-                    poly.volume.num_blocks.z = 10;
+                    static Polygonizer<double> poly(
+                        Polygonizer<double>::EvaluationVolume(0, 0, 2.5, 6, 4, 5, 10, 10, 10),
+                        &surface, 
+                        vis_data_ptr);
                     poly.polygonize();
-                    
-//                    cv::Mat camera_matrix = rgbd_img.getCameraMatrix();
-//                    float fx = camera_matrix.at<float>(0, 0); // px
-//                    float fy = camera_matrix.at<float>(1, 1); // px
-//                    float cx = camera_matrix.at<float>(0, 2); // px
-//                    float cy = camera_matrix.at<float>(1, 2); // px
-//                    float s = 1.9e-6; // m/px
-//                    float f = s*(fx + fy)/2; // m
-//                    
-//                    for (auto& corner_px : corners) {
-//                        
-//                        cv::Line3f ray(
-//                            cv::Point3f(s*(corner_px.x - cx), s*(corner_px.y - cy), s*(fx + fy)/2),
-//                            cv::Point3f(0, 0, 0));
-//                            
-//                        cv::Point3f closest_pt(0, 0, std::numeric_limits<float>::infinity());
-//                        
-//                        for (auto& subsurface : surface.subsurfaces) {
-//                            
-//                            cv::Plane3f subsurface_plane(
-//                                    subsurface->coeffs(1), 
-//                                    subsurface->coeffs(2), 
-//                                    subsurface->coeffs(3), 
-//                                    subsurface->coeffs(0));
-//                            
-//                            cv::Point3f intersection_pt;
-//                            subsurface_plane.intersect(ray, intersection_pt);
-//                                
-//                            if (intersection_pt.z < closest_pt.z)
-//                                closest_pt = intersection_pt;
-//
-//                        }
-//                        
-//                        vis_data->rect_points.emplace_back(closest_pt.x, closest_pt.y, closest_pt.z);
-//                        
-//                    }
                     
                 }
 
             }
 
         }
+        
+        
 
         void RgbdSurfaceTracker::iterativeAlignment(cv::rgbd::RgbdImage& rgbd_img) {
             

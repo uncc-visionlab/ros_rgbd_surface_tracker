@@ -56,8 +56,34 @@ public:
     
     struct EvaluationVolume {
         
-        EvaluationVolume() : size(), num_blocks() {}
+        EvaluationVolume() : position(), size(), num_blocks() {}
         
+        EvaluationVolume(ScalarType posx, ScalarType posy, ScalarType posz,
+                ScalarType sizex, ScalarType sizey, ScalarType sizez, 
+                ScalarType blocksx, ScalarType blocksy, ScalarType blocksz) 
+                : position(posx, posy, posz), 
+                size(sizex, sizey, sizez), 
+                num_blocks(blocksx, blocksy, blocksz) {}
+        
+        void setPosition(ScalarType x, ScalarType y, ScalarType z) {
+            this->position.x = x;
+            this->position.y = y;
+            this->position.z = z;
+        }
+        
+        void setSize(ScalarType x, ScalarType y, ScalarType z) {
+            this->size.x = x;
+            this->size.y = y;
+            this->size.z = z;
+        }
+        
+        void setBlocks(ScalarType x, ScalarType y, ScalarType z) {
+            this->num_blocks.x = x;
+            this->num_blocks.y = y;
+            this->num_blocks.z = z;
+        }
+        
+        Vector position; // meters
         Vector size; // meters
         Vector num_blocks;
         
@@ -66,12 +92,16 @@ public:
     Polygonizer();
     
     Polygonizer(AlgebraicSurfaceProduct<ScalarType>* surface_ptr, PlaneVisualizationData* vis_data_ptr) {
+        
         this->surface_ptr = surface_ptr;
         this->vis_data_ptr = vis_data_ptr;
         
     }
     
-    Polygonizer(EvaluationVolume& volume, AlgebraicSurfaceProduct<ScalarType>* surface_ptr, PlaneVisualizationData* vis_data_ptr) {
+    Polygonizer(const EvaluationVolume& volume, 
+            AlgebraicSurfaceProduct<ScalarType>* surface_ptr, 
+            PlaneVisualizationData* vis_data_ptr) {
+        
         this->volume = volume;
         this->surface_ptr = surface_ptr;
         this->vis_data_ptr = vis_data_ptr;
@@ -83,7 +113,10 @@ public:
     }
     
     void marchCubes() {
-        Vector half(this->volume.size.x/2.0, this->volume.size.y/2.0, 0);
+        Vector trans(
+                this->volume.position.x - this->volume.size.x/2.0, 
+                this->volume.position.y - this->volume.size.y/2.0,
+                this->volume.position.z - this->volume.size.z/2.0);
         
         Vector step(
                 this->volume.size.x/this->volume.num_blocks.x, 
@@ -93,7 +126,7 @@ public:
         for (int ix = 0; ix < this->volume.num_blocks.x; ++ix)
             for (int iy = 0; iy < this->volume.num_blocks.y; ++iy)
                 for (int iz = 0; iz < this->volume.num_blocks.z; ++iz) {
-                    marchSingleCube(ix*step.x - half.x, iy*step.y - half.y, iz*step.z, step);
+                    marchSingleCube(ix*step.x + trans.x, iy*step.y + trans.y, iz*step.z + trans.z, step);
                 }
         
     }
@@ -183,16 +216,25 @@ private:
         return (value_desired - value1) / delta;
     }
 
-    static constexpr int vertex_offset[8][3] = {
+    static constexpr ScalarType vertex_offset[8][3] = {
         // lists the positions, relative to vertex0, of each of the 8 vertices of a cube
-        {0.0, 0.0, 0.0},
-        {1.0, 0.0, 0.0},
-        {1.0, 1.0, 0.0},
-        {0.0, 1.0, 0.0},
-        {0.0, 0.0, 1.0},
-        {1.0, 0.0, 1.0},
-        {1.0, 1.0, 1.0},
-        {0.0, 1.0, 1.0}
+//        {0.0, 0.0, 0.0},
+//        {1.0, 0.0, 0.0},
+//        {1.0, 1.0, 0.0},
+//        {0.0, 1.0, 0.0},
+//        {0.0, 0.0, 1.0},
+//        {1.0, 0.0, 1.0},
+//        {1.0, 1.0, 1.0},
+//        {0.0, 1.0, 1.0}
+        {-0.5, -0.5, -0.5},
+        { 0.5, -0.5, -0.5},
+        { 0.5,  0.5, -0.5},
+        {-0.5,  0.5, -0.5},
+        {-0.5, -0.5,  0.5},
+        { 0.5, -0.5,  0.5},
+        { 0.5,  0.5,  0.5},
+        {-0.5,  0.5,  0.5}
+
     };
     
     static constexpr int edge_connection[12][2] = {
@@ -211,7 +253,7 @@ private:
         {3, 7}
     };
     
-    static constexpr int edge_direction[12][3] = {
+    static constexpr ScalarType edge_direction[12][3] = {
         // lists the direction vector (vertex1-vertex0) for each edge in the cube
         {1.0, 0.0, 0.0},
         {0.0, 1.0, 0.0},
@@ -520,13 +562,13 @@ private:
 };
 
 template <typename ScalarType>
-constexpr int Polygonizer<ScalarType>::vertex_offset[8][3];
+constexpr ScalarType Polygonizer<ScalarType>::vertex_offset[8][3];
 
 template <typename ScalarType>
 constexpr int Polygonizer<ScalarType>::edge_connection[12][2];
 
 template <typename ScalarType>
-constexpr int Polygonizer<ScalarType>::edge_direction[12][3];
+constexpr ScalarType Polygonizer<ScalarType>::edge_direction[12][3];
 
 template <typename ScalarType>
 constexpr int Polygonizer<ScalarType>::cube_edge_flags[256];
