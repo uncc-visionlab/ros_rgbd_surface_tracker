@@ -37,8 +37,8 @@ namespace cv {
             CALLGRIND_TOGGLE_COLLECT;
 #endif
 
-            //rgbd_img.computeNormals();
-            iterativeAlignment(rgbd_img, rgb_result);
+            rgbd_img.computeNormals(rgb_result);
+            //iterativeAlignment(rgbd_img, rgb_result);
 
 
 #ifdef PROFILE_CALLGRIND
