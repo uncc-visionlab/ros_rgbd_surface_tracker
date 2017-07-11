@@ -823,7 +823,7 @@ namespace cv {
                 return normalsComputer;
             }
 
-            bool computeNormals() {
+            bool computeNormals(cv::Mat& rgb_result) {
                 int normalWinSize = iImgs.getWindowSize().width;
                 int normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_FALS; // 7.0 fps
                 //int normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_LINEMOD;
