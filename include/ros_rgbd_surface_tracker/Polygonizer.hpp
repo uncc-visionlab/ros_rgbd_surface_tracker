@@ -43,14 +43,24 @@ class Polygonizer {
 public:
     
     struct Vector {
+        
+        Vector() : x(), y(), z() {}
+        
+        Vector(ScalarType _x, ScalarType _y, ScalarType _z) : x(_x), y(_y), z(_z) {}
+        
         ScalarType x;
         ScalarType y;
         ScalarType z;
+        
     };
     
     struct EvaluationVolume {
+        
+        EvaluationVolume() : size(), num_blocks() {}
+        
         Vector size; // meters
         Vector num_blocks;
+        
     };
     
     Polygonizer();
@@ -73,14 +83,12 @@ public:
     }
     
     void marchCubes() {
-        Vector half;
-        half.x = this->volume.size.x/2.0;
-        half.y = this->volume.size.y/2.0;
+        Vector half(this->volume.size.x/2.0, this->volume.size.y/2.0, 0);
         
-        Vector step;
-        step.x = this->volume.size.x/this->volume.num_blocks.x;
-        step.y = this->volume.size.x/this->volume.num_blocks.y;
-        step.z = this->volume.size.x/this->volume.num_blocks.z;
+        Vector step(
+                this->volume.size.x/this->volume.num_blocks.x, 
+                this->volume.size.y/this->volume.num_blocks.y,
+                this->volume.size.z/this->volume.num_blocks.z);
 
         for (int ix = 0; ix < this->volume.num_blocks.x; ++ix)
             for (int iy = 0; iy < this->volume.num_blocks.y; ++iy)
@@ -88,13 +96,9 @@ public:
                     marchSingleCube(ix*step.x - half.x, iy*step.y - half.y, iz*step.z, step);
                 }
         
-//        for (auto& tri : this->vis_data_ptr->triangles) {
-//            std::cout << tri.vertices[0].transpose() << " | " << tri.vertices[1].transpose() << " | " << tri.vertices[2].transpose() << "\n";
-//            
-//        }
     }
     
-    void marchSingleCube(ScalarType x, ScalarType y, ScalarType z, Vector step) {
+    void marchSingleCube(ScalarType x, ScalarType y, ScalarType z, const Vector& step) {
 
         int corner, vertex, vertex_test, edge, triangle, flag_index, edge_flags;
         ScalarType offset;
