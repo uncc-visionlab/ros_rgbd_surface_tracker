@@ -204,7 +204,30 @@ public:
         }
         return monomial_vector;
     }
-
+    
+    static int signum(ScalarType d) {
+        if (d == 0) {
+            return 0;
+        } else if (d < 0) {
+            return -1;
+        } else {
+            return 1;
+        }
+    }
+    
+    static bool coincident(
+            const AlgebraicSurface<ScalarType>& p, const AlgebraicSurface<ScalarType>& q) {
+        ScalarType det_nx_ny = p.coeffs(1) * q.coeffs(2) - q.coeffs(1) * p.coeffs(2);
+        ScalarType det_nx_nz = p.coeffs(1) * q.coeffs(3) - q.coeffs(1) * p.coeffs(3);
+        ScalarType det_nx_d = p.coeffs(1) * q.coeffs(0) - q.coeffs(1) * p.coeffs(0);
+        ScalarType det_ny_nz = p.coeffs(2) * q.coeffs(3) - q.coeffs(2) * p.coeffs(3);
+        ScalarType det_ny_d = p.coeffs(2) * q.coeffs(0) - q.coeffs(2) * p.coeffs(0);
+        ScalarType det_nz_d = p.coeffs(3) * q.coeffs(0) - q.coeffs(3) * p.coeffs(0);
+        return (det_nx_ny == 0 && det_nx_nz == 0 && det_nx_d == 0
+                && det_ny_nz == 0 && det_ny_d == 0 && det_nz_d == 0);
+        
+    }
+    
     /**
      * Computes integer factorials for n : n!
      * @param n Number to factorialize.
@@ -452,6 +475,19 @@ public:
         
     }
     
+    virtual RowVectorXs evaluateGradient(const Eigen::Ref<const RowVectorXs>& pt) {
+        
+        RowVectorXs gradient(this->dimension);
+        gradient.setZero();
+
+        for (std::size_t d = 0; d != this->dimension; d++) {
+            gradient(d) += this->evaluateDerivative(d, pt);
+        }
+
+        return gradient;
+    }
+    
+    
     static AlgebraicSurface<ScalarType> affineTransform(
             const Eigen::Ref<const MatrixXs>& transform, 
             const AlgebraicSurface<ScalarType>& surface) {
@@ -627,130 +663,6 @@ public:
 };
 
 template <typename ScalarType>
-class CornerSurface : public AlgebraicSurface<ScalarType> {
-    using RowVector3s =  Eigen::Matrix<ScalarType, 1, 3>;
-    using RowVectorXs =  Eigen::Matrix<ScalarType, 1, Eigen::Dynamic>;
-    using MatrixXs = Eigen::Matrix<ScalarType, Eigen::Dynamic, Eigen::Dynamic>;
-    
-public:
-
-//    static RowVector3s inexactGetPoint(Plane p, Plane q, Plane r) {
-//        RowVector3s pt = new RowVector3s();
-//        double[][] m;
-//        m = new double[][] {
-//            {
-//                p.b, p.c, p.d
-//            },
-//            {
-//                q.b, q.c, q.d
-//            },
-//            {
-//                r.b, r.c, r.d
-//            }
-//        };
-//        double x = Plane.inexactDeterminant3x3(m);
-//        m = new double[][] {
-//            {
-//                p.a, p.c, p.d
-//            },
-//            {
-//                q.a, q.c, q.d
-//            },
-//            {
-//                r.a, r.c, r.d
-//            }
-//        };
-//        double y = -Plane.inexactDeterminant3x3(m);
-//        m = new double[][] {
-//            {
-//                p.a, p.b, p.d
-//            },
-//            {
-//                q.a, q.b, q.d
-//            },
-//            {
-//                r.a, r.b, r.d
-//            }
-//        };
-//        double z = Plane.inexactDeterminant3x3(m);
-//        m = new double[][] {
-//            {
-//                p.a, p.b, p.c
-//            },
-//            {
-//                q.a, q.b, q.c
-//            },
-//            {
-//                r.a, r.b, r.c
-//            }
-//        };
-//        double w = -Plane.inexactDeterminant3x3(m);
-//        if (Plane.signum(w) == 0) {
-//            System.out.println("w = " + w + " bi-1 = " + p + " bi = " + q + " s = " + r);
-//            boolean isCoincident = Plane.coincident(p, q);
-//            return null;
-//        }
-//        pt.x = (float) (x / w); //x.doubleValue() / w.doubleValue();
-//        pt.y = (float) (y / w); //y.doubleValue() / w.doubleValue();
-//        pt.z = (float) (z / w); //z.doubleValue() / w.doubleValue();
-//        //        RowVector3s n1 = new RowVector3s(p.a, p.b, p.c);
-//        //        RowVector3s n2 = new RowVector3s(q.a, q.b, q.c);
-//        //        RowVector3s n3 = new RowVector3s(r.a, r.b, r.c);
-//        //        n1.normalize();
-//        //        n2.normalize();
-//        //        n3.normalize();
-//        //        RowVector3s pt = new RowVector3s();
-//        //        RowVector3s tmp = new RowVector3s();
-//        //        tmp.cross(n2, n3);
-//        //        tmp.scale(p.d);
-//        //        pt.set(tmp);
-//        //        tmp.cross(n3, n1);
-//        //        tmp.scale(q.d);
-//        //        pt.add(tmp);
-//        //        tmp.cross(n1, n2);
-//        //        tmp.scale(r.d);
-//        //        pt.add(tmp);
-//        //        tmp.cross(n2, n3);
-//        //        pt.scale(1.0f / n1.dot(tmp));
-//        //        if (pt.x == Float.NaN || pt.x == Float.POSITIVE_INFINITY
-//        //                || pt.x == Float.NEGATIVE_INFINITY
-//        //                || pt.y == Float.NaN || pt.y == Float.POSITIVE_INFINITY
-//        //                || pt.y == Float.NEGATIVE_INFINITY
-//        //                || pt.z == Float.NaN || pt.z == Float.POSITIVE_INFINITY
-//        //                || pt.z == Float.NEGATIVE_INFINITY) {
-//        //            System.out.println("PolygonOfPlanes::inexactGetPoint() - Unstable result computing BRep for polygon.");
-//        //            return null;
-//        //        }
-//        return pt;
-//    }
-//
-//    static double inexactDeterminant3x3(double[][] m) {
-//        double[][] m00_minor = {
-//            {m[1][1], m[1][2]},
-//            {m[2][1], m[2][2]}};
-//        double[][] m01_minor = {
-//            {m[1][0], m[1][2]},
-//            {m[2][0], m[2][2]}};
-//        double[][] m02_minor = {
-//            {m[1][0], m[1][1]},
-//            {m[2][0], m[2][1]}};
-//        double det = m[0][0] * inexactDeterminant2x2(m00_minor)
-//                - m[0][1] * inexactDeterminant2x2(m01_minor)
-//                + m[0][2] * inexactDeterminant2x2(m02_minor);
-//        return det;
-//    }
-//
-//    static double inexactDeterminant2x2(double[][] m) {
-//        double det = m[0][0] * m[1][1] - m[0][1] * m[1][0];
-//        return det;
-//    }
-
-
-
-};
-
-
-template <typename ScalarType>
 class AlgebraicSurfaceProduct {
     using RowVectorXs =  Eigen::Matrix<ScalarType, 1, Eigen::Dynamic>;
     using MatrixXs = Eigen::Matrix<ScalarType, Eigen::Dynamic, Eigen::Dynamic>;
@@ -767,18 +679,7 @@ public:
         
     }
     
-    AlgebraicSurfaceProduct(
-            int new_dimension, int new_order, 
-            const VecAlgebraicSurfacePtrs& new_subsurfaces) {
-        
-        this->dimension = new_dimension;
-        this->order = new_order;
-        this->subsurfaces = new_subsurfaces;
-        
-    }
-    
-    AlgebraicSurfaceProduct(
-            const VecAlgebraicSurfacePtrs& new_subsurfaces) {
+    AlgebraicSurfaceProduct(const VecAlgebraicSurfacePtrs& new_subsurfaces) {
         
         this->subsurfaces = new_subsurfaces;
         this->dimension = this->computeDimension();
@@ -815,15 +716,13 @@ public:
     
     void addSubSurface(const typename AlgebraicSurface<ScalarType>::Ptr& surface) {
         
-        if (this->subsurfaces.size() == 0) {
+        if (this->subsurfaces.size() == 0 && this->dimension == 0) {
             this->dimension = surface->dimension;
-            this->order = 0;
         } else if (this->dimension != surface->dimension)
                 throw "Candidate surface dimension does not match collection!";
         
-        this->order += surface->order;
         this->subsurfaces.push_back(surface);
-        
+        this->order = this->computeOrder();
     }
     
     ScalarType evaluate(const Eigen::Ref<const RowVectorXs>& pt) {
@@ -947,11 +846,81 @@ public:
 
     }
     
-    int dimension;
+    int dimension = 0;
 
-    int order;
+    int order = 0;
     
     VecAlgebraicSurfacePtrs subsurfaces;
 };
+
+template <typename ScalarType>
+class CornerSurfaceProduct : public AlgebraicSurfaceProduct<ScalarType> {
+    using RowVector3s =  Eigen::Matrix<ScalarType, 1, 3>;
+    using RowVectorXs =  Eigen::Matrix<ScalarType, 1, Eigen::Dynamic>;
+    using Matrix3s =  Eigen::Matrix<ScalarType, 3, 3>;
+    using MatrixXs = Eigen::Matrix<ScalarType, Eigen::Dynamic, Eigen::Dynamic>;
+    using VecAlgebraicSurfacePtrs = 
+            std::vector<boost::shared_ptr<AlgebraicSurface<ScalarType>>>;
+    
+public:
+    
+    CornerSurfaceProduct() : AlgebraicSurfaceProduct<ScalarType>(3) {}
+    
+    CornerSurfaceProduct(const VecAlgebraicSurfacePtrs& new_subsurfaces) {
+        this->subsurfaces = new_subsurfaces;
+        if (this->computeDimension() != 3)
+            throw "New subsurfaces are not of dimension 3!";
+    }
+    
+    static RowVector3s getPoint(
+            const AlgebraicSurface<ScalarType>& p, 
+            const AlgebraicSurface<ScalarType>& q, 
+            const AlgebraicSurface<ScalarType>& r) {
+        
+        Eigen::Matrix<ScalarType, 3, 4> coeffs_mat;
+        coeffs_mat << p.coeffs, q.coeffs, r.coeffs;
+        
+        ScalarType x = (Matrix3s() << coeffs_mat.col(2), coeffs_mat.col(3), coeffs_mat.col(0)).finished().determinant();
+        ScalarType y = -(Matrix3s() << coeffs_mat.col(1), coeffs_mat.col(3), coeffs_mat.col(0)).finished().determinant();
+        ScalarType z = -(Matrix3s() << coeffs_mat.col(1), coeffs_mat.col(2), coeffs_mat.col(0)).finished().determinant();
+        ScalarType w = -(Matrix3s() << coeffs_mat.col(1), coeffs_mat.col(2), coeffs_mat.col(3)).finished().determinant();
+        
+        if (AlgebraicSurface<ScalarType>::signum(w) == 0) {
+            bool is_coincident = AlgebraicSurface<ScalarType>::coincident(p, q);
+            return  RowVector3s().setConstant(std::numeric_limits<ScalarType>::quiet_NaN());
+        }
+        
+        RowVector3s pt(x, y, z);
+        
+        return pt/w;
+    }
+    
+//
+//    static double inexactDeterminant3x3(double[][] m) {
+//        double[][] m00_minor = {
+//            {m[1][1], m[1][2]},
+//            {m[2][1], m[2][2]}};
+//        double[][] m01_minor = {
+//            {m[1][0], m[1][2]},
+//            {m[2][0], m[2][2]}};
+//        double[][] m02_minor = {
+//            {m[1][0], m[1][1]},
+//            {m[2][0], m[2][1]}};
+//        double det = m[0][0] * inexactDeterminant2x2(m00_minor)
+//                - m[0][1] * inexactDeterminant2x2(m01_minor)
+//                + m[0][2] * inexactDeterminant2x2(m02_minor);
+//        return det;
+//    }
+//
+//    static double inexactDeterminant2x2(double[][] m) {
+//        double det = m[0][0] * m[1][1] - m[0][1] * m[1][0];
+//        return det;
+//    }
+
+
+
+};
+
+
 #endif /* __cplusplus */
 #endif /* ALGEBRAICSURFACE_H */

@@ -243,7 +243,7 @@ namespace cv {
 
                 static bool have_initial_guess;
 
-                static AlgebraicSurfaceProduct<double> surface(3);
+                static CornerSurfaceProduct<double> surface;
                 Eigen::Matrix4d transform_matrix;
                 transform_matrix.setIdentity();
 
@@ -284,6 +284,8 @@ namespace cv {
                         surface.addSubSurface(subsurface_ptr);
                     }
                     
+                    Eigen::RowVector3d corner_pt = surface.getPoint(*surface.subsurfaces.at(0), *surface.subsurfaces.at(1), *surface.subsurfaces[2]);
+                    std::cout << "Corner pt: " << corner_pt << std::endl;
                     have_initial_guess = true;
                 }
 
@@ -296,7 +298,7 @@ namespace cv {
                     vis_data_ptr->triangles.clear();
                     
                     static Polygonizer<double> poly(
-                        Polygonizer<double>::EvaluationVolume(0, 0, 3, 1, 1, 6, 40, 40, 40),
+                        Polygonizer<double>::EvaluationVolume(0, 0, 3, 1, 1, 6, 25, 25, 25),
                         &surface, 
                         vis_data_ptr);
                     poly.polygonize();

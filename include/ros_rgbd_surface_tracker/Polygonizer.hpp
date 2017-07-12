@@ -71,7 +71,8 @@ public:
 
     Polygonizer();
 
-    Polygonizer(AlgebraicSurfaceProduct<ScalarType>* surface_ptr, PlaneVisualizationData* vis_data_ptr) {
+    Polygonizer(AlgebraicSurfaceProduct<ScalarType>* surface_ptr, 
+            PlaneVisualizationData* vis_data_ptr) {
 
         this->surface_ptr = surface_ptr;
         this->vis_data_ptr = vis_data_ptr;
@@ -91,6 +92,11 @@ public:
     void polygonize() {
         this->marchCubes();
     }
+    
+    void polygonize(const EvaluationVolume& volume) {
+        this->volume = volume;
+        this->marchCubes();
+    }
 
     void marchCubes() {
 
@@ -101,8 +107,6 @@ public:
             for (int iy = 0; iy < this->volume.num_blocks(1); ++iy)
                 for (int iz = 0; iz < this->volume.num_blocks(2); ++iz) {
                     marchSingleCube(Vector3s(ix, iy, iz).cwiseProduct(step) + trans, step);
-                            
-//                            Vector3s(ix * step(0) + trans(0), iy * step(1) + trans(1), iz * step(2) + trans(2)), step);
                 }
 
     }
@@ -155,14 +159,6 @@ public:
                 
                 converge(p1, p2, cube_value[edge_connection[edge][0]], p);
                 
-                
-//                offset = getOffset(cube_value[edge_connection[edge][0]],
-//                        cube_value[edge_connection[edge][1]], this->level_set);
-//                
-//                edge_vertex[edge](0) = pos(0) + (vertex_offset[edge_connection[edge][0]][0] + offset * edge_direction[edge][0]) * step(0);
-//                edge_vertex[edge](1) = pos(1) + (vertex_offset[edge_connection[edge][0]][1] + offset * edge_direction[edge][1]) * step(1);
-//                edge_vertex[edge](2) = pos(2) + (vertex_offset[edge_connection[edge][0]][2] + offset * edge_direction[edge][2]) * step(2);
-                
                 edge_vertex[edge] = p;
 
             }
@@ -178,9 +174,7 @@ public:
 
             for (corner = 0; corner < 3; corner++) {
                 vertex = triangle_connection_table[flag_index][3 * triangle + corner];
-
                 tri.vertices[corner] = edge_vertex[vertex].template cast<float>();
-
             }
 
             this->vis_data_ptr->triangles.push_back(tri);
@@ -244,14 +238,6 @@ private:
 
     static constexpr ScalarType vertex_offset[8][3] = {
         // lists the positions, relative to vertex0, of each of the 8 vertices of a cube
-        //        {0.0, 0.0, 0.0},
-        //        {1.0, 0.0, 0.0},
-        //        {1.0, 1.0, 0.0},
-        //        {0.0, 1.0, 0.0},
-        //        {0.0, 0.0, 1.0},
-        //        {1.0, 0.0, 1.0},
-        //        {1.0, 1.0, 1.0},
-        //        {0.0, 1.0, 1.0}
         {-0.5, -0.5, -0.5},
         { 0.5, -0.5, -0.5},
         { 0.5, 0.5, -0.5},
