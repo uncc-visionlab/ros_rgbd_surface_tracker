@@ -17,6 +17,8 @@
 #ifdef __cplusplus
 
 #include <limits>
+#include <string>
+#include <unordered_map>
 
 // Eigen includes
 #include <Eigen/Dense>
@@ -36,8 +38,37 @@
 namespace cv {
     namespace rgbd {
 
+        class ObjectGeometry {
+        public:
+            std::vector<cv::Vec3f> verts;
+        };
+
+        class OpenGLRenderer {
+        private:
+            cv::Mat imgSeg;
+            std::unordered_map<std::string, ObjectGeometry> geomList;
+        public:
+
+            OpenGLRenderer() {
+            }
+
+            virtual ~OpenGLRenderer() {
+            };
+
+            bool initialized() {
+                return !imgSeg.empty();
+            }
+
+            int init(int width, int height);
+            void draw();
+            void renderGeometry(std::pair<std::string, ObjectGeometry> mapElement);
+            void pushObject(std::string name, ObjectGeometry geom);
+            void post();
+        };
+
         class RgbdSurfaceTracker {
         public:
+            static OpenGLRenderer glDraw;
             typedef boost::shared_ptr<RgbdSurfaceTracker> Ptr;
 
             RgbdSurfaceTracker() {
@@ -50,11 +81,11 @@ namespace cv {
 
             void callback(cv::Mat& _ocv_rgbframe, cv::Mat& _ocv_depthframe_float,
                     cv::Mat& _rgb_distortionCoeffs, cv::Mat& _rgb_cameraMatrix);
-            
+
             PlaneVisualizationData *getPlaneVisualizationData() {
                 return &vis_data;
             }
-            
+
             void iterativeAlignment(cv::rgbd::RgbdImage& rgbd_img, cv::Mat& rgb_result);
         private:
             // -------------------------

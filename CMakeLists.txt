@@ -195,7 +195,7 @@ target_link_libraries(main_opencv
    ${Boost_LIBRARIES} 
    ${OpenCV_LIBRARIES}  
    ${Eigen3_LIBRARIES}  
-   OpenNI2Orbbec pthread marchingcubes)
+   OpenNI2Orbbec pthread marchingcubes GL glut)
 #add_executable(main_opencv src/main_opencv.cpp)
 #target_link_libraries(main_opencv v4l2)
 add_library(marchingcubes src/marchingsource.cpp)
