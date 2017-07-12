@@ -30,16 +30,23 @@ namespace cv {
                 std::vector<AlgebraicSurfacePatch>& surflets,
                 std::vector<ObjectGeometry>& geometries) const {
 
+            ObjectGeometry geom;
             Box bb(cv::Vec3f(1, 1, 1),
                     Pose(cv::Vec3f(0, 0, 1), cv::Vec3f(0, 0, CV_PI / 4)));
-            std::vector<cv::Vec3i> tris = bb.generateFaces();
-            std::vector<cv::Vec3f> pts = bb.generateVertices();
-            std::vector<cv::Vec3f> triVertList(tris.size()*3);
-            ObjectGeometry geom;
-            for (cv::Vec3i triIdxs : tris) {
+
+            std::vector<cv::Vec3f> pts = bb.generateCoords();
+            std::vector<cv::Vec3i> triIdxList = bb.generateCoordIndices();
+            for (cv::Vec3i triIdxs : triIdxList) {
                 geom.verts.push_back(pts[triIdxs[0]]);
                 geom.verts.push_back(pts[triIdxs[1]]);
                 geom.verts.push_back(pts[triIdxs[2]]);
+            }
+            std::vector<cv::Vec3f> colors = bb.generateColorCoords();
+            std::vector<cv::Vec3i> triColorIdxList = bb.generateColorCoordIndices();
+            for (cv::Vec3i triColorIdxs : triColorIdxList) {
+                geom.colors.push_back(colors[triColorIdxs[0]]);
+                geom.colors.push_back(colors[triColorIdxs[1]]);
+                geom.colors.push_back(colors[triColorIdxs[2]]);
             }
             geometries.push_back(geom);
         }
@@ -65,12 +72,32 @@ namespace cv {
 
         void OpenGLRenderer::renderGeometry(std::pair<std::string, ObjectGeometry> mapElement) {
             ObjectGeometry geom = mapElement.second;
-            for (auto vert : geom.verts) {
+            for (int idx = 0; idx < geom.verts.size(); ++idx) {
+                cv::Vec3f vert = geom.verts[idx];
+                cv::Vec3f color = geom.colors[idx];
+                glColor3f(color[0], color[1], color[2]);
                 glVertex3f(vert[0], vert[1], vert[2]);
             }
         }
 
         void OpenGLRenderer::draw() {
+            static GLfloat xRotated = 0, yRotated = 0, zRotated = 0;
+            xRotated += 1;
+            zRotated += 2;
+            zRotated += 1.5;
+            glMatrixMode(GL_MODELVIEW);
+            // clear the drawing buffer.
+            //  Clear screen and Z-buffer
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glLoadIdentity();
+            //glTranslatef(0.0, 0.0, -10.5);
+            glRotatef(xRotated, 1.0, 0.0, 0.0);
+            // rotation about Y axis
+            glRotatef(yRotated, 0.0, 1.0, 0.0);
+            // rotation about Z axis
+            glRotatef(zRotated, 0.0, 0.0, 1.0);
+
+            glEnable(GL_TEXTURE_2D);
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, imgSeg.cols, imgSeg.rows, 0, GL_BGR, GL_UNSIGNED_BYTE, imgSeg.data);
 
             glBegin(GL_POLYGON);
@@ -87,6 +114,10 @@ namespace cv {
             glVertex2f(1.0f, 1.0f);
             glTexCoord2f(0.0f, 0.0f);
             glVertex2f(-1.0f, 1.0f);
+            glEnd();
+
+            glDisable(GL_TEXTURE_2D);
+            glBegin(GL_TRIANGLES);
             for (auto geom : geomList) {
                 renderGeometry(geom);
             }
@@ -109,12 +140,10 @@ namespace cv {
             strcpy(*argv, name);
 
             glutInit(&argc, argv); //we cheat it ;P
-
-            glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
+            glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
             glutInitWindowPosition(800, 400);
             glutInitWindowSize(width, height);
             glutCreateWindow("OpenGL Rendered Segmentation");
-
             //glutDisplayFunc(draw);
             //glutIdleFunc(draw);
 
@@ -122,7 +151,9 @@ namespace cv {
             GLuint mTexture;
             glGenTextures(1, &mTexture);
             glBindTexture(GL_TEXTURE_2D, mTexture);
-            glEnable(GL_TEXTURE_2D);
+            glEnable(GL_DEPTH_TEST); // Enable depth testing for z-culling
+            glDepthFunc(GL_LEQUAL); // Set the type of depth-test
+            glShadeModel(GL_SMOOTH); // Enable smooth shading
             glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -132,7 +163,7 @@ namespace cv {
 
             glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL);
 
-            glClearColor(1.0f, 1.0f, 1.0f, 1.0f); //color blanco de fondo
+            glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
             glColor3f(0.0f, 0.0f, 0.0f);
 
             return 0;
@@ -159,7 +190,7 @@ namespace cv {
             if (!glDraw.initialized()) {
                 glDraw.init(rgbd_img.getWidth(), rgbd_img.getHeight());
             }
-            
+
             rgbd_img.computeNormals(rgb_result);
 
             std::vector<cv::rgbd::AlgebraicSurfacePatch> surfletList;
