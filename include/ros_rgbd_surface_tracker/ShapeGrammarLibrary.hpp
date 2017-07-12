@@ -44,7 +44,19 @@ private:
     cv::Vec3f position;
 };
 
-class Box {
+// Global interface for shapes
+class Shape {
+public:
+
+    virtual ~Shape() {
+    }
+    virtual std::vector<cv::Vec3f> generateCoords() = 0;
+    virtual std::vector<cv::Vec3i> generateCoordIndices() = 0;
+    virtual std::vector<cv::Vec3f> generateColorCoords() = 0;
+    virtual std::vector<cv::Vec3i> generateColorCoordIndices() = 0;
+};
+
+class Box : public Shape {
 public:
 
     Box() {
@@ -57,7 +69,7 @@ public:
 
     // compute vertices
 
-    std::vector<cv::Vec3f> generateVertices() {
+    std::vector<cv::Vec3f> generateCoords() {
         std::vector<cv::Vec3f> pts(8);
         pts[0] = cv::Point3f(-dims.x / 2, -dims.y / 2, -dims.z / 2);
         pts[1] = cv::Vec3f(dims.x / 2, -dims.y / 2, -dims.z / 2);
@@ -69,10 +81,10 @@ public:
         pts[7] = cv::Vec3f(-dims.x / 2, dims.y / 2, dims.z / 2);
         return pts;
     }
-    
+
     // compute triangle surfaces
 
-    std::vector<cv::Vec3i> generateFaces() {
+    std::vector<cv::Vec3i> generateCoordIndices() {
         std::vector<cv::Vec3i> tris(12);
         tris[0] = cv::Vec3i(0, 5, 4);
         tris[1] = cv::Vec3i(5, 0, 1);
@@ -87,6 +99,34 @@ public:
         tris[10] = cv::Vec3i(1, 3, 2);
         tris[11] = cv::Vec3i(3, 1, 0);
         return tris;
+    }
+
+    std::vector<cv::Vec3f> generateColorCoords() {
+        std::vector<cv::Vec3f> colors(6);
+        colors[0] = cv::Point3f(1, 0, 0);
+        colors[1] = cv::Point3f(0, 1, 0);
+        colors[2] = cv::Point3f(0, 0, 1);
+        colors[3] = cv::Point3f(1, 0, 0); // not red
+        colors[4] = cv::Point3f(0, 1, 0); // not red
+        colors[5] = cv::Point3f(0, 0, 1);
+        return colors;
+    }
+
+    std::vector<cv::Vec3i> generateColorCoordIndices() {
+        std::vector<cv::Vec3i> tricols(12);
+        tricols[0] = cv::Vec3i(0, 0, 0);
+        tricols[1] = cv::Vec3i(0, 0, 0);
+        tricols[2] = cv::Vec3i(1, 1, 1);
+        tricols[3] = cv::Vec3i(1, 1, 1);
+        tricols[4] = cv::Vec3i(0, 0, 0);
+        tricols[5] = cv::Vec3i(0, 0, 0);
+        tricols[6] = cv::Vec3i(1, 1, 1);
+        tricols[7] = cv::Vec3i(1, 1, 1);
+        tricols[8] = cv::Vec3i(2, 2, 2);
+        tricols[9] = cv::Vec3i(2, 2, 2);
+        tricols[10] = cv::Vec3i(2, 2, 2);
+        tricols[11] = cv::Vec3i(2, 2, 2);
+        return tricols;
     }
 
 private:

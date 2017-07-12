@@ -42,12 +42,13 @@ namespace cv {
 
         class AlgebraicSurfacePatch {
         public:
-            std::vector<cv::Vec3f> verts;
+            int surfaceType;
         }; /* class AlgebraicSurfacePatch */
 
         class ObjectGeometry {
         public:
             std::vector<cv::Vec3f> verts;
+            std::vector<cv::Vec3f> colors;
         }; /* class ObjectGeometry */
 
         class OpenGLRenderer {
@@ -68,6 +69,7 @@ namespace cv {
 
             int init(int width, int height);
             void draw();
+            void reshape(GLsizei width, GLsizei height);
             void renderGeometry(std::pair<std::string, ObjectGeometry> mapElement);
             void pushObject(std::string name, ObjectGeometry geom);
 
