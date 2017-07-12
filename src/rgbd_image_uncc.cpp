@@ -3,8 +3,11 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-#include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
 #include <opencv2/core/core.hpp>
+
+#include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
+#include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>
+
 namespace cv {
     namespace rgbd {
 

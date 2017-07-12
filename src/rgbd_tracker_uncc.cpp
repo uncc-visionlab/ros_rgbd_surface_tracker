@@ -20,6 +20,36 @@ extern int supermain(AlgebraicSurface<float>& surf, PlaneVisualizationData& vis_
 
 namespace cv {
     namespace rgbd {
+
+        void SurfaceDetector::detect(const cv::rgbd::RgbdImage& rgbd_img,
+                std::vector<AlgebraicSurfacePatch>& geometries,
+                cv::Mat mask) const {
+        }
+
+        void SurfaceDescriptorExtractor::compute(const cv::rgbd::RgbdImage& rgbd_img,
+                std::vector<AlgebraicSurfacePatch>& surflets,
+                std::vector<ObjectGeometry>& geometries) const {
+
+            Box bb(cv::Vec3f(1, 1, 1),
+                    Pose(cv::Vec3f(0, 0, 1), cv::Vec3f(0, 0, CV_PI / 4)));
+            std::vector<cv::Vec3i> tris = bb.generateFaces();
+            std::vector<cv::Vec3f> pts = bb.generateVertices();
+            std::vector<cv::Vec3f> triVertList(tris.size()*3);
+            ObjectGeometry geom;
+            for (cv::Vec3i triIdxs : tris) {
+                geom.verts.push_back(pts[triIdxs[0]]);
+                geom.verts.push_back(pts[triIdxs[1]]);
+                geom.verts.push_back(pts[triIdxs[2]]);
+            }
+            geometries.push_back(geom);
+        }
+
+        void SurfaceDescriptorMatcher::match(std::vector<ObjectGeometry> queryDescriptors,
+                std::vector<ObjectGeometry> trainDescriptors,
+                std::vector<cv::DMatch>& matches, cv::Mat mask) {
+
+        }
+
         // construct static class member for OpenGL based rendering of scene objects
         OpenGLRenderer RgbdSurfaceTracker::glDraw;
 
@@ -44,25 +74,22 @@ namespace cv {
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, imgSeg.cols, imgSeg.rows, 0, GL_BGR, GL_UNSIGNED_BYTE, imgSeg.data);
 
             glBegin(GL_POLYGON);
-            //            glTexCoord2f(0.0f, 0.0f);
-            //            glVertex2f(-1.0f, -1.0f);
-            //            glTexCoord2f(1.0f, 0.0f);
-            //            glVertex2f(1.0f, -1.0f);
-            //            glTexCoord2f(1.0f, 1.0f);
-            //            glVertex2f(1.0f, 1.0f);
-            //            glTexCoord2f(0.0f, 1.0f);
-            //            glVertex2f(-1.0f, 1.0f);
+            glTexCoord2f(0.0f, 1.0f);
+            glVertex2f(-1.0f, -1.0f);
+            glTexCoord2f(1.0f, 1.0f);
+            glVertex2f(1.0f, -1.0f);
+            glTexCoord2f(1.0f, 0.0f);
+            glVertex2f(1.0f, 1.0f);
+
+            glTexCoord2f(0.0f, 1.0f);
+            glVertex2f(-1.0f, -1.0f);
+            glTexCoord2f(1.0f, 0.0f);
+            glVertex2f(1.0f, 1.0f);
+            glTexCoord2f(0.0f, 0.0f);
+            glVertex2f(-1.0f, 1.0f);
             for (auto geom : geomList) {
                 renderGeometry(geom);
             }
-            glTexCoord2f(0.0f, 0.0f);
-            glVertex2f(-.50f, -.50f);
-            glTexCoord2f(1.0f, 0.0f);
-            glVertex2f(.50f, -.50f);
-            glTexCoord2f(1.0f, 1.0f);
-            glVertex2f(.50f, .50f);
-            glTexCoord2f(0.0f, 1.0f);
-            glVertex2f(-.50f, .50f);
             glEnd();
 
             glFlush();
@@ -131,11 +158,27 @@ namespace cv {
 #endif
             if (!glDraw.initialized()) {
                 glDraw.init(rgbd_img.getWidth(), rgbd_img.getHeight());
-            } else {
-                glDraw.draw();
-                //glDraw.post();
             }
+            
             rgbd_img.computeNormals(rgb_result);
+
+            std::vector<cv::rgbd::AlgebraicSurfacePatch> surfletList;
+            surfdetector.detect(rgbd_img, surfletList);
+
+            std::vector<cv::rgbd::ObjectGeometry> geomList;
+            surfdescriptor_extractor.compute(rgbd_img, surfletList, geomList);
+
+            std::vector<cv::DMatch> geometricMatches;
+            surfmatcher.match(geomList, geomList, geometricMatches);
+
+            int idx = 0;
+            for (cv::rgbd::ObjectGeometry geom : geomList) {
+                std::string geomName("Box " + std::to_string(idx++));
+                glDraw.pushObject(geomName, geom);
+            }
+            glDraw.setImage(rgbd_img.getRGB());
+            glDraw.draw();
+            glDraw.clearObjects();
             //iterativeAlignment(rgbd_img, rgb_result);
 
 

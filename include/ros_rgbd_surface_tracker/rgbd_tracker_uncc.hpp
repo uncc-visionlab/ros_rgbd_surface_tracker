@@ -20,12 +20,14 @@
 #include <string>
 #include <unordered_map>
 
+#include <boost/shared_ptr.hpp>
+
 // Eigen includes
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 
 #include <opencv2/core.hpp>
-#include <boost/shared_ptr.hpp>
+
 #include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
 #include <ros_rgbd_surface_tracker/surface_alignment_optimizer.hpp>
 
@@ -38,10 +40,15 @@
 namespace cv {
     namespace rgbd {
 
+        class AlgebraicSurfacePatch {
+        public:
+            std::vector<cv::Vec3f> verts;
+        }; /* class AlgebraicSurfacePatch */
+
         class ObjectGeometry {
         public:
             std::vector<cv::Vec3f> verts;
-        };
+        }; /* class ObjectGeometry */
 
         class OpenGLRenderer {
         private:
@@ -63,8 +70,37 @@ namespace cv {
             void draw();
             void renderGeometry(std::pair<std::string, ObjectGeometry> mapElement);
             void pushObject(std::string name, ObjectGeometry geom);
+
+            void setImage(const cv::Mat& image) {
+                imgSeg = image;
+            }
+
+            void clearObjects() {
+                geomList.clear();
+            }
             void post();
-        };
+        }; /* class OpenGLRenderer */
+
+        class SurfaceDetector {
+        public:
+            void detect(const cv::rgbd::RgbdImage& rgbd_img,
+                    std::vector<AlgebraicSurfacePatch>& surflets,
+                    const cv::Mat mask = cv::Mat()) const;
+        }; /* class SurfaceDetector */
+
+        class SurfaceDescriptorExtractor {
+        public:
+            void compute(const cv::rgbd::RgbdImage& rgbd_img,
+                    std::vector<AlgebraicSurfacePatch>& surflets,
+                    std::vector<ObjectGeometry>& geometries) const;
+        }; /* class SurfaceDescriptorExtractor */
+
+        class SurfaceDescriptorMatcher {
+        public:
+            void match(std::vector<ObjectGeometry> queryDescriptors,
+                    std::vector<ObjectGeometry> trainDescriptors,
+                    std::vector<cv::DMatch>& matches, cv::Mat mask = cv::Mat());
+        }; /* class SurfaceDescriptorMatcher */
 
         class RgbdSurfaceTracker {
         public:
@@ -95,7 +131,10 @@ namespace cv {
             RgbdSurfaceTracker(const RgbdSurfaceTracker& ref);
             RgbdSurfaceTracker& operator=(const RgbdSurfaceTracker& ref);
             PlaneVisualizationData vis_data;
-        };
+            SurfaceDetector surfdetector;
+            SurfaceDescriptorExtractor surfdescriptor_extractor;
+            SurfaceDescriptorMatcher surfmatcher;
+        }; /* class RgbdSurfaceTracker */
     } /* namespace rgbd */
 } /* namespace cv */
 

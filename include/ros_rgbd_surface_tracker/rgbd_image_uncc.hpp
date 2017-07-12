@@ -812,6 +812,10 @@ namespace cv {
                 return img_Z;
             }
 
+            const cv::Mat getRGB() {
+                return img_I;
+            }
+
             const cv::Mat getCameraMatrix() {
                 return cameraMatrix;
             }
@@ -858,11 +862,7 @@ namespace cv {
                 cv::Mat axisVecs(1, 3, CV_32F);
                 cv::Mat axisDirs(1, 3, CV_32F);
                 iImgs.plucker(points, normals3, axisVecs, axisDirs);
-                Box bb(cv::Vec3f(1, 1, 1), 
-                        Pose(cv::Vec3f(0, 0, 1), cv::Vec3f(0, 0, CV_PI / 4)));
-                std::vector<cv::Point3i> tris = bb.generateFaces();
-                std::vector<cv::Point3f> pts = bb.generateVertices();
-                
+
                 //                                cv::Point2i tlc(315, 235);
                 //                cv::Rect roi(tlc.x, tlc.y, width - 2 * tlc.x, height - 2 * tlc.y);
                 //                cv::Point2i winCenter;

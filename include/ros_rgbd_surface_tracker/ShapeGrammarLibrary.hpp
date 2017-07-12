@@ -57,35 +57,35 @@ public:
 
     // compute vertices
 
-    std::vector<cv::Point3f> generateVertices() {
-        std::vector<cv::Point3f> pts(8);
+    std::vector<cv::Vec3f> generateVertices() {
+        std::vector<cv::Vec3f> pts(8);
         pts[0] = cv::Point3f(-dims.x / 2, -dims.y / 2, -dims.z / 2);
-        pts[1] = cv::Point3f(dims.x / 2, -dims.y / 2, -dims.z / 2);
-        pts[2] = cv::Point3f(dims.x / 2, dims.y / 2, -dims.z / 2);
-        pts[3] = cv::Point3f(-dims.x / 2, dims.y / 2, -dims.z / 2);
-        pts[4] = cv::Point3f(-dims.x / 2, -dims.y / 2, dims.z / 2);
-        pts[5] = cv::Point3f(dims.x / 2, -dims.y / 2, dims.z / 2);
-        pts[6] = cv::Point3f(dims.x / 2, dims.y / 2, dims.z / 2);
-        pts[7] = cv::Point3f(-dims.x / 2, dims.y / 2, dims.z / 2);
+        pts[1] = cv::Vec3f(dims.x / 2, -dims.y / 2, -dims.z / 2);
+        pts[2] = cv::Vec3f(dims.x / 2, dims.y / 2, -dims.z / 2);
+        pts[3] = cv::Vec3f(-dims.x / 2, dims.y / 2, -dims.z / 2);
+        pts[4] = cv::Vec3f(-dims.x / 2, -dims.y / 2, dims.z / 2);
+        pts[5] = cv::Vec3f(dims.x / 2, -dims.y / 2, dims.z / 2);
+        pts[6] = cv::Vec3f(dims.x / 2, dims.y / 2, dims.z / 2);
+        pts[7] = cv::Vec3f(-dims.x / 2, dims.y / 2, dims.z / 2);
         return pts;
     }
     
     // compute triangle surfaces
 
-    std::vector<cv::Point3i> generateFaces() {
-        std::vector<cv::Point3i> tris(12);
-        tris[0] = cv::Point3i(0, 5, 4);
-        tris[1] = cv::Point3i(5, 0, 1);
-        tris[2] = cv::Point3i(1, 6, 5);
-        tris[3] = cv::Point3i(6, 1, 2);
-        tris[4] = cv::Point3i(2, 7, 6);
-        tris[5] = cv::Point3i(7, 2, 3);
-        tris[6] = cv::Point3i(3, 4, 7);
-        tris[7] = cv::Point3i(4, 3, 0);
-        tris[8] = cv::Point3i(4, 6, 7);
-        tris[9] = cv::Point3i(6, 4, 5);
-        tris[10] = cv::Point3i(1, 3, 2);
-        tris[11] = cv::Point3i(3, 1, 0);
+    std::vector<cv::Vec3i> generateFaces() {
+        std::vector<cv::Vec3i> tris(12);
+        tris[0] = cv::Vec3i(0, 5, 4);
+        tris[1] = cv::Vec3i(5, 0, 1);
+        tris[2] = cv::Vec3i(1, 6, 5);
+        tris[3] = cv::Vec3i(6, 1, 2);
+        tris[4] = cv::Vec3i(2, 7, 6);
+        tris[5] = cv::Vec3i(7, 2, 3);
+        tris[6] = cv::Vec3i(3, 4, 7);
+        tris[7] = cv::Vec3i(4, 3, 0);
+        tris[8] = cv::Vec3i(4, 6, 7);
+        tris[9] = cv::Vec3i(6, 4, 5);
+        tris[10] = cv::Vec3i(1, 3, 2);
+        tris[11] = cv::Vec3i(3, 1, 0);
         return tris;
     }
 
