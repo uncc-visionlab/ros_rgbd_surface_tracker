@@ -28,10 +28,12 @@
 
 #include <opencv2/core.hpp>
 
+#include <ros_rgbd_surface_tracker/opengl_renderer.hpp>
+#include <ros_rgbd_surface_tracker/rgbd_tracker_datatypes.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
 #include <ros_rgbd_surface_tracker/surface_alignment_optimizer.hpp>
 
-#define PROFILE_CALLGRIND true
+#define PROFILE_CALLGRIND false
 
 #ifdef PROFILE_CALLGRIND
 #include <valgrind/callgrind.h>
@@ -39,49 +41,6 @@
 
 namespace cv {
     namespace rgbd {
-
-        class AlgebraicSurfacePatch {
-        public:
-            int surfaceType;
-        }; /* class AlgebraicSurfacePatch */
-
-        class ObjectGeometry {
-        public:
-            std::vector<cv::Vec3f> verts;
-            std::vector<cv::Vec3f> colors;
-        }; /* class ObjectGeometry */
-
-        class OpenGLRenderer {
-        private:
-            cv::Mat imgSeg;
-            std::unordered_map<std::string, ObjectGeometry> geomList;
-        public:
-
-            OpenGLRenderer() {
-            }
-
-            virtual ~OpenGLRenderer() {
-            };
-
-            bool initialized() {
-                return !imgSeg.empty();
-            }
-
-            int init(int width, int height);
-            void draw();
-            void reshape(GLsizei width, GLsizei height);
-            void renderGeometry(std::pair<std::string, ObjectGeometry> mapElement);
-            void pushObject(std::string name, ObjectGeometry geom);
-
-            void setImage(const cv::Mat& image) {
-                imgSeg = image;
-            }
-
-            void clearObjects() {
-                geomList.clear();
-            }
-            void post();
-        }; /* class OpenGLRenderer */
 
         class SurfaceDetector {
         public:

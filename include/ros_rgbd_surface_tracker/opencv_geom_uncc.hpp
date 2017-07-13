@@ -2,11 +2,14 @@
 #define OPENCV_FUNCTION_DEV_HPP
 #ifdef __cplusplus
 
+#include <iostream>
 #include <sstream>
 #include <stdexcept>
 #include <functional>
 #include <math.h>
+
 #include <boost/shared_ptr.hpp>
+
 #include <opencv2/core.hpp>
 
 #define DEBUG false
@@ -67,12 +70,12 @@ namespace cv {
     public:
         typedef boost::shared_ptr<Line3_<_Tpl> > Ptr;
         typedef boost::shared_ptr<const Line3_<_Tpl> > ConstPtr;
-        
+
         Line3_(const Point3_<_Tpl>& tip, const Point3_<_Tpl>& tail) {
             this->p0 = tail;
             this->v = tip - tail;
         }
-        
+
         Point3_<_Tpl> getPoint(const _Tpl& lambda) const {
             Point3_<_Tpl> p;
             p.x = lambda * v.x + p0.x;
@@ -148,18 +151,18 @@ namespace cv {
             line.p0.z = 0;
             return true;
         }
-        
+
         bool intersect(const Line3_<_Tpl>& line, Point3_<_Tpl>& pt) {
-            
-//            std::cout << "line.v" << line.v << std::endl;
-            cv::Point3_<_Tpl> line_vec = line.v/cv::norm<_Tpl>(line.v);
-//            std::cout << "line_vec after norm" << line_vec << std::endl;
-//            std::cout << "norm line_vec after" << cv::norm<_Tpl>(line_vec) << std::endl;
+
+            //            std::cout << "line.v" << line.v << std::endl;
+            cv::Point3_<_Tpl> line_vec = line.v / cv::norm<_Tpl>(line.v);
+            //            std::cout << "line_vec after norm" << line_vec << std::endl;
+            //            std::cout << "norm line_vec after" << cv::norm<_Tpl>(line_vec) << std::endl;
             cv::Point3_<_Tpl> plane_normal(*this);
-                        
-            pt = -(line.p0 + ((line.p0.dot(plane_normal) + this->d)/(line_vec.dot(plane_normal)))*line_vec);
+
+            pt = -(line.p0 + ((line.p0.dot(plane_normal) + this->d) / (line_vec.dot(plane_normal))) * line_vec);
             return true;
-            
+
         }
 
         void setCoeffs(_Tpl _x, _Tpl _y, _Tpl _z, _Tpl _d) {
@@ -600,6 +603,96 @@ namespace cv {
         }
     };
     typedef TesselatedPlane3_<float> TesselatedPlane3f;
+
+    template<class T>
+    class QuadPyramid {
+    public:
+        typedef boost::shared_ptr<QuadPyramid> Ptr;
+        typedef boost::shared_ptr<QuadPyramid> ConstPtr;
+        int level;
+        int width;
+        int height;
+        int blockSize;
+        std::vector<T> objects;
+        QuadPyramid<T>* parent;
+        QuadPyramid<T>::Ptr child;
+
+        QuadPyramid(int _width, int _height, int _blockSize, int _level = 0,
+                QuadPyramid<T>* _parent = NULL, QuadPyramid<T>* _child = NULL) :
+        width(_width), height(_height), blockSize(_blockSize), level(_level),
+        parent(_parent), child(_child) {
+            //            int minDim = std::min(_width, _height);
+            //            int maxPossibleLevels = 0;
+            //            while (minDim >>= 1) ++maxPossibleLevels;
+            //            int lastLevel = std::min(levels, maxPossibleLevels);
+            //            std::cout << "Creating " << levels << " quad tree levels." << std::endl;
+            std::cout << "QuadPyramid (x,y) = " << width << ", " << height << " allocated "
+                    << (width * height) << " elements. " << std::endl;
+            if (blockSize % 2 == 1) {
+                std::cout << "THIS CODE HAS BUGS FOR QUADTREES WITH ODD BLOCKSIZE!" << std::endl;
+            }
+            assert(blockSize % 2 == 0);
+
+            objects.resize(width * height);
+        }
+
+        bool inTree(int pos_x, int pos_y) {
+            int xBlock = pos_x / blockSize;
+            int yBlock = pos_y / blockSize;
+            return xBlock < width && yBlock < height;
+        }
+
+        T& getObjectFromAncestors(int pos_x, int pos_y) {
+            int xBlock = pos_x / blockSize;
+            int yBlock = pos_y / blockSize;
+            T& data = objects[yBlock * width + xBlock];
+            //std::cout << "data " << data << " (xblock,yblock) = (" << xBlock << ", " << yBlock << ")" << std::endl;
+            if (!data && parent) {
+                return parent->getObjectFromAncestors(pos_x, pos_y);
+            }
+            return data;
+        }
+
+        std::vector<T>& getObjects() {
+            return objects;
+        }
+
+        void setObject(int pos_x, int pos_y, T& data) {
+            // BUG HERE WHEN CREATE TREE WITH ODD BLOCKSIZE
+            objects[pos_y / blockSize * width + pos_x / blockSize] = data;
+        }
+
+        QuadPyramid<T> getPyramidLevel(int _level) {
+            //std::cout << "_level = " << _level << " level = " << level << std::endl;
+            if (_level == level) {
+                return *this;
+            } else {
+                if (_level < level) {
+                    int _width = width >> 1;
+                    int _height = height >> 1;
+                    if (width > 0 && height > 0) {
+                        parent = new QuadPyramid<T>(_width, _height,
+                                blockSize << 1, level - 1, NULL, this);
+                        return parent->getPyramidLevel(_level);
+                    }
+                }
+                if (_level > level) {
+                    int _width = width << 1;
+                    int _height = height << 1;
+                    child = QuadPyramid<T>::Ptr(new QuadPyramid<T>(_width, _height,
+                            blockSize >> 1, level + 1, this, NULL));
+                    return child->getPyramidLevel(_level);
+                }
+            }
+        }
+
+        void getCorners(int pos_x, int pos_y, Point2i& tlc, Point2i& brc) {
+            tlc.x = pos_x*blockSize;
+            tlc.y = pos_y*blockSize;
+            brc.x = tlc.x + blockSize;
+            brc.y = tlc.y + blockSize;
+        }
+    };
 
 }
 #endif /* __cplusplus */

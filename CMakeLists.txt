@@ -158,7 +158,11 @@ include_directories(
 add_executable(${PROJECT_NAME} src/ros_rgbd_surface_tracker.cpp
     src/rgbd_tracker_uncc.cpp
     src/rgbd_image_uncc.cpp
-    src/surface_alignment_optimizer.cpp)
+    src/rgbd_surf_detector.cpp
+    src/surf_descriptor_proc.cpp
+    src/surface_alignment_optimizer.cpp
+    src/surface_fitting.cpp
+    src/opengl_renderer.cpp)
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
@@ -184,7 +188,11 @@ link_directories(/opt/ros/kinetic/lib)
 add_executable(main_opencv src/main_opencv.cpp
     src/rgbd_tracker_uncc.cpp
     src/rgbd_image_uncc.cpp
-    src/surface_alignment_optimizer.cpp)
+    src/rgbd_surf_detector.cpp
+    src/surf_descriptor_proc.cpp
+    src/surface_alignment_optimizer.cpp
+    src/surface_fitting.cpp
+    src/opengl_renderer.cpp)
 #set_target_properties(main_opencv PROPERTIES
 #  IMPORTED_LOCATION "/opt/ros/kinetic/lib/libbar.so"
 #  INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/include/libbar"
