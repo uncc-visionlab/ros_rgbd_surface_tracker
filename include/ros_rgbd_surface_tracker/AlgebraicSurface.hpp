@@ -879,10 +879,10 @@ public:
         
         Eigen::Matrix<ScalarType, 3, 4> coeffs_mat;
         coeffs_mat << p.coeffs, q.coeffs, r.coeffs;
-        
-        ScalarType x = (Matrix3s() << coeffs_mat.col(2), coeffs_mat.col(3), coeffs_mat.col(0)).finished().determinant();
-        ScalarType y = -(Matrix3s() << coeffs_mat.col(1), coeffs_mat.col(3), coeffs_mat.col(0)).finished().determinant();
-        ScalarType z = -(Matrix3s() << coeffs_mat.col(1), coeffs_mat.col(2), coeffs_mat.col(0)).finished().determinant();
+         
+        ScalarType x = (Matrix3s() << coeffs_mat.col(0), coeffs_mat.col(2), coeffs_mat.col(3)).finished().determinant();
+        ScalarType y = (Matrix3s() << coeffs_mat.col(1), coeffs_mat.col(0), coeffs_mat.col(3)).finished().determinant();
+        ScalarType z = (Matrix3s() << coeffs_mat.col(1), coeffs_mat.col(2), coeffs_mat.col(0)).finished().determinant();
         ScalarType w = -(Matrix3s() << coeffs_mat.col(1), coeffs_mat.col(2), coeffs_mat.col(3)).finished().determinant();
         
         if (AlgebraicSurface<ScalarType>::signum(w) == 0) {
@@ -892,7 +892,7 @@ public:
         
         RowVector3s pt(x, y, z);
         
-        return pt/w;
+        return pt;
     }
     
 //
