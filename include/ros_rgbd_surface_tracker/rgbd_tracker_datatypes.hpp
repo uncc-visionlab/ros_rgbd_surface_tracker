@@ -25,6 +25,7 @@ namespace cv {
         class ObjectGeometry {
         public:
             std::vector<cv::Vec3f> verts;
+            std::vector<cv::Vec3f> normals;
             std::vector<cv::Vec3f> colors;
         }; /* class ObjectGeometry */
 

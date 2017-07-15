@@ -257,8 +257,10 @@ namespace cv {
             cv::Vec3f linePt(pluckerAxisLine[0], pluckerAxisLine[1], pluckerAxisLine[2]);
             cv::Vec3f lineDir(pluckerAxisLine[3], pluckerAxisLine[4], pluckerAxisLine[5]);
             //std::cout << "pt = " << linePt << " dir = " << lineDir << std::endl;
-            lineDir = lineDir.cross(linePt);
+            cv::Vec3f xP = linePt.cross(lineDir);
             //std::cout << "pt = " << linePt << " dir = " << lineDir << std::endl;
+            normf = 1.0f / std::sqrt(xP.dot(xP));
+            linePt *= normf;
             normf = 1.0f / std::sqrt(lineDir.dot(lineDir));
             lineDir *= normf;
             std::cout << "pt = " << linePt << " dir = " << lineDir << std::endl;

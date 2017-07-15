@@ -53,7 +53,12 @@ namespace cv {
             void clearObjects() {
                 geomList.clear();
             }
+            
             void post();
+            void ros2opengl(cv::Mat& rotMat);
+            void build_opengl_projection_for_intrinsics(Eigen::Matrix4d &frustum, int *viewport,
+                    double alpha, double beta, double skew, double u0, double v0,
+                    int img_width, int img_height, double near_clip, double far_clip);
         }; /* class OpenGLRenderer */
 
     } /* namespace rgbd */
