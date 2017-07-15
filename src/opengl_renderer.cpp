@@ -32,7 +32,7 @@ namespace cv {
                 cv::Vec3f vert = geom.verts[idx];
                 cv::Vec3f normal = geom.normals[idx];
                 cv::Vec3f color = geom.colors[idx];
-                glColor3f(color[0], color[1], color[2]);
+                glColor4f(color[0], color[1], color[2], 0.5f);
                 glNormal3f(normal[0], normal[1], normal[2]);
                 glVertex3f(vert[0], vert[1], vert[2]);
             }
@@ -84,27 +84,26 @@ namespace cv {
             //  Clear screen and Z-buffer
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            glEnable(GL_TEXTURE_2D);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, imgSeg.cols, imgSeg.rows, 0, GL_BGR, GL_UNSIGNED_BYTE, imgSeg.data);
-
-            glBegin(GL_POLYGON);
-            glTexCoord2f(0.0f, 1.0f);
-            glVertex3f(-1.0f, -1.0f, 10.0f);
-            glTexCoord2f(1.0f, 1.0f);
-            glVertex3f(1.0f, -1.0f, 10.0f);
-            glTexCoord2f(1.0f, 0.0f);
-            glVertex3f(1.0f, 1.0f, 10.0f);
-            glTexCoord2f(0.0f, 1.0f);
-            glVertex3f(-1.0f, -1.0f, 10.0f);
-            glTexCoord2f(1.0f, 0.0f);
-            glVertex3f(1.0f, 1.0f, 10.0f);
-            glTexCoord2f(0.0f, 0.0f);
-            glVertex3f(-1.0f, 1.0f, 10.0f);
-            glEnd();
+            //            glEnable(GL_TEXTURE_2D);
+            //            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, imgSeg.cols, imgSeg.rows, 0, GL_BGR, GL_UNSIGNED_BYTE, imgSeg.data);
+            //            glBegin(GL_POLYGON);
+            //            glTexCoord2f(0.0f, 1.0f);
+            //            glVertex3f(-1.0f, -1.0f, 10.0f);
+            //            glTexCoord2f(1.0f, 1.0f);
+            //            glVertex3f(1.0f, -1.0f, 10.0f);
+            //            glTexCoord2f(1.0f, 0.0f);
+            //            glVertex3f(1.0f, 1.0f, 10.0f);
+            //            glTexCoord2f(0.0f, 1.0f);
+            //            glVertex3f(-1.0f, -1.0f, 10.0f);
+            //            glTexCoord2f(1.0f, 0.0f);
+            //            glVertex3f(1.0f, 1.0f, 10.0f);
+            //            glTexCoord2f(0.0f, 0.0f);
+            //            glVertex3f(-1.0f, 1.0f, 10.0f);
+            //            glEnd();
+            //            glDisable(GL_TEXTURE_2D);
 
             //            glPushMatrix();
 
-            glDisable(GL_TEXTURE_2D);
             //glEnable(GL_LIGHTING);
 
             //glLoadIdentity();
@@ -153,6 +152,9 @@ namespace cv {
             glDepthFunc(GL_LEQUAL); // Set the type of depth-test
             glShadeModel(GL_SMOOTH); // Enable smooth shading
 
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            
             glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -161,17 +163,17 @@ namespace cv {
 
             glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL);
 
-            glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+            glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
             glColor3f(0.0f, 0.0f, 0.0f);
 
             GLfloat light_diffuse[] = {1.0, 0.0, 0.0, 1.0}; /* Red diffuse light. */
             GLfloat light_position[] = {1.0, 1.0, 1.0, 0.0}; /* Infinite light location. */
 
             /* Enable a single OpenGL light. */
-//            glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
-//            glLightfv(GL_LIGHT0, GL_POSITION, light_position);
-//            glEnable(GL_LIGHT0);
-//            glEnable(GL_LIGHTING);
+            //            glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
+            //            glLightfv(GL_LIGHT0, GL_POSITION, light_position);
+            //            glEnable(GL_LIGHT0);
+            //            glEnable(GL_LIGHTING);
             /* Setup the view of the cube. */
             //            glMatrixMode(GL_PROJECTION);
             //            gluPerspective(/* field of view in degree */ 58.0,
