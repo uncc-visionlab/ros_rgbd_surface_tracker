@@ -27,6 +27,27 @@ namespace cv {
             return normalsComputer;
         }
 
+        void RgbdImage::getPointCloud(cv::Mat& pts, cv::Mat& colors) {
+            pts.create(getDepth().size(), CV_32FC3);
+            colors.create(getDepth().size(), CV_8UC3);
+            for (int r = 0; r < getDepth().rows; ++r) {
+                const float *depth_ptr = getDepth().ptr<float>(r, 0);
+                cv::Vec3f *pts_ptr = pts.ptr<cv::Vec3f>(r, 0);
+                const uchar *rgb_ptr = getRGB().ptr<uchar>(r, 0);
+                uchar *colors_ptr = colors.ptr<uchar>(r, 0);
+                for (int c = 0; c < getDepth().cols; ++c) {
+                    (*pts_ptr)[0] = (c - cx) * inv_f * (*depth_ptr);
+                    (*pts_ptr)[1] = (r - cy) * inv_f * (*depth_ptr);
+                    (*pts_ptr)[2] = *depth_ptr;
+                    *colors_ptr++ = *rgb_ptr++;
+                    *colors_ptr++ = *rgb_ptr++;
+                    *colors_ptr++ = *rgb_ptr++;
+                    pts_ptr++;
+                    depth_ptr++;
+                }
+            }
+        }
+
         bool RgbdImage::computeNormals() const {
             int normalWinSize = iImgs.getWindowSize().width;
             int normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_FALS; // 7.0 fps

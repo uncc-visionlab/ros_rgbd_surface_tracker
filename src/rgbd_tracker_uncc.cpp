@@ -44,7 +44,7 @@ namespace cv {
             CALLGRIND_TOGGLE_COLLECT;
 #endif
             if (!glDraw.initialized()) {
-               glDraw.init(rgbd_img.getWidth(), rgbd_img.getHeight());
+                glDraw.init(rgbd_img.getWidth(), rgbd_img.getHeight());
             }
 
             std::vector<cv::rgbd::AlgebraicSurfacePatch> surfletList;
@@ -53,8 +53,12 @@ namespace cv {
             std::vector<cv::rgbd::ObjectGeometry> geomList;
             surfdescriptor_extractor.compute(rgbd_img, surfletList, geomList);
 
-            glDraw.setImage(rgbd_img.getRGB());
+            //glDraw.setImage(rgbd_img.getRGB());
             glDraw.renderGeometries(geomList);
+
+            cv::Mat points, colors;
+            rgbd_img.getPointCloud(points, colors);
+            glDraw.renderPointCloud(points, colors);
 
             std::vector<cv::DMatch> geometricMatches;
             surfmatcher.match(geomList, geomList, geometricMatches);

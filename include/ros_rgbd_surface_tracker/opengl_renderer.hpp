@@ -44,6 +44,9 @@ namespace cv {
             void renderGeometries(std::vector<cv::rgbd::ObjectGeometry> geomList);
 
             void renderGeometry(std::pair<std::string, ObjectGeometry> mapElement);
+
+            void renderPointCloud(cv::Mat points, cv::Mat colors);
+
             void pushObject(std::string name, ObjectGeometry geom);
 
             void setImage(const cv::Mat& image) {

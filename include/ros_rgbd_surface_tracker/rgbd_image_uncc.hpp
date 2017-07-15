@@ -225,6 +225,8 @@ namespace cv {
                 return getPoint3f(ix, iy, p3.x, p3.y, p3.z);
             }
 
+            void getPointCloud(cv::Mat& pts, cv::Mat& colors);
+
             bool getTileData_Random(int x0, int y0,
                     int loc_width, int loc_height,
                     std::vector<Point3f>& data, int numSamples = -1) const {
@@ -373,7 +375,7 @@ namespace cv {
             cv::Ptr<RgbdNormals> getNormalsComputer(cv::Ptr<RgbdNormals> _nc);
 
             bool computeNormals() const;
-            
+
             int getWidth() {
                 return width;
             }

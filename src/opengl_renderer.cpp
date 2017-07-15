@@ -48,6 +48,32 @@ namespace cv {
             clearObjects();
         }
 
+        void OpenGLRenderer::renderPointCloud(cv::Mat points, cv::Mat colors) {
+            glPointSize(2.0);
+
+            glBegin(GL_POINTS);
+            for (int y = 0; y < points.rows; ++y) {
+                cv::Vec3f *points_ptr = points.ptr<cv::Vec3f>(y, 0);
+                uchar *colors_ptr = colors.ptr<uchar>(y, 0);
+                for (int x = 0; x < points.cols; ++x) {
+                    if (!std::isnan((*points_ptr)[0])) {
+                        glColor3ub(colors_ptr[2], colors_ptr[1], colors_ptr[0]);
+                        glVertex3d((*points_ptr)[0], (*points_ptr)[1], (*points_ptr)[2]);
+                        //std::cout << "vert " << (*points_ptr) << " color "
+                        //        << (int) colors_ptr[0] << "," << (int) colors_ptr[1] 
+                        // << ", " << (int) colors_ptr[2] << std::endl;
+                    }
+                    points_ptr++;
+                    colors_ptr += 3;
+                }
+            }
+            glEnd();
+            glFlush();
+
+            glutSwapBuffers();
+
+        }
+
         void OpenGLRenderer::draw() {
             static GLfloat sign = 1, xRotated = 1, yRotated = 1, zRotated = 1;
 
@@ -142,10 +168,10 @@ namespace cv {
             GLfloat light_position[] = {1.0, 1.0, 1.0, 0.0}; /* Infinite light location. */
 
             /* Enable a single OpenGL light. */
-                        glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
-                        glLightfv(GL_LIGHT0, GL_POSITION, light_position);
-                        glEnable(GL_LIGHT0);
-                        glEnable(GL_LIGHTING);
+//            glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
+//            glLightfv(GL_LIGHT0, GL_POSITION, light_position);
+//            glEnable(GL_LIGHT0);
+//            glEnable(GL_LIGHTING);
             /* Setup the view of the cube. */
             //            glMatrixMode(GL_PROJECTION);
             //            gluPerspective(/* field of view in degree */ 58.0,
@@ -192,9 +218,9 @@ namespace cv {
             /* Setup the view of the cube. */
 
             glMatrixMode(GL_MODELVIEW);
-//                        gluLookAt(0.0, 0.0, 0.0, /* eye is at (0,0,5) */
-//                                0.0, 0.0, 5.0, /* center is at (0,0,0) */
-//                                0.0, -1.0, 0.); /* up is in positive Y direction */
+            //                        gluLookAt(0.0, 0.0, 0.0, /* eye is at (0,0,5) */
+            //                                0.0, 0.0, 5.0, /* center is at (0,0,0) */
+            //                                0.0, -1.0, 0.); /* up is in positive Y direction */
             //            //gluPerspective (50.0*zoomFactor, (float)img_width/(float)img_height, near_clip, far_clip);
             //glLoadMatrixf(projectionMat.ptr<float>(0, 0)); // Projection
             //            glOrtho(clippingPlanes.at<float>(0,0), clippingPlanes.at<float>(0,1), 
@@ -256,8 +282,8 @@ namespace cv {
             // [-1, 1].  OpenGL then maps coordinates in NDC to the current
             // viewport
             Eigen::Matrix4d ortho = Eigen::Matrix4d::Zero();
-            ortho(0, 0) = 2.0 / (R - L);
-            ortho(0, 3) = -(R + L) / (R - L);
+            ortho(0, 0) = -2.0 / (R - L);
+            ortho(0, 3) = (R + L) / (R - L);
             ortho(1, 1) = -2.0 / (T - B);
             ortho(1, 3) = (T + B) / (T - B);
             ortho(2, 2) = -2.0 / (F - N);
@@ -274,12 +300,12 @@ namespace cv {
             tproj(0, 2) = -u0;
             tproj(1, 1) = beta;
             tproj(1, 2) = -v0;
-//            tproj(2, 2) = -(N + F);
-//            tproj(2, 3) = -N*F;
-//            tproj(3, 2) = 1.0;
-                        tproj(2, 2) = (N + F);
-                        tproj(2, 3) = N*F;
-                        tproj(3, 2) = -1.0;
+            //            tproj(2, 2) = -(N + F);
+            //            tproj(2, 3) = -N*F;
+            //            tproj(3, 2) = 1.0;
+            tproj(2, 2) = (N + F);
+            tproj(2, 3) = N*F;
+            tproj(3, 2) = -1.0;
 
             // resulting OpenGL frustum is the product of the orthographic
             // mapping to normalized device coordinates and the augmented
