@@ -89,11 +89,7 @@ public:
         pose = _pose;
     }
 
-    // compute vertices
-
     std::vector<cv::Vec3f> generateCoords();
-
-    // compute triangle surfaces
 
     std::vector<cv::Vec3i> generateCoordIndices();
 
@@ -127,54 +123,27 @@ public:
         pose = _pose;
     }   
     
-    // compute points
-
     std::vector<cv::Vec3f> generateCoords() {
         static int N = DEFAULT_RESOLUTION;
         return generateCoords(N);
     }
 
-    /**
-     *
-     * @param N, the number of points in 1 circle
-     * @return
-     */
     std::vector<cv::Vec3f> generateCoords(int N);
-
-    // compute surfaces
 
     std::vector<cv::Vec3i> generateCoordIndices() {
         static int N = DEFAULT_RESOLUTION;
         return generateCoordIndices(N);
     }
 
-    /**
-     *
-     * @param N, the number of points in 1 circle
-     * @return
-     */
     std::vector<cv::Vec3i> generateCoordIndices(int N);
 
     std::vector<cv::Vec3f> generateNormals();
 
-    std::vector<cv::Vec3i> generateNormalCoordIndices() {
-        static int N = DEFAULT_RESOLUTION;
-        std::vector<cv::Vec3i> norms(N * 4);
-        return norms;
-    }
+    std::vector<cv::Vec3i> generateNormalCoordIndices();
+    
+    std::vector<cv::Vec3f> generateColorCoords();
 
-    std::vector<cv::Vec3f> generateColorCoords() {
-        static int N = DEFAULT_RESOLUTION;
-        std::vector<cv::Vec3f> colors(N * 2 + 2);
-        return colors;
-    }
-
-    std::vector<cv::Vec3i> generateColorCoordIndices() {
-        static int N = DEFAULT_RESOLUTION;
-        std::vector<cv::Vec3i> colorIdxs(N * 4);
-        return colorIdxs;
-    }
-
+    std::vector<cv::Vec3i> generateColorCoordIndices();
 
 private:
     // -------------------------

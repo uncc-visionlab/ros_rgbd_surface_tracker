@@ -75,7 +75,7 @@ namespace cv {
         }
 
         void OpenGLRenderer::draw() {
-            static GLfloat sign = 1, xRotated = 1, yRotated = 1, zRotated = 1;
+            static GLfloat sign = 1, xRotated = 5, yRotated = 5, zRotated = 5;
 
             //glDisable(GL_LIGHTING);
             //glDepthMask(GL_FALSE);
@@ -102,7 +102,7 @@ namespace cv {
             //            glEnd();
             //            glDisable(GL_TEXTURE_2D);
 
-            //            glPushMatrix();
+            glPushMatrix();
 
             //glEnable(GL_LIGHTING);
 
@@ -112,19 +112,21 @@ namespace cv {
             //glTranslatef(0, 0, xRotated);
 
             //glTranslatef(0.0, 0.0, -3.5);
-            //glRotatef(xRotated, 1.0, 0.0, 0.0);
-            //glTranslatef(0.0, 0.0, 3.5);
-            // rotation about Y axis
-            //glRotatef(yRotated, 0.0, 1.0, 0.0);
+            //glTranslatef(0.0, 0.0, -3.5);
             // rotation about Z axis
             //glRotatef(zRotated, 0.0, 0.0, 1.0);
+            // rotation about Y axis
+            //glRotatef(xRotated, 1.0, 0.0, 0.0);
+            //glRotatef(yRotated, 0.0, 1.0, 0.0);
+            //glTranslatef(0.0, 0.0, 3.5);
 
             glBegin(GL_TRIANGLES);
             for (auto geom : geomList) {
                 renderGeometry(geom);
             }
             glEnd();
-            //            glPopMatrix();
+
+            glPopMatrix();
 
             glFlush();
 
@@ -154,7 +156,7 @@ namespace cv {
 
             glEnable(GL_BLEND);
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-            
+
             glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);

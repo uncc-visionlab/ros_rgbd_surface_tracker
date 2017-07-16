@@ -19,7 +19,7 @@ namespace cv {
 
             std::vector<cv::Edge3f> edgeList;
             std::vector<cv::Corner3f::Ptr> cornerList;
-            
+
             //
             //            std::vector<cv::TesselatedPlane3f::Ptr>& planeArray = quadTree.getObjects();
             //            *curPlanesPtr = planeArray;
@@ -44,17 +44,17 @@ namespace cv {
             //                        }
             //                    }
             //                }
-            
+
             // 11.25in x 8.75in x 6.25in @ depth 11 in
             Box bb1(cv::Vec3f(0.28575, 0.2225, 0.15875),
-                    Pose(cv::Vec3f(0, 0, 0.3794+0.15875/2), cv::Vec3f(0, 0, 0)));
+                    Pose(cv::Vec3f(0, 0, 0.3794 + 0.15875 / 2), cv::Vec3f(0, 0, 0)));
             Box bb2(cv::Vec3f(1, 1, 1),
-                    Pose(cv::Vec3f(1.5, 1.5, 10), cv::Vec3f(0, 0, CV_PI/6)));
-            Cylinder cyl1(0.5, 1,
-                    Pose(cv::Vec3f(0, 0, 3), cv::Vec3f(0, 0, 0)));
-            //Shape *shapeArray[3] = {&bb1, &bb2, &cyl1};
-            Shape *shapeArray[2] = {&bb1, &bb2};
-            for (Shape *shape : shapeArray) {
+                    Pose(cv::Vec3f(1.5, 1.5, 10), cv::Vec3f(0, 0, CV_PI / 6)));
+            Cylinder cyl1(0.5, 0.5,
+                    Pose(cv::Vec3f(0, 0, 3.5), cv::Vec3f(-CV_PI / 6, 0, 0)));
+            Shape * shapeArray[] = {&bb1, &bb2, &cyl1};
+            for (int idx = 0; idx < 3; ++idx) {
+                Shape *shape = shapeArray[idx];
                 ObjectGeometry geom;
                 std::vector<cv::Vec3f> pts = shape->generateCoords();
                 std::vector<cv::Vec3i> triIdxList = shape->generateCoordIndices();

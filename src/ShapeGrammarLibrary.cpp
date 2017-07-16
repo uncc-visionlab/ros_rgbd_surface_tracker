@@ -104,11 +104,6 @@ std::vector<cv::Vec3i> Box::generateColorCoordIndices() {
     return tricols;
 }
 
-/**
- *
- * @param N, the number of points in 1 circle
- * @return
- */
 std::vector<cv::Vec3f> Cylinder::generateCoords(int N) {
     double x, z;
     std::vector<cv::Vec3f> pts(N * 2 + 2);
@@ -120,14 +115,12 @@ std::vector<cv::Vec3f> Cylinder::generateCoords(int N) {
     }
     pts[N] = cv::Vec3f(0, h / 2, 0);
     pts[2 * N + 1] = cv::Vec3f(0, -h / 2, 0);
+    for (int idx = 0; idx < pts.size(); ++idx) {
+        pose.transformInPlace(pts[idx]);
+    }
     return pts;
 }
 
-/**
- *
- * @param N, the number of points in 1 circle
- * @return
- */
 std::vector<cv::Vec3i> Cylinder::generateCoordIndices(int N) {
     std::vector<cv::Vec3i> tris(N * 4);
     for (int i = 0; i < N - 1; ++i) {
@@ -147,15 +140,57 @@ std::vector<cv::Vec3i> Cylinder::generateCoordIndices(int N) {
 std::vector<cv::Vec3f> Cylinder::generateNormals() {
     double x, z;
     static int N = DEFAULT_RESOLUTION;
-    std::vector<cv::Vec3f> norms(N * 2 + 2);
+    std::vector<cv::Vec3f> norms(N + 2);
     for (int i = 0; i < N; ++i) {
         x = std::cos(2 * CV_PI * i / N);
         z = std::sin(2 * CV_PI * i / N);
-
         norms[i] = cv::Vec3f(x, 0, z);
-        norms[i + N + 1] = cv::Vec3f(x, 0, -z);
     }
     norms[N] = cv::Vec3f(0, 1, 0);
-    norms[2 * N + 1] = cv::Vec3f(0, -1, 0);
+    norms[N + 1] = cv::Vec3f(0, -1, 0);
+    for (int idx = 0; idx < norms.size(); ++idx) {
+        pose.rotateInPlace(norms[idx]);
+    }
     return norms;
+}
+
+std::vector<cv::Vec3i> Cylinder::generateNormalCoordIndices() {
+    static int N = DEFAULT_RESOLUTION;
+    std::vector<cv::Vec3i> norms(N * 4);
+    for (int i = 0; i < N - 1; ++i) {
+        norms[i * 4] = cv::Vec3i(N, N, N);
+        norms[i * 4 + 1] = cv::Vec3i(N + 1, N + 1, N + 1);
+        norms[i * 4 + 2] = cv::Vec3i(i, i + 1, 1 + i);
+        norms[i * 4 + 3] = cv::Vec3i(i + 1, i, i);
+    }
+    norms[N * 4 - 4] = cv::Vec3i(N, N, N);
+    norms[N * 4 - 3] = cv::Vec3i(N + 1, N + 1, N + 1);
+    norms[N * 4 - 2] = cv::Vec3i(0, N - 1, N - 1);
+    norms[N * 4 - 1] = cv::Vec3i(N - 1, 0, N - 1);
+    return norms;
+}
+
+std::vector<cv::Vec3f> Cylinder::generateColorCoords() {
+    static int N = DEFAULT_RESOLUTION;
+    std::vector<cv::Vec3f> colors(N * 2 + 2);
+    colors[0] = cv::Vec3f(1, 0, 0);
+    colors[1] = cv::Vec3f(0, 1, 0);
+    colors[2] = cv::Vec3f(0, 0, 1);
+    return colors;
+}
+
+std::vector<cv::Vec3i> Cylinder::generateColorCoordIndices() {
+    static int N = DEFAULT_RESOLUTION;
+    std::vector<cv::Vec3i> colorIdxs(N * 4);
+    for (int i = 0; i < N - 1; ++i) {
+        colorIdxs[i * 4] = cv::Vec3i(1, 1, 1);
+        colorIdxs[i * 4 + 1] = cv::Vec3i(2, 2, 2);
+        colorIdxs[i * 4 + 2] = cv::Vec3i(0, 0, 0);
+        colorIdxs[i * 4 + 3] = cv::Vec3i(0, 0, 0);
+    }
+    colorIdxs[N * 4 - 4] = cv::Vec3i(1, 1, 1);
+    colorIdxs[N * 4 - 3] = cv::Vec3i(2, 2, 2);
+    colorIdxs[N * 4 - 2] = cv::Vec3i(0, 0, 0);
+    colorIdxs[N * 4 - 1] = cv::Vec3i(0, 0, 0);
+    return colorIdxs;
 }
