@@ -74,6 +74,8 @@ public:
     virtual std::vector<cv::Vec3i> generateNormalCoordIndices() = 0;
     virtual std::vector<cv::Vec3f> generateColorCoords() = 0;
     virtual std::vector<cv::Vec3i> generateColorCoordIndices() = 0;
+protected:
+    Pose pose;
 };
 
 class Box : public Shape {
@@ -89,99 +91,19 @@ public:
 
     // compute vertices
 
-    std::vector<cv::Vec3f> generateCoords() {
-        std::vector<cv::Vec3f> pts(8);
-        pts[0] = cv::Vec3f(-dims.x / 2, -dims.y / 2, -dims.z / 2);
-        pts[1] = cv::Vec3f(dims.x / 2, -dims.y / 2, -dims.z / 2);
-        pts[2] = cv::Vec3f(dims.x / 2, dims.y / 2, -dims.z / 2);
-        pts[3] = cv::Vec3f(-dims.x / 2, dims.y / 2, -dims.z / 2);
-        pts[4] = cv::Vec3f(-dims.x / 2, -dims.y / 2, dims.z / 2);
-        pts[5] = cv::Vec3f(dims.x / 2, -dims.y / 2, dims.z / 2);
-        pts[6] = cv::Vec3f(dims.x / 2, dims.y / 2, dims.z / 2);
-        pts[7] = cv::Vec3f(-dims.x / 2, dims.y / 2, dims.z / 2);
-        for (int idx = 0; idx < pts.size(); ++idx) {
-            pose.transformInPlace(pts[idx]);
-        }
-        return pts;
-    }
-
-    std::vector<cv::Vec3i> generateNormalCoordIndices() {
-        std::vector<cv::Vec3i> tricols(12);
-        tricols[0] = cv::Vec3i(0, 0, 0);
-        tricols[1] = cv::Vec3i(0, 0, 0);
-        tricols[2] = cv::Vec3i(1, 1, 1);
-        tricols[3] = cv::Vec3i(1, 1, 1);
-        tricols[4] = cv::Vec3i(2, 2, 2);
-        tricols[5] = cv::Vec3i(2, 2, 2);
-        tricols[6] = cv::Vec3i(3, 3, 3);
-        tricols[7] = cv::Vec3i(3, 3, 3);
-        tricols[8] = cv::Vec3i(4, 4, 4);
-        tricols[9] = cv::Vec3i(4, 4, 4);
-        tricols[10] = cv::Vec3i(5, 5, 5);
-        tricols[11] = cv::Vec3i(5, 5, 5);
-        return tricols;
-    }
-
-    std::vector<cv::Vec3f> generateNormals() {
-        std::vector<cv::Vec3f> norms(6);
-        norms[0] = cv::Vec3f(0, -1, 0);
-        norms[1] = cv::Vec3f(1, 0, 0);
-        norms[2] = cv::Vec3f(0, 1, 0);
-        norms[3] = cv::Vec3f(-1, 0, 0);
-        norms[4] = cv::Vec3f(0, 0, 1);
-        norms[5] = cv::Vec3f(0, 0, -1);
-        for (int idx = 0; idx < norms.size(); ++idx) {
-            pose.rotateInPlace(norms[idx]);
-        }
-        return norms;
-    }
+    std::vector<cv::Vec3f> generateCoords();
 
     // compute triangle surfaces
 
-    std::vector<cv::Vec3i> generateCoordIndices() {
-        std::vector<cv::Vec3i> tris(12);
-        tris[0] = cv::Vec3i(0, 5, 4);
-        tris[1] = cv::Vec3i(5, 0, 1);
-        tris[2] = cv::Vec3i(1, 6, 5);
-        tris[3] = cv::Vec3i(6, 1, 2);
-        tris[4] = cv::Vec3i(2, 7, 6);
-        tris[5] = cv::Vec3i(7, 2, 3);
-        tris[6] = cv::Vec3i(3, 4, 7);
-        tris[7] = cv::Vec3i(4, 3, 0);
-        tris[8] = cv::Vec3i(4, 6, 7);
-        tris[9] = cv::Vec3i(6, 4, 5);
-        tris[10] = cv::Vec3i(1, 3, 2);
-        tris[11] = cv::Vec3i(3, 1, 0);
-        return tris;
-    }
+    std::vector<cv::Vec3i> generateCoordIndices();
 
-    std::vector<cv::Vec3f> generateColorCoords() {
-        std::vector<cv::Vec3f> colors(6);
-        colors[0] = cv::Point3f(1, 0, 0);
-        colors[1] = cv::Point3f(0, 1, 0);
-        colors[2] = cv::Point3f(0, 0, 1);
-        colors[3] = cv::Point3f(1, 0, 0); // not red
-        colors[4] = cv::Point3f(0, 1, 0); // not red
-        colors[5] = cv::Point3f(0, 0, 1);
-        return colors;
-    }
+    std::vector<cv::Vec3f> generateNormals();
 
-    std::vector<cv::Vec3i> generateColorCoordIndices() {
-        std::vector<cv::Vec3i> tricols(12);
-        tricols[0] = cv::Vec3i(0, 0, 0);
-        tricols[1] = cv::Vec3i(0, 0, 0);
-        tricols[2] = cv::Vec3i(1, 1, 1);
-        tricols[3] = cv::Vec3i(1, 1, 1);
-        tricols[4] = cv::Vec3i(0, 0, 0);
-        tricols[5] = cv::Vec3i(0, 0, 0);
-        tricols[6] = cv::Vec3i(1, 1, 1);
-        tricols[7] = cv::Vec3i(1, 1, 1);
-        tricols[8] = cv::Vec3i(2, 2, 2);
-        tricols[9] = cv::Vec3i(2, 2, 2);
-        tricols[10] = cv::Vec3i(2, 2, 2);
-        tricols[11] = cv::Vec3i(2, 2, 2);
-        return tricols;
-    }
+    std::vector<cv::Vec3i> generateNormalCoordIndices();
+
+    std::vector<cv::Vec3f> generateColorCoords();
+
+    std::vector<cv::Vec3i> generateColorCoordIndices();
 
 private:
     // -------------------------
@@ -190,8 +112,79 @@ private:
     // -------------------------
     //Box(const Box& ref);
     //Box& operator=(const Box& ref);
-    Pose pose;
     cv::Point3f dims; // length, width, height
+};
+
+class Cylinder : public Shape {
+public:
+
+    Cylinder() {
+    }
+
+    Cylinder(float _radius, float _height, Pose _pose) {
+        r = _radius;
+        h = _height;
+        pose = _pose;
+    }   
+    
+    // compute points
+
+    std::vector<cv::Vec3f> generateCoords() {
+        static int N = DEFAULT_RESOLUTION;
+        return generateCoords(N);
+    }
+
+    /**
+     *
+     * @param N, the number of points in 1 circle
+     * @return
+     */
+    std::vector<cv::Vec3f> generateCoords(int N);
+
+    // compute surfaces
+
+    std::vector<cv::Vec3i> generateCoordIndices() {
+        static int N = DEFAULT_RESOLUTION;
+        return generateCoordIndices(N);
+    }
+
+    /**
+     *
+     * @param N, the number of points in 1 circle
+     * @return
+     */
+    std::vector<cv::Vec3i> generateCoordIndices(int N);
+
+    std::vector<cv::Vec3f> generateNormals();
+
+    std::vector<cv::Vec3i> generateNormalCoordIndices() {
+        static int N = DEFAULT_RESOLUTION;
+        std::vector<cv::Vec3i> norms(N * 4);
+        return norms;
+    }
+
+    std::vector<cv::Vec3f> generateColorCoords() {
+        static int N = DEFAULT_RESOLUTION;
+        std::vector<cv::Vec3f> colors(N * 2 + 2);
+        return colors;
+    }
+
+    std::vector<cv::Vec3i> generateColorCoordIndices() {
+        static int N = DEFAULT_RESOLUTION;
+        std::vector<cv::Vec3i> colorIdxs(N * 4);
+        return colorIdxs;
+    }
+
+
+private:
+    // -------------------------
+    // Disabling default copy constructor and default
+    // assignment operator.
+    // -------------------------
+    //Cylinder(const Cylinder& ref);
+    //Cylinder& operator=(const Cylinder& ref);
+    static constexpr float DEFAULT_RESOLUTION = 16;
+    float r, h; // length, width, height
 };
 
 #endif /* __cplusplus */

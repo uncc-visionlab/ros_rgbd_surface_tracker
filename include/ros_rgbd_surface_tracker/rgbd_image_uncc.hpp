@@ -298,6 +298,9 @@ namespace cv {
                 return (data.size() == numSamples) ? true : false;
             }
 
+            
+            bool fitPlane(RectWithError& r, Plane3f& plane3) const;
+            
             Point2f project(Point3f p3) const {
                 Point2f p2;
                 p2.x = p3.x / (p3.z * inv_f) + cx;

@@ -159,6 +159,7 @@ add_executable(${PROJECT_NAME} src/ros_rgbd_surface_tracker.cpp
     src/rgbd_tracker_uncc.cpp
     src/rgbd_image_uncc.cpp
     src/rgbd_surf_detector.cpp
+    src/ShapeGrammarLibrary.cpp
     src/surf_descriptor_proc.cpp
     src/surface_alignment_optimizer.cpp
     src/surface_fitting.cpp
@@ -189,6 +190,7 @@ add_executable(main_opencv src/main_opencv.cpp
     src/rgbd_tracker_uncc.cpp
     src/rgbd_image_uncc.cpp
     src/rgbd_surf_detector.cpp
+    src/ShapeGrammarLibrary.cpp
     src/surf_descriptor_proc.cpp
     src/surface_alignment_optimizer.cpp
     src/surface_fitting.cpp

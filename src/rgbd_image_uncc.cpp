@@ -109,6 +109,16 @@ namespace cv {
             return true;
         }
 
+
+        bool RgbdImage::fitPlane(RectWithError& r, Plane3f& plane3) const {
+//            return fitTileExplicitPlaneLeastSquares(r.x, r.y, r.width, plane3, r.error,
+//                    r.noise, r.inliers, r.outliers, r.invalid);
+//            return fitTileImplicitPlaneLeastSquares(r.x, r.y, r.width, plane3,
+//                    r.error, r.noise, r.inliers, r.outliers, r.invalid);
+//            return fitPlaneSimple(r.x, r.y, r.width, plane3, r.error,
+//                    r.noise, r.inliers, r.outliers, r.invalid);
+        }
+        
         LineSegment2f RgbdImage::getVisibleLineSegment2f(Line3f& line3) const {
             LineSegment2f lineseg2;
             float alpha;

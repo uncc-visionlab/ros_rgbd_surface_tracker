@@ -2,11 +2,12 @@
 #define OPENCV_FUNCTION_DEV_HPP
 #ifdef __cplusplus
 
+#include <functional>
 #include <iostream>
+#include <math.h>
+#include <queue>
 #include <sstream>
 #include <stdexcept>
-#include <functional>
-#include <math.h>
 
 #include <boost/shared_ptr.hpp>
 
@@ -509,6 +510,9 @@ namespace cv {
         };
 
     };
+    typedef std::priority_queue<RectWithError,
+    std::vector<RectWithError>,
+    RectWithError::ErrorComparator> ErrorSortedRectQueue;
 
     template<typename _Tpl> class TesselatedPlane3_ : public LabeledPlane3_<_Tpl> {
         std::vector<RectWithError> imgQuadArr;
@@ -604,6 +608,10 @@ namespace cv {
     };
     typedef TesselatedPlane3_<float> TesselatedPlane3f;
 
+    typedef std::priority_queue<TesselatedPlane3f,
+    std::vector<TesselatedPlane3f>,
+    TesselatedPlane3f::ErrorComparator> ErrorSortedPlaneQueue;
+    
     template<class T>
     class QuadPyramid {
     public:

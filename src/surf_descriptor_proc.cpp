@@ -16,31 +16,62 @@ namespace cv {
         void SurfaceDescriptorExtractor::compute(const cv::rgbd::RgbdImage& rgbd_img,
                 std::vector<AlgebraicSurfacePatch>& surflets,
                 std::vector<ObjectGeometry>& geometries) const {
+
+            std::vector<cv::Edge3f> edgeList;
+            std::vector<cv::Corner3f::Ptr> cornerList;
+            
+            //
+            //            std::vector<cv::TesselatedPlane3f::Ptr>& planeArray = quadTree.getObjects();
+            //            *curPlanesPtr = planeArray;
+            //            if (curPlanesPtr->size() > 0 &&
+            //                    curPlanesPtr->size() == prevPlanesPtr->size()) {
+            //                //        std::cout << "planes_src_tgt = [ ";
+            //                Eigen::Matrix<Scalar, 3, 3> normalsCovMat = Eigen::Matrix<Scalar, 3, 3>::Zero();
+            //                Eigen::Matrix<Scalar, 1, 3> deltaDt_NA = Eigen::Matrix<Scalar, 1, 3>::Zero();
+            //                Eigen::Matrix<Scalar, 1, 3> deltaDt_NB = Eigen::Matrix<Scalar, 1, 3>::Zero();
+            //
+            //                for (int indexA = 0; indexA < planeArray.size(); indexA++) {
+            //                    cv::TesselatedPlane3f::Ptr& plane_tgt = curPlanesPtr->at(indexA);
+            //                    cv::TesselatedPlane3f::Ptr& plane_src = prevPlanesPtr->at(indexA);
+            //                    //            std::cout << "areaA " << planeA->area() << " errorA = " << planeA->avgError() 
+            //                    //                    << " planeA = " << *planeA << std::endl;
+            //                    if (plane_tgt && plane_src) {
+            //                        float norm = (plane_tgt->x - plane_src->x)*(plane_tgt->x - plane_src->x) +
+            //                                (plane_tgt->y - plane_src->y)*(plane_tgt->y - plane_src->y)+
+            //                                (plane_tgt->z - plane_src->z)*(plane_tgt->z - plane_src->z)+
+            //                                (plane_tgt->d - plane_src->d)*(plane_tgt->d - plane_src->d);
+            //                        if (norm < OUTLIER_THRESHOLD) {
+            //                        }
+            //                    }
+            //                }
+            
             // 11.25in x 8.75in x 6.25in @ depth 11 in
             Box bb1(cv::Vec3f(0.28575, 0.2225, 0.15875),
                     Pose(cv::Vec3f(0, 0, 0.3794+0.15875/2), cv::Vec3f(0, 0, 0)));
             Box bb2(cv::Vec3f(1, 1, 1),
                     Pose(cv::Vec3f(1.5, 1.5, 10), cv::Vec3f(0, 0, CV_PI/6)));
-
-            Box boxes[2] = {bb1, bb2};
-            for (Box b : boxes) {
+            Cylinder cyl1(0.5, 1,
+                    Pose(cv::Vec3f(0, 0, 3), cv::Vec3f(0, 0, 0)));
+            //Shape *shapeArray[3] = {&bb1, &bb2, &cyl1};
+            Shape *shapeArray[2] = {&bb1, &bb2};
+            for (Shape *shape : shapeArray) {
                 ObjectGeometry geom;
-                std::vector<cv::Vec3f> pts = b.generateCoords();
-                std::vector<cv::Vec3i> triIdxList = b.generateCoordIndices();
+                std::vector<cv::Vec3f> pts = shape->generateCoords();
+                std::vector<cv::Vec3i> triIdxList = shape->generateCoordIndices();
                 for (cv::Vec3i triIdxs : triIdxList) {
                     geom.verts.push_back(pts[triIdxs[0]]);
                     geom.verts.push_back(pts[triIdxs[1]]);
                     geom.verts.push_back(pts[triIdxs[2]]);
                 }
-                std::vector<cv::Vec3f> norms = b.generateNormals();
-                std::vector<cv::Vec3i> triNormalIdxList = b.generateNormalCoordIndices();
+                std::vector<cv::Vec3f> norms = shape->generateNormals();
+                std::vector<cv::Vec3i> triNormalIdxList = shape->generateNormalCoordIndices();
                 for (cv::Vec3i triNormalIdxs : triNormalIdxList) {
                     geom.normals.push_back(norms[triNormalIdxs[0]]);
                     geom.normals.push_back(norms[triNormalIdxs[1]]);
                     geom.normals.push_back(norms[triNormalIdxs[2]]);
                 }
-                std::vector<cv::Vec3f> colors = b.generateColorCoords();
-                std::vector<cv::Vec3i> triColorIdxList = b.generateColorCoordIndices();
+                std::vector<cv::Vec3f> colors = shape->generateColorCoords();
+                std::vector<cv::Vec3i> triColorIdxList = shape->generateColorCoordIndices();
                 for (cv::Vec3i triColorIdxs : triColorIdxList) {
                     geom.colors.push_back(colors[triColorIdxs[0]]);
                     geom.colors.push_back(colors[triColorIdxs[1]]);
