@@ -198,7 +198,7 @@ namespace cv {
                 glRenderbufferStorage(GL_RENDERBUFFER, GL_RGB565, width, height);
                 glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, color);
 
-                /* Depth renderbuffer. */
+                /* Depth render buffer. */
                 glGenRenderbuffers(1, &depth);
                 glBindRenderbuffer(GL_RENDERBUFFER, depth);
                 glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, width, height);

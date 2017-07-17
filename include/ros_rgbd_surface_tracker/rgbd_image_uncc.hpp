@@ -119,6 +119,9 @@ namespace cv {
 
             void computeExplicit_Impl(const cv::Mat& depth, cv::Mat & normals);
 
+            bool computeNormalExplicit(cv::Rect roi, const
+                    cv::Mat& depth, cv::Vec3f& normals);
+
             void operator()(cv::InputArray depth_in, cv::OutputArray normals_out);
 
             void computeCurvatureFiniteDiff_Impl(const cv::Mat& depth, cv::Mat& normals);
@@ -268,6 +271,10 @@ namespace cv {
                     int width, int height,
                     std::vector<Point3f>& data, int numSamples = -1) const {
                 int tileArea = width*height;
+                float aspectRatio = (float) width / (float) height;
+                float downSample = ((float) tileArea) / numSamples;
+                float xFactor = downSample * aspectRatio;
+                float yFactor = downSample / aspectRatio;
                 if (numSamples > tileArea || numSamples <= 0) {
                     return false;
                 }
@@ -278,29 +285,27 @@ namespace cv {
                         decimateFactor >>= 2;
                     } while (numSamples > 50);
                 }
-                int areaPerSample = tileArea / numSamples;
-                int skip = areaPerSample / 4;
+                cv::Point2i skip(std::floor(xFactor), std::floor(yFactor));
                 Point3f pt3;
-                for (int offset = 0; offset < skip && data.size() < numSamples; offset++) {
-                    for (int iy = y0 + offset; iy < y0 + height && data.size() < numSamples; iy += skip) {
-                        for (int ix = x0 + offset; ix < x0 + width && data.size() < numSamples; ix += skip) {
-                            const float& depth = zptr[iy * zstep + ix];
-                            if (!std::isnan(depth)) {
-                                getPoint3f(ix, iy, pt3);
-                                data.push_back(pt3);
-                                //std::cout << "(x,y)=(" << ix << ", " << iy << ")"
-                                //        << " (X,Y,Z)=" << pt3 << " data.size = "
-                                //        << data.size() << " numSamples =" << numSamples << std::endl;
-                            }
+                int offset = 0;
+                for (int iy = y0 + offset; iy < y0 + height && data.size() < numSamples; iy += skip.y) {
+                    for (int ix = x0 + offset; ix < x0 + width && data.size() < numSamples; ix += skip.x) {
+                        const float& depth = zptr[iy * zstep + ix];
+                        if (!std::isnan(depth)) {
+                            getPoint3f(ix, iy, pt3);
+                            data.push_back(pt3);
+                            //std::cout << "(x,y)=(" << ix << ", " << iy << ")"
+                            //        << " (X,Y,Z)=" << pt3 << " data.size = "
+                            //        << data.size() << " numSamples =" << numSamples << std::endl;
                         }
                     }
                 }
                 return (data.size() == numSamples) ? true : false;
             }
 
-            
+
             bool fitPlane(RectWithError& r, Plane3f& plane3) const;
-            
+
             Point2f project(Point3f p3) const {
                 Point2f p2;
                 p2.x = p3.x / (p3.z * inv_f) + cx;

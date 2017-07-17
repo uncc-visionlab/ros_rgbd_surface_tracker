@@ -109,16 +109,18 @@ namespace cv {
             return true;
         }
 
-
         bool RgbdImage::fitPlane(RectWithError& r, Plane3f& plane3) const {
-//            return fitTileExplicitPlaneLeastSquares(r.x, r.y, r.width, plane3, r.error,
-//                    r.noise, r.inliers, r.outliers, r.invalid);
-//            return fitTileImplicitPlaneLeastSquares(r.x, r.y, r.width, plane3,
-//                    r.error, r.noise, r.inliers, r.outliers, r.invalid);
-//            return fitPlaneSimple(r.x, r.y, r.width, plane3, r.error,
-//                    r.noise, r.inliers, r.outliers, r.invalid);
+            cv::Vec3f normal;
+            return iImgs.computeNormalExplicit(r, getDepth(), normal);
+
+                    //return fitTileExplicitPlaneLeastSquares(r.x, r.y, r.width, plane3, r.error,
+                    //        r.noise, r.inliers, r.outliers, r.invalid);
+                    //            return fitTileImplicitPlaneLeastSquares(r.x, r.y, r.width, plane3,
+                    //                    r.error, r.noise, r.inliers, r.outliers, r.invalid);
+                    //            return fitPlaneSimple(r.x, r.y, r.width, plane3, r.error,
+                    //                    r.noise, r.inliers, r.outliers, r.invalid);
         }
-        
+
         LineSegment2f RgbdImage::getVisibleLineSegment2f(Line3f& line3) const {
             LineSegment2f lineseg2;
             float alpha;
@@ -600,6 +602,85 @@ namespace cv {
                     normptr++;
                 }
             }
+        }
+
+        bool DepthIntegralImages::computeNormalExplicit(cv::Rect roi, const
+                cv::Mat& depth, cv::Vec3f& normal) {
+            cv::Size queryWinSize(roi.width, roi.height);
+            int numPts = roi.width * roi.height;
+            int numValidWinPts = 0;
+            cv::Mat MtM(3, 3, CV_32F);
+            cv::Mat iMtM(3, 3, CV_32F);
+            cv::Mat Mtb(3, 1, CV_32F);
+            cv::Mat sol(3, 1, CV_32F);
+            cv::Mat coeffs(1, 4, CV_32F);
+            float *mtm_ptr, *mtb_ptr, *imtm_ptr, *sol_ptr, *coeffs_ptr;
+            imtm_ptr = iMtM.ptr<float>(0, 0);
+            mtb_ptr = Mtb.ptr<float>(0);
+            sol_ptr = sol.ptr<float>(0);
+            coeffs_ptr = coeffs.ptr<float>(0);
+            cv::Vec3f *normptr;
+            int numcomp = 0;
+
+            // sliding window on integral image 
+            // the integral images have one more row and column than the source image
+            ImageWindow imWin(depth.size(), cv::Size(roi.width, roi.height));
+
+            numValidWinPts = GETSUM(numValidPts, float, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+            if (numValidWinPts == numPts) {
+                if (queryWinSize.width != winSize.width ||
+                        queryWinSize.height != winSize.height) {
+                    mtm_ptr = MtM.ptr<float>(0, 0);
+                    *mtm_ptr++ = GETSUM(tan_theta_x_sq, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                    *mtm_ptr++ = GETSUM(tan_theta_xy, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                    *mtm_ptr++ = GETSUM(tan_theta_x, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                    *mtm_ptr++ = MtM.at<float>(0, 1);
+                    *mtm_ptr++ = GETSUM(tan_theta_y_sq, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                    *mtm_ptr++ = GETSUM(tan_theta_y, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                    *mtm_ptr++ = MtM.at<float>(0, 2);
+                    *mtm_ptr++ = MtM.at<float>(1, 2);
+                    *mtm_ptr++ = numPts;
+                    iMtM = MtM.inv();
+                    imtm_ptr = iMtM.ptr<float>(0, 0);
+                } else { // we've cached this matrix inverse when initializing
+                    int key = roi.y * width + roi.x;
+                    imtm_ptr = matMap[key].ptr<float>(0, 0);
+                }
+                //std::cout << "MtM = " << MtM << std::endl;
+                //std::cout << "iMtM" << winCenter << " = " << iMtM << std::endl;
+                //std::cout << "iMtM2 = " << iMtM2 << std::endl;
+                mtb_ptr[0] = GETSUM(tan_theta_x_div_z, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                mtb_ptr[1] = GETSUM(tan_theta_y_div_z, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                mtb_ptr[2] = GETSUM(one_div_z, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+
+                //cv::Mat sol = iMtM*Mtb;
+                sol_ptr[0] = imtm_ptr[0] * mtb_ptr[0] + imtm_ptr[1] * mtb_ptr[1] + imtm_ptr[2] * mtb_ptr[2];
+                sol_ptr[1] = imtm_ptr[3] * mtb_ptr[0] + imtm_ptr[4] * mtb_ptr[1] + imtm_ptr[5] * mtb_ptr[2];
+                sol_ptr[2] = imtm_ptr[6] * mtb_ptr[0] + imtm_ptr[7] * mtb_ptr[1] + imtm_ptr[8] * mtb_ptr[2];
+
+                float normf = 0;
+                for (int dim = 0; dim < 2; ++dim) {
+                    coeffs_ptr[dim] = sol_ptr[dim];
+                    normf += coeffs_ptr[dim] * coeffs_ptr[dim];
+                }
+                coeffs_ptr[3] = coeffs_ptr[2];
+                coeffs_ptr[2] = 1.0f;
+                for (int dim = 0; dim < 4; ++dim) {
+                    coeffs_ptr[dim] = -coeffs_ptr[dim];
+                }
+                normf += 1;
+                normf = sqrt(normf);
+                coeffs /= normf;
+                //std::cout << "normf = " << normf << std::endl;
+                //std::cout << "coeffs = " << coeffs << std::endl;
+                //float error = sqrt(eVals.at<double>(3, 0)) / (normf * numPts);
+                normal[0] = coeffs_ptr[0];
+                normal[1] = coeffs_ptr[1];
+                normal[2] = coeffs_ptr[2];
+                //std::cout << "normval = " << normals.at<cv::Vec3f>(winCenter.y, winCenter.x) << std::endl;
+                return true;
+            }
+            return false;
         }
 
         void DepthIntegralImages::computeExplicit_Impl(const cv::Mat& depth, cv::Mat & normals) {

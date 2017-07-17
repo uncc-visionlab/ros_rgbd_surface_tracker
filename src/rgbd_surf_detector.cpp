@@ -33,9 +33,23 @@ namespace cv {
             cv::QuadPyramid<cv::TesselatedPlane3f::Ptr> quadTree(xBlocks, yBlocks, blockSize);
             cv::ErrorSortedRectQueue quadQueue;
             std::vector<cv::TesselatedPlane3f::Ptr> planeList;
-            cv::Rect imageRect;
             cv::Mat img_L;
-            findPlanes(imageRect, quadQueue, planeList, rgbd_img, quadTree, img_L, numLabels);
+            findPlanes(roi, quadQueue, planeList, rgbd_img, quadTree, img_L, numLabels);
+            for (int indexA = 0; indexA < planeList.size(); indexA++) {
+                TesselatedPlane3f::Ptr& planeA = planeList[indexA];
+                //std::cout << "areaA " << planeA->area() << " errorA = " << planeA->avgError() << " planeA = " << *planeA << std::endl;
+                geometries.push_back(AlgebraicSurfacePatch(planeA));
+                //                for (int indexB = indexA + 1; indexB < planeList.size(); indexB++) {
+                //                    TesselatedPlane3f::Ptr& planeB = planeList[indexB ];
+                //                    if (planeA->epsilonPerpendicular(*planeB, 2 * Plane3f::PERPENDICULAR_SIN_ANGLE_THRESHOLD)) {
+                //                        //                    std::cout << "areaA " << planeA->area() << " errorA = " << planeA->avgError() << " planeA = " << *planeA
+                //                        //                            << " areaB " << planeB->area() << " errorB = " << planeB->avgError() << " planeB = " << *planeB
+                //                        //                            << " cosangle = " << planeA->cosDihedralAngle(*planeB)
+                //                        //                            << std::endl;
+                //                        edgeList.push_back(Edge3f(*planeA, *planeB));
+                //                    }
+                //                }
+            }
         }
 
         void SurfaceDetector::findPlanes(const cv::Rect& roi,
@@ -68,10 +82,16 @@ namespace cv {
                     //RectWithError quad(x0, y0, blockSize, blockSize);
                     quad.x = x0;
                     quad.y = y0;
-                    if (rgbd_proc.fitPlane(quad, plane3)) {
-                        //                    float magdZvsXY = std::min(plane3.z / plane3.x, plane3.z / plane3.y);
-                        //                    if ((magdZvsXY < 0.333f && quad.error < 2 * quad.noise) ||
-                        //                            (magdZvsXY >= 0.333f && quad.error < 3.0 * quad.noise)) { //, * (2 * plane3.z) / (plane3.x + plane3.y)) {
+                    std::vector<cv::Point3f> tile_data; // data for each tile in array of vectors
+                    int numSamples = (quad.width * quad.height) / 2;
+                    tile_data.reserve(numSamples);
+
+                    rgbd_proc.getTileData_Uniform(quad.x, quad.y,
+                            quad.width, quad.height,
+                            tile_data, numSamples);
+                    if (tile_data.size() > numSamples >> 2) {
+                        rgbd_proc.fitImplicitPlaneLeastSquares(tile_data, plane3, quad.error,
+                                quad.noise, quad.inliers, quad.outliers, quad.invalid);
                         TesselatedPlane3f::Ptr& cBlock = planeArray[yBlock * xBlocks + xBlock];
                         cBlock = TesselatedPlane3f::Ptr(
                                 new TesselatedPlane3f(plane3, numLabels++));
@@ -80,7 +100,6 @@ namespace cv {
                         quad.clearStatistics();
                         cBlock->addQuad(newQuad); // error and support already known
                         quadQueue.push(newQuad);
-                        //                    }
                     } else {
 
                     }

@@ -5,6 +5,9 @@
  */
 #include <vector>
 
+#include <boost/shared_ptr.hpp>
+#include <boost/make_shared.hpp>
+
 #include <opencv2/core.hpp>
 #include <opencv2/features2d.hpp>
 
@@ -46,32 +49,35 @@ namespace cv {
             //                }
 
             // 11.25in x 8.75in x 6.25in @ depth 11 in
-            Box bb1(cv::Vec3f(0.28575, 0.2225, 0.15875),
-                    Pose(cv::Vec3f(0, 0, 0.3794 + 0.15875 / 2), cv::Vec3f(0, 0, 0)));
-            Box bb2(cv::Vec3f(1, 1, 1),
-                    Pose(cv::Vec3f(1.5, 1.5, 10), cv::Vec3f(0, 0, CV_PI / 6)));
-            Cylinder cyl1(0.5, 0.5,
-                    Pose(cv::Vec3f(0, 0, 3.5), cv::Vec3f(-CV_PI / 6, 0, 0)));
-            Shape * shapeArray[] = {&bb1, &bb2, &cyl1};
-            for (int idx = 0; idx < 3; ++idx) {
-                Shape *shape = shapeArray[idx];
+            Shape::Ptr b1ptr(boost::make_shared<Box>(cv::Vec3f(0.28575, 0.2225, 0.15875),
+                    Pose(cv::Vec3f(0, 0, 0.3794 + 0.15875 / 2), cv::Vec3f(0, 0, 0))));
+            Shape::Ptr b2ptr(boost::make_shared<Box>(cv::Vec3f(1, 1, 1),
+                    Pose(cv::Vec3f(1.5, 1.5, 10), cv::Vec3f(0, 0, CV_PI / 6))));
+            Shape::Ptr cyl1ptr(boost::make_shared<Cylinder>(0.5, 0.5,
+                    Pose(cv::Vec3f(0, 0, 3.5), cv::Vec3f(-CV_PI / 6, 0, 0))));
+            std::vector<Shape::Ptr> shapePtrVec;
+            shapePtrVec.push_back(b1ptr);
+            shapePtrVec.push_back(b2ptr);
+            shapePtrVec.push_back(cyl1ptr);
+            for (auto shape_ptr : shapePtrVec) {
+                Shape& shape = *shape_ptr;
                 ObjectGeometry geom;
-                std::vector<cv::Vec3f> pts = shape->generateCoords();
-                std::vector<cv::Vec3i> triIdxList = shape->generateCoordIndices();
+                std::vector<cv::Vec3f> pts = shape.generateCoords();
+                std::vector<cv::Vec3i> triIdxList = shape.generateCoordIndices();
                 for (cv::Vec3i triIdxs : triIdxList) {
                     geom.verts.push_back(pts[triIdxs[0]]);
                     geom.verts.push_back(pts[triIdxs[1]]);
                     geom.verts.push_back(pts[triIdxs[2]]);
                 }
-                std::vector<cv::Vec3f> norms = shape->generateNormals();
-                std::vector<cv::Vec3i> triNormalIdxList = shape->generateNormalCoordIndices();
+                std::vector<cv::Vec3f> norms = shape.generateNormals();
+                std::vector<cv::Vec3i> triNormalIdxList = shape.generateNormalCoordIndices();
                 for (cv::Vec3i triNormalIdxs : triNormalIdxList) {
                     geom.normals.push_back(norms[triNormalIdxs[0]]);
                     geom.normals.push_back(norms[triNormalIdxs[1]]);
                     geom.normals.push_back(norms[triNormalIdxs[2]]);
                 }
-                std::vector<cv::Vec3f> colors = shape->generateColorCoords();
-                std::vector<cv::Vec3i> triColorIdxList = shape->generateColorCoordIndices();
+                std::vector<cv::Vec3f> colors = shape.generateColorCoords();
+                std::vector<cv::Vec3i> triColorIdxList = shape.generateColorCoordIndices();
                 for (cv::Vec3i triColorIdxs : triColorIdxList) {
                     geom.colors.push_back(colors[triColorIdxs[0]]);
                     geom.colors.push_back(colors[triColorIdxs[1]]);

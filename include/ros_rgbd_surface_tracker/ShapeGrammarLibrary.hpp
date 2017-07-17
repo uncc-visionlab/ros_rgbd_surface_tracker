@@ -10,6 +10,8 @@
 
 #include <vector>
 
+#include <boost/shared_ptr.hpp>
+
 #include <opencv2/calib3d.hpp>
 #include <opencv2/core.hpp>
 
@@ -65,6 +67,7 @@ private:
 
 class Shape {
 public:
+    typedef boost::shared_ptr<Shape> Ptr;
 
     virtual ~Shape() {
     }
@@ -80,7 +83,7 @@ protected:
 
 class Box : public Shape {
 public:
-
+    typedef boost::shared_ptr<Box> Ptr;
     Box() {
     }
 
@@ -113,7 +116,7 @@ private:
 
 class Cylinder : public Shape {
 public:
-
+    typedef boost::shared_ptr<Cylinder> Ptr;
     Cylinder() {
     }
 
@@ -121,8 +124,8 @@ public:
         r = _radius;
         h = _height;
         pose = _pose;
-    }   
-    
+    }
+
     std::vector<cv::Vec3f> generateCoords() {
         static int N = DEFAULT_RESOLUTION;
         return generateCoords(N);
@@ -140,7 +143,7 @@ public:
     std::vector<cv::Vec3f> generateNormals();
 
     std::vector<cv::Vec3i> generateNormalCoordIndices();
-    
+
     std::vector<cv::Vec3f> generateColorCoords();
 
     std::vector<cv::Vec3i> generateColorCoordIndices();
