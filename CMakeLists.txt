@@ -183,9 +183,9 @@ target_link_libraries(${PROJECT_NAME}
    ${catkin_LIBRARIES}  
    ${Boost_LIBRARIES} 
    ${OpenCV_LIBRARIES}
-   ${Eigen3_LIBRARIES} marchingcubes GL GLU glut)
+   ${Eigen3_LIBRARIES} marchingcubes GL GLU GLEW glut)
 
-link_directories(/opt/ros/kinetic/lib)
+link_directories(/opt/ros/kinetic/lib) # needed to find 
 add_executable(main_opencv src/main_opencv.cpp
     src/rgbd_tracker_uncc.cpp
     src/rgbd_image_uncc.cpp
@@ -199,13 +199,18 @@ add_executable(main_opencv src/main_opencv.cpp
 #  IMPORTED_LOCATION "/opt/ros/kinetic/lib/libbar.so"
 #  INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/include/libbar"
 #)
+add_executable(opengl_iothread 
+    src/opengl_iothread.cpp)
+target_link_libraries(opengl_iothread 
+   ${catkin_LIBRARIES} 
+   ${Boost_LIBRARIES})
 
 target_link_libraries(main_opencv 
    ${catkin_LIBRARIES} 
    ${Boost_LIBRARIES} 
    ${OpenCV_LIBRARIES}  
    ${Eigen3_LIBRARIES}  
-   OpenNI2Orbbec pthread marchingcubes GL GLU glut)
+   OpenNI2Orbbec pthread marchingcubes GL GLU GLEW glut)
 #add_executable(main_opencv src/main_opencv.cpp)
 #target_link_libraries(main_opencv v4l2)
 add_library(marchingcubes src/marchingsource.cpp)

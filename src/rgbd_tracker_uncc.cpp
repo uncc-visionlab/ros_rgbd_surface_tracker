@@ -24,6 +24,7 @@ namespace cv {
 
         // construct static class member for OpenGL based rendering of scene objects
         OpenGLRenderer RgbdSurfaceTracker::glDraw;
+        int OpenGLRenderer::specialKey;
 
         void RgbdSurfaceTracker::callback(cv::Mat& _ocv_rgbframe, cv::Mat& _ocv_depthframe_float,
                 cv::Mat& _rgb_distortionCoeffs, cv::Mat& _rgb_cameraMatrix) {
@@ -43,22 +44,25 @@ namespace cv {
 #ifdef PROFILE_CALLGRIND
             CALLGRIND_TOGGLE_COLLECT;
 #endif
+            bool offscreen_rendering = false;
+            
             if (!glDraw.initialized()) {
-                glDraw.init(rgbd_img.getWidth(), rgbd_img.getHeight());
+                glDraw.init(rgbd_img.getWidth(), rgbd_img.getHeight(), offscreen_rendering);
             }
-
+            
             std::vector<cv::rgbd::AlgebraicSurfacePatch> surfletList;
             surfdetector.detect(rgbd_img, surfletList);
 
             std::vector<cv::rgbd::ObjectGeometry> geomList;
             surfdescriptor_extractor.compute(rgbd_img, surfletList, geomList);
 
-            //glDraw.setImage(rgbd_img.getRGB());
+            glDraw.setImage(rgbd_img.getRGB());
             glDraw.renderGeometries(geomList);
 
             cv::Mat points, colors;
             rgbd_img.getPointCloud(points, colors);
             glDraw.renderPointCloud(points, colors);
+            //glDraw.callbackDisplay();
 
             std::vector<cv::DMatch> geometricMatches;
             surfmatcher.match(geomList, geomList, geometricMatches);

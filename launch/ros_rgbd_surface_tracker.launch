@@ -58,7 +58,7 @@
     <arg name="savefile" default="/tmp/kinect-rgbd-camera.bag" if="$(arg sensor_type_kinect_xbox360)"/>
 
     <node pkg="rosbag" type="record" name="rosbag_record_rgbd_cam"
-          args="record -o $(arg savefile) /camera/rgb/input_image /camera/rgb/camera_info /camera/depth_registered/input_image"
+          args="record -o $(arg savefile) /camera/rgb/image_raw /camera/rgb/camera_info /camera/depth_registered/image_raw"
           if="$(arg record_cameras)" />
     <!-- END Save data to .bag file configuration -->
     

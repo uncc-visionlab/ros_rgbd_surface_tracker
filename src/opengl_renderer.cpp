@@ -4,148 +4,217 @@
  * and open the template in the editor.
  */
 #include <iostream>      /* printf, scanf, puts, NULL */
+#include <string>      /* printf, scanf, puts, NULL */
 
+#define GL_GLEXT_PROTOTYPES
+#include <GL/gl.h>
 #include <GL/glu.h>
-#include <GL/glut.h>
+//#include <GL/glut.h>
+#include <GL/freeglut.h>
+#include <GL/glext.h>
 
 #include <Eigen/Dense>
 
+//#include <ros_rgbd_surface_tracker/opengl_iothread.hpp>
 #include <ros_rgbd_surface_tracker/opengl_renderer.hpp>
+
+#define OFFSCREEN_W 640
+#define OFFSCREEN_H 480
 
 namespace cv {
     namespace rgbd {
 
-        void OpenGLRenderer::pushObject(std::string name, ObjectGeometry geom) {
-            geomList.insert({name, geom});
-        }
-
-        void OpenGLRenderer::post() {
-            glutPostRedisplay(); //to force "draw" function to be called
-            //glutMainLoopEvent(); //freeglut function                
-            glutMainLoop(); //freeglut function                
-        }
-
-        void OpenGLRenderer::renderGeometry(std::pair<std::string, ObjectGeometry> mapElement) {
-            ObjectGeometry geom = mapElement.second;
-
-            for (int idx = 0; idx < geom.verts.size(); ++idx) {
-                cv::Vec3f vert = geom.verts[idx];
-                cv::Vec3f normal = geom.normals[idx];
-                cv::Vec3f color = geom.colors[idx];
-                glColor4f(color[0], color[1], color[2], 0.5f);
-                glNormal3f(normal[0], normal[1], normal[2]);
-                glVertex3f(vert[0], vert[1], vert[2]);
-            }
-        }
-
-        void OpenGLRenderer::renderGeometries(std::vector<cv::rgbd::ObjectGeometry> geomList) {
-            int idx = 0;
-            for (cv::rgbd::ObjectGeometry geom : geomList) {
-                std::string geomName("Box " + std::to_string(idx++));
-                pushObject(geomName, geom);
-            }
-            draw();
-            clearObjects();
-        }
-
-        void OpenGLRenderer::renderPointCloud(cv::Mat points, cv::Mat colors) {
-            glPointSize(2.0);
-
-            glBegin(GL_POINTS);
-            for (int y = 0; y < points.rows; ++y) {
-                cv::Vec3f *points_ptr = points.ptr<cv::Vec3f>(y, 0);
-                uchar *colors_ptr = colors.ptr<uchar>(y, 0);
-                for (int x = 0; x < points.cols; ++x) {
-                    if (!std::isnan((*points_ptr)[0])) {
-                        glColor3ub(colors_ptr[2], colors_ptr[1], colors_ptr[0]);
-                        glVertex3d((*points_ptr)[0], (*points_ptr)[1], (*points_ptr)[2]);
-                        //std::cout << "vert " << (*points_ptr) << " color "
-                        //        << (int) colors_ptr[0] << "," << (int) colors_ptr[1] 
-                        // << ", " << (int) colors_ptr[2] << std::endl;
-                    }
-                    points_ptr++;
-                    colors_ptr += 3;
-                }
-            }
-            glEnd();
-            glFlush();
-
-            glutSwapBuffers();
-
-        }
-
-        void OpenGLRenderer::draw() {
-            static GLfloat sign = 1, xRotated = 5, yRotated = 5, zRotated = 5;
-
-            //glDisable(GL_LIGHTING);
-            //glDepthMask(GL_FALSE);
-            glMatrixMode(GL_MODELVIEW);
-
+        void OpenGLRenderer::callbackDisplay(void) {
             //  Clear screen and Z-buffer
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            //            glEnable(GL_TEXTURE_2D);
-            //            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, imgSeg.cols, imgSeg.rows, 0, GL_BGR, GL_UNSIGNED_BYTE, imgSeg.data);
-            //            glBegin(GL_POLYGON);
-            //            glTexCoord2f(0.0f, 1.0f);
-            //            glVertex3f(-1.0f, -1.0f, 10.0f);
-            //            glTexCoord2f(1.0f, 1.0f);
-            //            glVertex3f(1.0f, -1.0f, 10.0f);
-            //            glTexCoord2f(1.0f, 0.0f);
-            //            glVertex3f(1.0f, 1.0f, 10.0f);
-            //            glTexCoord2f(0.0f, 1.0f);
-            //            glVertex3f(-1.0f, -1.0f, 10.0f);
-            //            glTexCoord2f(1.0f, 0.0f);
-            //            glVertex3f(1.0f, 1.0f, 10.0f);
-            //            glTexCoord2f(0.0f, 0.0f);
-            //            glVertex3f(-1.0f, 1.0f, 10.0f);
-            //            glEnd();
-            //            glDisable(GL_TEXTURE_2D);
-
             glPushMatrix();
-
-            //glEnable(GL_LIGHTING);
-
-            //glLoadIdentity();
-            //glTranslatef(xRotated, 0, 0);
-            //glTranslatef(0, xRotated, 0);
-            //glTranslatef(0, 0, xRotated);
-
-            //glTranslatef(0.0, 0.0, -3.5);
-            //glTranslatef(0.0, 0.0, -3.5);
-            // rotation about Z axis
-            //glRotatef(zRotated, 0.0, 0.0, 1.0);
-            // rotation about Y axis
-            //glRotatef(xRotated, 1.0, 0.0, 0.0);
-            //glRotatef(yRotated, 0.0, 1.0, 0.0);
-            //glTranslatef(0.0, 0.0, 3.5);
-
             glBegin(GL_TRIANGLES);
             for (auto geom : geomList) {
                 renderGeometry(geom);
             }
             glEnd();
-
             glPopMatrix();
 
             glFlush();
-
             glutSwapBuffers();
+            glutMainLoopEvent();
         }
 
-        int OpenGLRenderer::init(int width, int height) {
+        void OpenGLRenderer::callbackIdle(void) {
+            //glutPostRedisplay();
+        }
+
+        void OpenGLRenderer::callbackKeyboard(unsigned char key, int x, int y) {
+            int texture_updated = 1;
+            glMatrixMode(GL_MODELVIEW);
+            char fname[] = "output.pnm";
+            switch (key) {
+                case 'a':
+                    glTranslatef(-0.2f, 0.0f, 0.0f);
+                    break;
+                case 'w':
+                    glTranslatef(0.0f, 0.2f, 0.0f);
+                    break;
+                case 'd':
+                    glTranslatef(0.2f, 0.0f, 0.0f);
+                    break;
+                case 's':
+                    glTranslatef(0.0f, -0.2f, 0.0f);
+                    break;
+                case '\n':
+                case '\r':
+                    //vscroll();
+                case 'R' - '@': /* ^R */
+                    break;
+
+                case 'S' - '@': /* ^S */
+                    std::cout << "Saving..." << std::endl;
+                    saveWindow(fname);
+                    texture_updated = 0;
+                    break;
+
+                case '\x08': /* backspace */
+                    //                    if (cursor) {
+                    //                        --cursor;
+                    //                        text[ 0 ][ cursor + 1 ] = 0;
+                    //                        text[ 0 ][ cursor ] = '\n';
+                    //                    }
+                    break;
+
+                case '\x1b':
+                    exit(0);
+                    break;
+
+                default:
+                    //add_char(key);
+                    break;
+            }
+            //glutPostRedisplay();
+        }
+
+        void OpenGLRenderer::callbackMouseClick(int button, int state, int x, int y) {
+            specialKey = glutGetModifiers();
+            // if both a mouse button, and the ALT key, are pressed then
+            if ((state == GLUT_DOWN) &&
+                    (specialKey == GLUT_ACTIVE_ALT)) {
+                // set the color to pure red for the left button
+                if (button == GLUT_LEFT_BUTTON) {
+                }// set the color to pure green for the middle button
+                else if (button == GLUT_MIDDLE_BUTTON) {
+                }// set the color to pure blue for the right button
+                else {
+                }
+            }
+        }
+
+        void OpenGLRenderer::callbackMouseMotion(int x, int y) {
+            // the ALT key was used in the previous function
+            if (specialKey != GLUT_ACTIVE_ALT) {
+                // setting red to be relative to the mouse
+                // position inside the window
+            }
+        }
+
+        void OpenGLRenderer::callbackPassiveMouseMotion(int x, int y) {
+            // User must press the SHIFT key to change the
+            // rotation in the X axis
+            if (specialKey != GLUT_ACTIVE_SHIFT) {
+                // setting the angle to be relative to the mouse
+                // position inside the window
+                //if (x < 0)
+                //    angleX = 0.0;
+                //else if (x > width)
+                //    angleX = 180.0;
+                //else
+                //    angleX = 180.0 * ((float) x) / height;
+            }
+        }
+
+        void OpenGLRenderer::callbackReshape(int w, int h) {
+
+        }
+
+        void OpenGLRenderer::writeRawPNM(const char *fname, char *pixels, int w, int h) {
+            FILE *f;
+
+            f = fopen(fname, "wb");
+            if (!f)
+                printf("Ouch!  Cannot create file.\n");
+            else {
+                int row;
+
+                fprintf(f, "P6\n");
+                fprintf(f, "# CREATOR: offscreen freeglut demo\n");
+                fprintf(f, "%d %d\n", w, h);
+                fprintf(f, "255\n");
+
+                /*
+                 * Write the rows in reverse order because OpenGL's 0th row
+                 * is at the bottom.
+                 */
+                for (row = h; row; --row)
+                    fwrite(pixels + ((row - 1) * w * 3), 1, 3 * w, f);
+
+                fclose(f);
+            }
+        }
+
+        void OpenGLRenderer::saveWindow(const char *file_name) {
+            int width = glutGet(GLUT_WINDOW_WIDTH);
+            int height = glutGet(GLUT_WINDOW_HEIGHT);
+            char pixels[3 * width * height];
+            if (pixels) {
+                glPixelStorei(GL_PACK_ALIGNMENT, 1);
+                glReadPixels(0, 0, width, height,
+                        GL_RGB, GL_UNSIGNED_BYTE, (GLvoid *) pixels);
+                writeRawPNM(file_name, pixels, width, height);
+            }
+        }
+
+        int OpenGLRenderer::init(int width, int height, bool offscreen) {
             int argc = 0;
             imgSeg.create(height, width, CV_8UC3);
             imgSeg = Scalar(0, 255, 0);
-
 
             glutInit(&argc, NULL);
             glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
             glutInitWindowPosition(800, 400);
             glutInitWindowSize(width, height);
-            glutCreateWindow("OpenGL Rendered Segmentation");
-            //glutDisplayFunc(draw);
-            //glutIdleFunc(draw);
+            glutCreateWindow("Render Window");
+
+            // initialize offscreen rendering framebuffer
+            if (offscreen) {
+                glutHideWindow();
+                /*  Framebuffer */
+                glGenFramebuffers(1, &fbo);
+                glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+                /* Color renderbuffer. */
+                glGenRenderbuffers(1, &color);
+                glBindRenderbuffer(GL_RENDERBUFFER, color);
+                /* Storage must be one of: */
+                /* GL_RGBA4, GL_RGB565, GL_RGB5_A1, GL_DEPTH_COMPONENT16, GL_STENCIL_INDEX8. */
+                glRenderbufferStorage(GL_RENDERBUFFER, GL_RGB565, width, height);
+                glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, color);
+
+                /* Depth renderbuffer. */
+                glGenRenderbuffers(1, &depth);
+                glBindRenderbuffer(GL_RENDERBUFFER, depth);
+                glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, width, height);
+                glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depth);
+                glReadBuffer(GL_COLOR_ATTACHMENT0);
+            } else {
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                glutKeyboardFunc(callbackKeyboard);
+                glutMouseFunc(callbackMouseClick);
+                glutMotionFunc(callbackMouseMotion);
+                glutPassiveMotionFunc(callbackPassiveMouseMotion);
+                //glutDisplayFunc(callbackDisplay);
+            }
+            glutIdleFunc(callbackIdle);
+            glutMainLoopEvent();
+
             //initializating the texture mapping
             GLuint mTexture;
             glGenTextures(1, &mTexture);
@@ -168,21 +237,6 @@ namespace cv {
             glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
             glColor3f(0.0f, 0.0f, 0.0f);
 
-            GLfloat light_diffuse[] = {1.0, 0.0, 0.0, 1.0}; /* Red diffuse light. */
-            GLfloat light_position[] = {1.0, 1.0, 1.0, 0.0}; /* Infinite light location. */
-
-            /* Enable a single OpenGL light. */
-            //            glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
-            //            glLightfv(GL_LIGHT0, GL_POSITION, light_position);
-            //            glEnable(GL_LIGHT0);
-            //            glEnable(GL_LIGHTING);
-            /* Setup the view of the cube. */
-            //            glMatrixMode(GL_PROJECTION);
-            //            gluPerspective(/* field of view in degree */ 58.0,
-            //                    /* aspect ratio */((float)width)/height,
-            //                    /* Z near */ 0.10, /* Z far */ 100.0);
-            //            GLfloat model[16]; 
-            //            glGetFloatv(GL_PROJECTION_MATRIX, model); 
             glMatrixMode(GL_PROJECTION);
             glLoadIdentity();
             GLint viewport[4];
@@ -219,19 +273,61 @@ namespace cv {
                 *m2ptr++ = model[i];
             }
             std::cout << "view = " << model2 << std::endl;
-            /* Setup the view of the cube. */
-
             glMatrixMode(GL_MODELVIEW);
-            //                        gluLookAt(0.0, 0.0, 0.0, /* eye is at (0,0,5) */
-            //                                0.0, 0.0, 5.0, /* center is at (0,0,0) */
-            //                                0.0, -1.0, 0.); /* up is in positive Y direction */
-            //            //gluPerspective (50.0*zoomFactor, (float)img_width/(float)img_height, near_clip, far_clip);
-            //glLoadMatrixf(projectionMat.ptr<float>(0, 0)); // Projection
-            //            glOrtho(clippingPlanes.at<float>(0,0), clippingPlanes.at<float>(0,1), 
-            //                    clippingPlanes.at<float>(1,0), clippingPlanes.at<float>(1,0),
-            //                    clippingPlanes.at<float>(2,0), clippingPlanes.at<float>(2,1));
-
             return 0;
+        }
+
+        void OpenGLRenderer::pushObject(std::string name, ObjectGeometry geom) {
+            geomList.insert({name, geom});
+        }
+
+        void OpenGLRenderer::renderGeometry(std::pair<std::string, ObjectGeometry> mapElement) {
+            ObjectGeometry geom = mapElement.second;
+
+            for (int idx = 0; idx < geom.verts.size(); ++idx) {
+                cv::Vec3f vert = geom.verts[idx];
+                cv::Vec3f normal = geom.normals[idx];
+                cv::Vec3f color = geom.colors[idx];
+                glColor4f(color[0], color[1], color[2], 0.5f);
+                glNormal3f(normal[0], normal[1], normal[2]);
+                glVertex3f(vert[0], vert[1], vert[2]);
+            }
+        }
+
+        void OpenGLRenderer::renderGeometries(std::vector<ObjectGeometry> geomList) {
+            int idx = 0;
+            for (ObjectGeometry geom : geomList) {
+                std::string geomName("Box " + std::to_string(idx++));
+                pushObject(geomName, geom);
+            }
+            callbackDisplay();
+            clearObjects();
+        }
+
+        void OpenGLRenderer::renderPointCloud(cv::Mat points, cv::Mat colors) {
+            glPointSize(2.0);
+
+            glBegin(GL_POINTS);
+            for (int y = 0; y < points.rows; ++y) {
+                cv::Vec3f *points_ptr = points.ptr<cv::Vec3f>(y, 0);
+                uchar *colors_ptr = colors.ptr<uchar>(y, 0);
+                for (int x = 0; x < points.cols; ++x) {
+                    if (!std::isnan((*points_ptr)[0])) {
+                        glColor3ub(colors_ptr[2], colors_ptr[1], colors_ptr[0]);
+                        glVertex3d((*points_ptr)[0], (*points_ptr)[1], (*points_ptr)[2]);
+                        //std::cout << "vert " << (*points_ptr) << " color "
+                        //        << (int) colors_ptr[0] << "," << (int) colors_ptr[1] 
+                        // << ", " << (int) colors_ptr[2] << std::endl;
+                    }
+                    points_ptr++;
+                    colors_ptr += 3;
+                }
+            }
+            glEnd();
+            glFlush();
+
+            glutSwapBuffers();
+
         }
 
         void OpenGLRenderer::ros2opengl(cv::Mat& rotMat) {
