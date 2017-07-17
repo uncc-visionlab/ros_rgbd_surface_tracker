@@ -11,6 +11,8 @@
 
 #include <ros_rgbd_surface_tracker/opencv_geom_uncc.hpp>
 
+#include "ShapeGrammarLibrary.hpp"
+
 namespace cv {
     namespace rgbd {
 
@@ -32,10 +34,17 @@ namespace cv {
         }; /* class AlgebraicSurfacePatch */
 
         class ObjectGeometry {
+            std::vector<AlgebraicSurfacePatch> patches;
+            std::vector<sg::Shape::Ptr> parentShape;
+
         public:
             std::vector<cv::Vec3f> verts;
             std::vector<cv::Vec3f> normals;
             std::vector<cv::Vec3f> colors;
+
+            void addPart(AlgebraicSurfacePatch& patch) {
+                patches.push_back(patch);
+            }
         }; /* class ObjectGeometry */
 
     } /* namespace rgbd */

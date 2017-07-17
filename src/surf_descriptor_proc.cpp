@@ -18,7 +18,13 @@ namespace cv {
 
         void SurfaceDescriptorExtractor::compute(const cv::rgbd::RgbdImage& rgbd_img,
                 std::vector<AlgebraicSurfacePatch>& surflets,
-                std::vector<ObjectGeometry>& geometries) const {
+                std::vector<ObjectGeometry>& geometries) const { 
+            
+            for (AlgebraicSurfacePatch surfPatch : surflets) {
+                ObjectGeometry planeGeom;
+                planeGeom.addPart(surfPatch);
+                geometries.push_back(planeGeom);
+            }
 
             std::vector<cv::Edge3f> edgeList;
             std::vector<cv::Corner3f::Ptr> cornerList;
@@ -49,18 +55,18 @@ namespace cv {
             //                }
 
             // 11.25in x 8.75in x 6.25in @ depth 11 in
-            Shape::Ptr b1ptr(boost::make_shared<Box>(cv::Vec3f(0.28575, 0.2225, 0.15875),
+            sg::Shape::Ptr b1ptr(boost::make_shared<sg::Box>(cv::Vec3f(0.28575, 0.2225, 0.15875),
                     Pose(cv::Vec3f(0, 0, 0.3794 + 0.15875 / 2), cv::Vec3f(0, 0, 0))));
-            Shape::Ptr b2ptr(boost::make_shared<Box>(cv::Vec3f(1, 1, 1),
+            sg::Shape::Ptr b2ptr(boost::make_shared<sg::Box>(cv::Vec3f(1, 1, 1),
                     Pose(cv::Vec3f(1.5, 1.5, 10), cv::Vec3f(0, 0, CV_PI / 6))));
-            Shape::Ptr cyl1ptr(boost::make_shared<Cylinder>(0.5, 0.5,
+            sg::Shape::Ptr cyl1ptr(boost::make_shared<sg::Cylinder>(0.5, 0.5,
                     Pose(cv::Vec3f(0, 0, 3.5), cv::Vec3f(-CV_PI / 6, 0, 0))));
-            std::vector<Shape::Ptr> shapePtrVec;
+            std::vector<sg::Shape::Ptr> shapePtrVec;
             shapePtrVec.push_back(b1ptr);
             shapePtrVec.push_back(b2ptr);
             shapePtrVec.push_back(cyl1ptr);
-            for (auto shape_ptr : shapePtrVec) {
-                Shape& shape = *shape_ptr;
+            for (sg::Shape::Ptr shape_ptr : shapePtrVec) {
+                sg::Shape& shape = *shape_ptr;
                 ObjectGeometry geom;
                 std::vector<cv::Vec3f> pts = shape.generateCoords();
                 std::vector<cv::Vec3i> triIdxList = shape.generateCoordIndices();

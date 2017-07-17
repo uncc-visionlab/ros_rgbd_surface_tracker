@@ -17,6 +17,8 @@
 
 #include <GL/glut.h>
 
+#include <ros_rgbd_surface_tracker/opencv_geom_uncc.hpp>
+
 #ifdef __cplusplus
 
 class Pose {
@@ -64,101 +66,130 @@ private:
 };
 
 // Global interface for shapes
+namespace sg {
 
-class Shape {
-public:
-    typedef boost::shared_ptr<Shape> Ptr;
+    class Shape {
+    public:
+        typedef boost::shared_ptr<Shape> Ptr;
 
-    virtual ~Shape() {
-    }
-    virtual std::vector<cv::Vec3f> generateCoords() = 0;
-    virtual std::vector<cv::Vec3i> generateCoordIndices() = 0;
-    virtual std::vector<cv::Vec3f> generateNormals() = 0;
-    virtual std::vector<cv::Vec3i> generateNormalCoordIndices() = 0;
-    virtual std::vector<cv::Vec3f> generateColorCoords() = 0;
-    virtual std::vector<cv::Vec3i> generateColorCoordIndices() = 0;
-protected:
-    Pose pose;
-};
+        virtual ~Shape() {
+        }
+        virtual std::vector<cv::Vec3f> generateCoords() = 0;
+        virtual std::vector<cv::Vec3i> generateCoordIndices() = 0;
+        virtual std::vector<cv::Vec3f> generateNormals() = 0;
+        virtual std::vector<cv::Vec3i> generateNormalCoordIndices() = 0;
+        virtual std::vector<cv::Vec3f> generateColorCoords() = 0;
+        virtual std::vector<cv::Vec3i> generateColorCoordIndices() = 0;
+    protected:
+        Pose pose;
+    };
 
-class Box : public Shape {
-public:
-    typedef boost::shared_ptr<Box> Ptr;
-    Box() {
-    }
+    class Plane : public Shape, public cv::Plane3f {
+        cv::Vec2f uv; // 2d parametric within the plane
+    public:
 
-    Box(cv::Vec3f _dims, Pose _pose) {
-        dims = _dims;
-        pose = _pose;
-    }
+        Plane() : cv::Plane3f(), uv(0.0, 0.0) {
+        }
 
-    std::vector<cv::Vec3f> generateCoords();
+        Plane(float a, float b, float c, float d, float _u, float _v) : cv::Plane3f(a, b, c, d) {
+            uv[0] = _u;
+            uv[1] = _v;
+        }
 
-    std::vector<cv::Vec3i> generateCoordIndices();
+        std::vector<cv::Vec3f> generateCoords();
 
-    std::vector<cv::Vec3f> generateNormals();
+        std::vector<cv::Vec3i> generateCoordIndices();
 
-    std::vector<cv::Vec3i> generateNormalCoordIndices();
+        std::vector<cv::Vec3f> generateNormals();
 
-    std::vector<cv::Vec3f> generateColorCoords();
+        std::vector<cv::Vec3i> generateNormalCoordIndices();
 
-    std::vector<cv::Vec3i> generateColorCoordIndices();
+        std::vector<cv::Vec3f> generateColorCoords();
 
-private:
-    // -------------------------
-    // Disabling default copy constructor and default
-    // assignment operator.
-    // -------------------------
-    //Box(const Box& ref);
-    //Box& operator=(const Box& ref);
-    cv::Point3f dims; // length, width, height
-};
+        std::vector<cv::Vec3i> generateColorCoordIndices();
 
-class Cylinder : public Shape {
-public:
-    typedef boost::shared_ptr<Cylinder> Ptr;
-    Cylinder() {
-    }
+    };
 
-    Cylinder(float _radius, float _height, Pose _pose) {
-        r = _radius;
-        h = _height;
-        pose = _pose;
-    }
+    class Box : public Shape {
+    public:
+        typedef boost::shared_ptr<Box> Ptr;
 
-    std::vector<cv::Vec3f> generateCoords() {
-        static int N = DEFAULT_RESOLUTION;
-        return generateCoords(N);
-    }
+        Box() {
+        }
 
-    std::vector<cv::Vec3f> generateCoords(int N);
+        Box(cv::Vec3f _dims, Pose _pose) {
+            dims = _dims;
+            pose = _pose;
+        }
 
-    std::vector<cv::Vec3i> generateCoordIndices() {
-        static int N = DEFAULT_RESOLUTION;
-        return generateCoordIndices(N);
-    }
+        std::vector<cv::Vec3f> generateCoords();
 
-    std::vector<cv::Vec3i> generateCoordIndices(int N);
+        std::vector<cv::Vec3i> generateCoordIndices();
 
-    std::vector<cv::Vec3f> generateNormals();
+        std::vector<cv::Vec3f> generateNormals();
 
-    std::vector<cv::Vec3i> generateNormalCoordIndices();
+        std::vector<cv::Vec3i> generateNormalCoordIndices();
 
-    std::vector<cv::Vec3f> generateColorCoords();
+        std::vector<cv::Vec3f> generateColorCoords();
 
-    std::vector<cv::Vec3i> generateColorCoordIndices();
+        std::vector<cv::Vec3i> generateColorCoordIndices();
 
-private:
-    // -------------------------
-    // Disabling default copy constructor and default
-    // assignment operator.
-    // -------------------------
-    //Cylinder(const Cylinder& ref);
-    //Cylinder& operator=(const Cylinder& ref);
-    static constexpr float DEFAULT_RESOLUTION = 16;
-    float r, h; // length, width, height
-};
+    private:
+        // -------------------------
+        // Disabling default copy constructor and default
+        // assignment operator.
+        // -------------------------
+        //Box(const Box& ref);
+        //Box& operator=(const Box& ref);
+        cv::Point3f dims; // length, width, height
+    };
 
+    class Cylinder : public Shape {
+    public:
+        typedef boost::shared_ptr<Cylinder> Ptr;
+
+        Cylinder() {
+        }
+
+        Cylinder(float _radius, float _height, Pose _pose) {
+            r = _radius;
+            h = _height;
+            pose = _pose;
+        }
+
+        std::vector<cv::Vec3f> generateCoords() {
+            static int N = DEFAULT_RESOLUTION;
+            return generateCoords(N);
+        }
+
+        std::vector<cv::Vec3f> generateCoords(int N);
+
+        std::vector<cv::Vec3i> generateCoordIndices() {
+            static int N = DEFAULT_RESOLUTION;
+            return generateCoordIndices(N);
+        }
+
+        std::vector<cv::Vec3i> generateCoordIndices(int N);
+
+        std::vector<cv::Vec3f> generateNormals();
+
+        std::vector<cv::Vec3i> generateNormalCoordIndices();
+
+        std::vector<cv::Vec3f> generateColorCoords();
+
+        std::vector<cv::Vec3i> generateColorCoordIndices();
+
+    private:
+        // -------------------------
+        // Disabling default copy constructor and default
+        // assignment operator.
+        // -------------------------
+        //Cylinder(const Cylinder& ref);
+        //Cylinder& operator=(const Cylinder& ref);
+        static constexpr float DEFAULT_RESOLUTION = 16;
+        float r, h; // length, width, height
+    };
+} /* namespace sg */
 #endif /* __cplusplus */
 
 #endif /* SHAPEGRAMMARLIBRARY_HPP */
