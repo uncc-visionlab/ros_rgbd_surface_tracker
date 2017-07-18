@@ -16,6 +16,8 @@
 #include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>
 #include <ros_rgbd_surface_tracker/Polygonizer.hpp>
 
+#define OUTLIER_THRESHOLD 0.02
+
 namespace cv {
     namespace rgbd {
         
@@ -308,10 +310,158 @@ namespace cv {
             }
 
         }
+        
+        
+        void planeListAlignment(cv::rgbd::RgbdImage& rgbd_img, RgbdSurfaceTracker& surface_tracker,
+                cv::Mat& rgb_result) {
 
+            std::vector<cv::Plane3f::Ptr> fixed_planes;
+            std::vector<cv::Plane3f::Ptr> moving_planes;
+            
+            Eigen::Matrix<float, 3, 4> plane_coeffs;
+            plane_coeffs.row(0) << 0.4784, -0.5571, -0.6788, 30.8483;
+            plane_coeffs.row(1) << 0.6469, 0.4714, -0.5994, 2.8847;
+            plane_coeffs.row(2) << 0.0193, 0.6558, -0.7546, 39.4952;
+            
+            Eigen::Affine3f actual_trans;
+            actual_trans.matrix().block<3, 3>(0, 0) = (Eigen::Matrix3f() << 0.4930, 0.4808, -0.7251, 0.6240, 0.3855, 0.6798, 0.6064, -0.7876, -0.1100).finished().transpose();
+            actual_trans.translation() = Eigen::Vector3f(8.9612, 82.5965, 38.9587);
+            
+            Eigen::Matrix3f R_actual = (Eigen::Matrix3f() << 0.4930, 0.4808, -0.7251, 0.6240, 0.3855, 0.6798, 0.6064, -0.7876, -0.1100).finished().transpose();
+            Eigen::Vector3f t_actual = Eigen::Vector3f(8.9612, 82.5965, 38.9587);
+            
+            for (std::size_t i = 0; i < plane_coeffs.rows(); ++i) {
+                
+                Eigen::Vector4f this_fixed = plane_coeffs.row(i);
+                Eigen::Vector4f this_moving;
+                this_moving << R_actual*this_fixed.head(3), t_actual.dot(this_fixed.head(3)) + this_fixed(3);
+                this_moving = this_moving/this_moving.head(3).norm(); 
+                
+                fixed_planes.emplace_back(boost::make_shared<cv::Plane3f>(this_fixed(0), this_fixed(1), this_fixed(2), this_fixed(3)));
+                moving_planes.emplace_back(boost::make_shared<cv::Plane3f>(this_moving(0), this_moving(1), this_moving(2), this_moving(3)));            
+            
+            }
+            
+            if (fixed_planes.size() > 0 &&
+                    fixed_planes.size() == moving_planes.size()) {
+
+                Eigen::Matrix3d normalsCovMat = Eigen::Matrix3d::Zero();
+                Eigen::Vector3d deltaDt_NA = Eigen::Vector3d::Zero();
+                Eigen::Vector3d deltaDt_NB = Eigen::Vector3d::Zero();
+
+                for (int indexA = 0; indexA < fixed_planes.size(); indexA++) {
+                    cv::Plane3f::Ptr& plane_tgt = fixed_planes.at(indexA);
+                    cv::Plane3f::Ptr& plane_src = moving_planes.at(indexA);
+                    
+                    if (plane_tgt && plane_src) {
+                        float norm = 
+                                (plane_tgt->x - plane_src->x)*(plane_tgt->x - plane_src->x) +
+                                (plane_tgt->y - plane_src->y)*(plane_tgt->y - plane_src->y) +
+                                (plane_tgt->z - plane_src->z)*(plane_tgt->z - plane_src->z) +
+                                (plane_tgt->d - plane_src->d)*(plane_tgt->d - plane_src->d);
+                        
+                        if (norm < OUTLIER_THRESHOLD || true) {
+                            //std::cout << *plane_src << ", " << *plane_tgt << std::endl;
+                            
+                            normalsCovMat(0, 0) += plane_tgt->x * plane_src->x;
+                            normalsCovMat(0, 1) += plane_tgt->x * plane_src->y;
+                            normalsCovMat(0, 2) += plane_tgt->x * plane_src->z;
+                            normalsCovMat(1, 0) += plane_tgt->y * plane_src->x;
+                            normalsCovMat(1, 1) += plane_tgt->y * plane_src->y;
+                            normalsCovMat(1, 2) += plane_tgt->y * plane_src->z;
+                            normalsCovMat(2, 0) += plane_tgt->z * plane_src->x;
+                            normalsCovMat(2, 1) += plane_tgt->z * plane_src->y;
+                            normalsCovMat(2, 2) += plane_tgt->z * plane_src->z;
+                            
+                        }
+                        
+                    } else {
+                        //std::cout << "NULL" << std::endl;
+                    }
+                    
+                }
+                
+                // Compute the Singular Value Decomposition
+                Eigen::JacobiSVD<Eigen::Matrix3d> svd(normalsCovMat, Eigen::ComputeFullU | Eigen::ComputeFullV);
+                Eigen::Matrix3d u = svd.matrixU();
+                Eigen::Matrix3d v = svd.matrixV();
+                Eigen::Matrix3d R = v * u.transpose();
+                
+                normalsCovMat.setZero();
+                
+                for (int indexA = 0; indexA < fixed_planes.size(); indexA++) {
+                    
+                    cv::Plane3f::Ptr& plane_tgt = fixed_planes.at(indexA);
+                    cv::Plane3f::Ptr plane_src = moving_planes.at(indexA);
+                    
+                    if (plane_src && plane_tgt) {
+                        
+                        // Rotating plane_src!
+                        Eigen::Vector4d plane_src_coeffs(plane_src->x, plane_src->y, plane_src->z, plane_src->d);
+                        plane_src_coeffs.head(3) = R.transpose()*plane_src_coeffs.head(3);
+                        plane_src = boost::make_shared<cv::Plane3f>(plane_src_coeffs(0), plane_src_coeffs(1), plane_src_coeffs(2), plane_src_coeffs(3));
+                        plane_src->convertHessianNormalForm();
+                        
+                        float norm = (plane_tgt->x - plane_src->x)*(plane_tgt->x - plane_src->x) +
+                                (plane_tgt->y - plane_src->y)*(plane_tgt->y - plane_src->y) +
+                                (plane_tgt->z - plane_src->z)*(plane_tgt->z - plane_src->z) +
+                                (plane_tgt->d - plane_src->d)*(plane_tgt->d - plane_src->d);
+                        
+                        if (norm < OUTLIER_THRESHOLD || true) {
+                            
+                            normalsCovMat(0, 0) += plane_tgt->x * plane_tgt->x + plane_src->x * plane_src->x;
+                            normalsCovMat(1, 1) += plane_tgt->y * plane_tgt->y + plane_src->y * plane_src->y;
+                            normalsCovMat(2, 2) += plane_tgt->z * plane_tgt->z + plane_src->z * plane_src->z;
+                            
+                            normalsCovMat(0, 1) += plane_tgt->x * plane_tgt->y + plane_src->x * plane_src->y;
+                            normalsCovMat(0, 2) += plane_tgt->x * plane_tgt->z + plane_src->x * plane_src->z;
+                            normalsCovMat(1, 2) += plane_tgt->y * plane_tgt->z + plane_src->y * plane_src->z;
+                            
+                            
+                            
+                            deltaDt_NA(0) += (plane_src->d - plane_tgt->d) * plane_src->x;
+                            deltaDt_NA(1) += (plane_src->d - plane_tgt->d) * plane_src->y;
+                            deltaDt_NA(2) += (plane_src->d - plane_tgt->d) * plane_src->z;
+                            deltaDt_NB(0) += (plane_src->d - plane_tgt->d) * plane_tgt->x;
+                            deltaDt_NB(1) += (plane_src->d - plane_tgt->d) * plane_tgt->y;
+                            deltaDt_NB(2) += (plane_src->d - plane_tgt->d) * plane_tgt->z;
+                            
+                        }
+                    }
+                }
+                
+                normalsCovMat(1, 0) += normalsCovMat(0, 1);
+                normalsCovMat(2, 0) += normalsCovMat(0, 2);
+                normalsCovMat(2, 1) += normalsCovMat(1, 2);
+                
+                Eigen::Matrix<double, 3, 1> t = normalsCovMat.inverse()*(deltaDt_NA + deltaDt_NB);
+                
+                if (!t.hasNaN()) {
+                    
+                    // Return the correct transformation
+                    Eigen::Matrix4d transformation_matrix = Eigen::Matrix4d::Zero();
+                    transformation_matrix.topLeftCorner(3, 3) = R;
+                    transformation_matrix.block<3, 1>(0, 3) = t;
+                    std::cout << "Estimated Transform:\n" << transformation_matrix << "\n";
+                    
+                    std::cout << "Actual Transform:\n" << actual_trans.matrix() << "\n";
+//
+//                    Eigen::Quaterniond quat(transformation_matrix.block<3, 3>(0, 0));
+//                    Eigen::Vector3d translation(transformation_matrix.block<3, 1>(0, 3));
+//                    tf::Quaternion tf_quat(quat.x(), quat.y(), quat.z(), quat.w());
+//                    tf::Transform xform(tf_quat,
+//                            tf::Vector3(translation[0], translation[1], translation[2]));
+
+                }
+
+            }
+            
+        }
+        
         void RgbdSurfaceTracker::iterativeAlignment(cv::rgbd::RgbdImage& rgbd_img, cv::Mat& rgb_result) {
             
-            cornerAlignment(rgbd_img, *this, rgb_result);
+//            cornerAlignment(rgbd_img, *this, rgb_result);
+            planeListAlignment(rgbd_img, *this, rgb_result);
 
         }
         
