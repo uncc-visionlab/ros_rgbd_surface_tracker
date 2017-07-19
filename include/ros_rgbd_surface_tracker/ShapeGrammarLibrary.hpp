@@ -10,6 +10,7 @@
 
 #include <vector>
 
+#include <boost/make_shared.hpp>
 #include <boost/shared_ptr.hpp>
 
 #include <opencv2/calib3d.hpp>
@@ -31,6 +32,9 @@ public:
     Pose(cv::Vec3f _position, cv::Vec3f _rodrigues = cv::Vec3f(0, 0, 0)) {
         position = _position;
         rodrigues = _rodrigues;
+    }
+
+    virtual ~Pose() {
     }
 
     void rotateInPlace(cv::Vec3f& vec) {
@@ -80,20 +84,36 @@ namespace sg {
         virtual std::vector<cv::Vec3i> generateNormalCoordIndices() = 0;
         virtual std::vector<cv::Vec3f> generateColorCoords() = 0;
         virtual std::vector<cv::Vec3i> generateColorCoordIndices() = 0;
+        virtual std::string toString() = 0;
+
     protected:
         Pose pose;
     };
 
     class Plane : public Shape, public cv::Plane3f {
-        cv::Vec2f uv; // 2d parametric within the plane
+        std::vector< std::vector<cv::Vec2f> > uv_coords; // 2d parametric coords within the plane
+        std::vector< std::vector<cv::Vec2f> > uv_texCoords; // 2d parametric coords within the RGB image
     public:
+        typedef boost::shared_ptr<Plane> Ptr;
 
-        Plane() : cv::Plane3f(), uv(0.0, 0.0) {
+        Plane() : cv::Plane3f() {
         }
 
-        Plane(float a, float b, float c, float d, float _u, float _v) : cv::Plane3f(a, b, c, d) {
-            uv[0] = _u;
-            uv[1] = _v;
+        Plane(cv::Plane3f& _p) : cv::Plane3f(_p.x, _p.y, _p.z, _p.d) {
+        }
+
+        Plane(float a, float b, float c, float d) : cv::Plane3f(a, b, c, d) {
+        }
+
+        virtual ~Plane() {
+        }
+
+        void addCoords(std::vector<cv::Vec2f>& coordVec) {
+            uv_coords.push_back(coordVec);
+        }
+
+        void addTexCoords(std::vector<cv::Vec2f>& texcoordVec) {
+            uv_texCoords.push_back(texcoordVec);
         }
 
         std::vector<cv::Vec3f> generateCoords();
@@ -108,6 +128,15 @@ namespace sg {
 
         std::vector<cv::Vec3i> generateColorCoordIndices();
 
+        std::string toString() {
+            std::ostringstream stringStream;
+            stringStream << cv::Plane3f::toString();
+            return stringStream.str();
+        }
+        
+        static Plane::Ptr create() {
+            return Plane::Ptr(boost::make_shared<Plane>());
+        }        
     };
 
     class Box : public Shape {
@@ -122,6 +151,9 @@ namespace sg {
             pose = _pose;
         }
 
+        virtual ~Box() {
+        }
+
         std::vector<cv::Vec3f> generateCoords();
 
         std::vector<cv::Vec3i> generateCoordIndices();
@@ -134,6 +166,16 @@ namespace sg {
 
         std::vector<cv::Vec3i> generateColorCoordIndices();
 
+        std::string toString() {
+            std::ostringstream stringStream;
+            stringStream << "I AM A BOX";
+            return stringStream.str();
+        }
+
+        static Box::Ptr create() {
+            return Box::Ptr(boost::make_shared<Box>());
+        }        
+        
     private:
         // -------------------------
         // Disabling default copy constructor and default
@@ -155,6 +197,9 @@ namespace sg {
             r = _radius;
             h = _height;
             pose = _pose;
+        }
+
+        virtual ~Cylinder() {
         }
 
         std::vector<cv::Vec3f> generateCoords() {
@@ -179,6 +224,15 @@ namespace sg {
 
         std::vector<cv::Vec3i> generateColorCoordIndices();
 
+        std::string toString() {
+            std::ostringstream stringStream;
+            stringStream << "I AM A CYLINDER";
+            return stringStream.str();
+        }
+        
+        static Cylinder::Ptr create() {
+            return Cylinder::Ptr(boost::make_shared<Cylinder>());
+        }            
     private:
         // -------------------------
         // Disabling default copy constructor and default

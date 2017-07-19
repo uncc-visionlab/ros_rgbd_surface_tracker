@@ -15,7 +15,7 @@
 
 #include <Eigen/Dense>
 
-//#include <ros_rgbd_surface_tracker/opengl_iothread.hpp>
+#include <ros_rgbd_surface_tracker/rgbd_tracker_datatypes.hpp>
 #include <ros_rgbd_surface_tracker/opengl_renderer.hpp>
 
 #define OFFSCREEN_W 640
@@ -30,8 +30,8 @@ namespace cv {
 
             glPushMatrix();
             glBegin(GL_TRIANGLES);
-            for (auto geom : geomList) {
-                renderGeometry(geom);
+            for (std::pair<std::string, ObjectGeometry> mapElement : geomList) {
+                renderGeometry(mapElement);
             }
             glEnd();
             glPopMatrix();
@@ -297,7 +297,10 @@ namespace cv {
         void OpenGLRenderer::renderGeometries(std::vector<ObjectGeometry> geomList) {
             int idx = 0;
             for (ObjectGeometry geom : geomList) {
-                std::string geomName("Box " + std::to_string(idx++));
+//                std::string geomName(std::string(surfaceTypeToString[geom.getSurfaceType()])
+//                        + " " + std::to_string(idx++));
+                std::string geomName(std::string("test")
+                        + " " + std::to_string(idx++));
                 pushObject(geomName, geom);
             }
             callbackDisplay();

@@ -17,15 +17,23 @@ namespace cv {
     namespace rgbd {
 
         void SurfaceDescriptorExtractor::compute(const cv::rgbd::RgbdImage& rgbd_img,
-                std::vector<AlgebraicSurfacePatch>& surflets,
-                std::vector<ObjectGeometry>& geometries) const { 
-            
-            for (AlgebraicSurfacePatch surfPatch : surflets) {
-                ObjectGeometry planeGeom;
-                planeGeom.addPart(surfPatch);
-                geometries.push_back(planeGeom);
-            }
+                std::vector<AlgebraicSurfacePatch::Ptr>& surflets,
+                std::vector<ObjectGeometry>& geometries) const {
 
+            std::vector<sg::Shape::Ptr> shapePtrVec;
+
+            for (AlgebraicSurfacePatch::Ptr surfPatchPtr : surflets) {
+                ObjectGeometry planeGeom;
+                if (surfPatchPtr->getSurfaceType() == SurfaceType::PLANE) {
+                    planeGeom.addPart(surfPatchPtr);
+                    geometries.push_back(planeGeom);
+                    shapePtrVec.push_back(planeGeom.getShape());
+                }
+            }
+            //for (sg::Shape::Ptr shape_ptr : shapePtrVec) {
+            //sg::Shape& shape = *shape_ptr;
+            //std::cout << "shape " << shape_ptr->toString() << std::endl;
+            //}
             std::vector<cv::Edge3f> edgeList;
             std::vector<cv::Corner3f::Ptr> cornerList;
 
@@ -55,13 +63,12 @@ namespace cv {
             //                }
 
             // 11.25in x 8.75in x 6.25in @ depth 11 in
-            sg::Shape::Ptr b1ptr(boost::make_shared<sg::Box>(cv::Vec3f(0.28575, 0.2225, 0.15875),
+            sg::Box::Ptr b1ptr(boost::make_shared<sg::Box>(cv::Vec3f(0.28575, 0.2225, 0.15875),
                     Pose(cv::Vec3f(0, 0, 0.3794 + 0.15875 / 2), cv::Vec3f(0, 0, 0))));
-            sg::Shape::Ptr b2ptr(boost::make_shared<sg::Box>(cv::Vec3f(1, 1, 1),
+            sg::Box::Ptr b2ptr(boost::make_shared<sg::Box>(cv::Vec3f(1, 1, 1),
                     Pose(cv::Vec3f(1.5, 1.5, 10), cv::Vec3f(0, 0, CV_PI / 6))));
-            sg::Shape::Ptr cyl1ptr(boost::make_shared<sg::Cylinder>(0.5, 0.5,
+            sg::Cylinder::Ptr cyl1ptr(boost::make_shared<sg::Cylinder>(0.5, 0.5,
                     Pose(cv::Vec3f(0, 0, 3.5), cv::Vec3f(-CV_PI / 6, 0, 0))));
-            std::vector<sg::Shape::Ptr> shapePtrVec;
             shapePtrVec.push_back(b1ptr);
             shapePtrVec.push_back(b2ptr);
             shapePtrVec.push_back(cyl1ptr);

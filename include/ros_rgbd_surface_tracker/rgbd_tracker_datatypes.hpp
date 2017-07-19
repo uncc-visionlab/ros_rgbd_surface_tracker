@@ -9,41 +9,125 @@
 #define RGBD_TRACKER_DATATYPES_HPP
 #ifdef __cplusplus
 
-#include <ros_rgbd_surface_tracker/opencv_geom_uncc.hpp>
+#include <map>
 
-#include "ShapeGrammarLibrary.hpp"
+#include <boost/make_shared.hpp>
+#include <boost/shared_ptr.hpp>
+
+#include <ros_rgbd_surface_tracker/opencv_geom_uncc.hpp>
+#include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
+#include <ros_rgbd_surface_tracker/ShapeGrammarLibrary.hpp>
 
 namespace cv {
     namespace rgbd {
 
+        enum SurfaceType {
+            UNKNOWN = 0,
+            PLANE,
+            EDGE,
+            CORNER,
+            BOX
+        };
+        extern std::map<SurfaceType, const char*> surfaceTypeToString;
+
         class AlgebraicSurfacePatch {
-            TesselatedPlane3f::Ptr planeptr;
-            int surfaceType;
+            sg::Plane::Ptr plane_ptr;
+            SurfaceType surfaceType;
+            //sg::Plane::Ptr shapePtr;
         public:
+            typedef boost::shared_ptr<AlgebraicSurfacePatch> Ptr;
 
-            enum Type {
-                PLANE,
-                EDGE,
-                CORNER,
-                BOX
-            };
+            AlgebraicSurfacePatch(TesselatedPlane3f::Ptr _plane,
+                    const cv::rgbd::RgbdImage& rgbdImg) :
+            plane_ptr(new sg::Plane(*_plane)),
+            //shapePtr(new sg::Plane(_plane)),
+            surfaceType(SurfaceType::PLANE) {
+                //shapePtr.reset(&plane);
+                // create in-plane (u,v) coordinates for 3D points
+                cv::Point3f pts[4];
+                std::vector<RectWithError> errRect = _plane->getQuads();
+                RectWithError& r0 = errRect[0];
+                rgbdImg.getPoint3f(r0.x, r0.y, pts[0]);
+                rgbdImg.getPoint3f(r0.x + r0.width, r0.y, pts[1]);
+                rgbdImg.getPoint3f(r0.x + r0.width, r0.y + r0.height, pts[2]);
+                rgbdImg.getPoint3f(r0.x, r0.y + r0.height, pts[3]);
+                std::vector<cv::Vec2f> plane_uv_coords;
+                for (cv::Point3f pt : pts) {
+                    cv::Vec2f uv_coord = _plane->toNormalizedUVCoords(pt);
+                    plane_uv_coords.push_back(uv_coord);
+                }
+                sg::Plane plane = *plane_ptr;
+                plane.addCoords(plane_uv_coords);
+                // create texture coordinates
+                std::vector<cv::Vec2f> plane_uv_texcoords(4);
+                plane_uv_texcoords[0] = cv::Vec2f(((float) r0.x) / rgbdImg.getWidth(),
+                        1.0f - ((float) r0.y / (float) rgbdImg.getHeight()));
+                plane_uv_texcoords[1] = cv::Vec2f(((float) r0.x + r0.width) / rgbdImg.getWidth(),
+                        1.0f - ((float) r0.y / (float) rgbdImg.getHeight()));
+                plane_uv_texcoords[2] = cv::Vec2f(((float) r0.x + r0.width) / rgbdImg.getWidth(),
+                        1.0f - ((float) r0.y + r0.height) / (float) rgbdImg.getHeight());
+                plane_uv_texcoords[3] = cv::Vec2f(((float) r0.x) / rgbdImg.getWidth(),
+                        1.0f - ((float) r0.y + r0.height) / (float) rgbdImg.getHeight());
+                plane.addTexCoords(plane_uv_texcoords);
+                //std::cout << "shape1 " << shapePtr->toString() << std::endl;
+                //std::cout << "shape2 " << getShape()->toString() << std::endl;
+            }
 
-            AlgebraicSurfacePatch(TesselatedPlane3f::Ptr _plane) : planeptr(_plane),
-            surfaceType(AlgebraicSurfacePatch::PLANE) {
+//            ~AlgebraicSurfacePatch() {
+//                std::cout << "Hello1" << std::endl;
+//                plane.~Plane();
+//                std::cout << "Hello2" << std::endl;
+//                //surfaceType.~;
+//                //std::cout << "Hello3" << std::endl;
+//                //delete shapePtr;
+//            }
+
+            SurfaceType getSurfaceType() {
+                return surfaceType;
+            }
+
+            sg::Shape::Ptr getShape() {
+                return plane_ptr;
+            }
+
+            static AlgebraicSurfacePatch::Ptr create(TesselatedPlane3f::Ptr _plane,
+                    const cv::rgbd::RgbdImage& rgbdImg) {
+                return AlgebraicSurfacePatch::Ptr(boost::make_shared<AlgebraicSurfacePatch>(_plane, rgbdImg));
             }
         }; /* class AlgebraicSurfacePatch */
 
         class ObjectGeometry {
-            std::vector<AlgebraicSurfacePatch> patches;
-            std::vector<sg::Shape::Ptr> parentShape;
-
+            std::vector<AlgebraicSurfacePatch::Ptr> patchVec;
+            sg::Shape::Ptr parentShape;
+            SurfaceType surfaceType;
         public:
             std::vector<cv::Vec3f> verts;
             std::vector<cv::Vec3f> normals;
             std::vector<cv::Vec3f> colors;
+            typedef boost::shared_ptr<ObjectGeometry> Ptr;
 
-            void addPart(AlgebraicSurfacePatch& patch) {
-                patches.push_back(patch);
+            ObjectGeometry() {
+            }
+
+            virtual ~ObjectGeometry() {
+            }
+
+            void addPart(AlgebraicSurfacePatch::Ptr patch) {
+                patchVec.push_back(patch);
+                if (surfaceType != patch->getSurfaceType()) {
+                    surfaceType = patch->getSurfaceType();
+                }
+                parentShape = patch->getShape();
+                //std::cout << "patchShape " << patch.getShape()->toString() << std::endl;
+                //std::cout << "parentShape " << parentShape->toString() << std::endl;
+            }
+
+            SurfaceType getSurfaceType() {
+                return surfaceType;
+            }
+            
+            sg::Shape::Ptr getShape() {
+                return parentShape;
             }
         }; /* class ObjectGeometry */
 

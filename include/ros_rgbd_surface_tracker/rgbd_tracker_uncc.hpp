@@ -33,7 +33,7 @@
 #include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
 #include <ros_rgbd_surface_tracker/surface_alignment_optimizer.hpp>
 
-#define PROFILE_CALLGRIND false
+//#define PROFILE_CALLGRIND
 
 #ifdef PROFILE_CALLGRIND
 #include <valgrind/callgrind.h>
@@ -45,7 +45,7 @@ namespace cv {
         class SurfaceDetector {
         public:
             void detect(const cv::rgbd::RgbdImage& rgbd_img,
-                    std::vector<AlgebraicSurfacePatch>& surflets,
+                    std::vector<AlgebraicSurfacePatch::Ptr>& surflets,
                     const cv::Mat mask = cv::Mat()) const;
 
             void findPlanes(const Rect& roi,
@@ -61,7 +61,7 @@ namespace cv {
         class SurfaceDescriptorExtractor {
         public:
             void compute(const cv::rgbd::RgbdImage& rgbd_img,
-                    std::vector<AlgebraicSurfacePatch>& surflets,
+                    std::vector<AlgebraicSurfacePatch::Ptr>& surflets,
                     std::vector<ObjectGeometry>& geometries) const;
         }; /* class SurfaceDescriptorExtractor */
 

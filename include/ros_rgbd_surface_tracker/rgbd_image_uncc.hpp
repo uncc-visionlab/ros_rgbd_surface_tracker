@@ -384,11 +384,11 @@ namespace cv {
 
             bool computeNormals() const;
 
-            int getWidth() {
+            int getWidth() const {
                 return width;
             }
 
-            int getHeight() {
+            int getHeight() const {
                 return height;
             }
         private:

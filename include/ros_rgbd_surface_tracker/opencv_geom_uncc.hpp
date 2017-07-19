@@ -270,6 +270,20 @@ namespace cv {
             return os;
         }
 
+        cv::Vec<_Tpl, 2> toNormalizedUVCoords(const Point3_<_Tpl>& p) {
+            cv::Vec<_Tpl, 2> uv;
+            static cv::Point3_<_Tpl> xVec(1.0, 0.0, 0.0);
+            static cv::Point3_<_Tpl> yVec(0.0, 1.0, 0.0);
+            cv::Point3_<_Tpl> scaled_norm = this->clone(); // copy the Point3f part (normal) of the plane
+            scaled_norm.x = scaled_norm.dot(p) * scaled_norm.x;
+            scaled_norm.y = scaled_norm.dot(p) * scaled_norm.y;
+            scaled_norm.z = scaled_norm.dot(p) * scaled_norm.z;
+            scaled_norm = p - scaled_norm;
+            uv[0] = scaled_norm.dot(xVec);
+            uv[1] = scaled_norm.dot(yVec);
+            return uv;
+        }
+
         std::string toString() {
             std::ostringstream stringStream;
             stringStream << "(" << this->x << ", " << this->y
@@ -611,7 +625,7 @@ namespace cv {
     typedef std::priority_queue<TesselatedPlane3f,
     std::vector<TesselatedPlane3f>,
     TesselatedPlane3f::ErrorComparator> ErrorSortedPlaneQueue;
-    
+
     template<class T>
     class QuadPyramid {
     public:

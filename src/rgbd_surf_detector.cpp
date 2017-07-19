@@ -19,7 +19,7 @@ namespace cv {
     namespace rgbd {
 
         void SurfaceDetector::detect(const cv::rgbd::RgbdImage& rgbd_img,
-                std::vector<AlgebraicSurfacePatch>& geometries,
+                std::vector<AlgebraicSurfacePatch::Ptr>& geometries,
                 cv::Mat mask) const {
             rgbd_img.computeNormals();
 
@@ -38,7 +38,7 @@ namespace cv {
             for (int indexA = 0; indexA < planeList.size(); indexA++) {
                 TesselatedPlane3f::Ptr& planeA = planeList[indexA];
                 //std::cout << "areaA " << planeA->area() << " errorA = " << planeA->avgError() << " planeA = " << *planeA << std::endl;
-                geometries.push_back(AlgebraicSurfacePatch(planeA));
+                geometries.push_back(AlgebraicSurfacePatch::create(planeA, rgbd_img));
                 //                for (int indexB = indexA + 1; indexB < planeList.size(); indexB++) {
                 //                    TesselatedPlane3f::Ptr& planeB = planeList[indexB ];
                 //                    if (planeA->epsilonPerpendicular(*planeB, 2 * Plane3f::PERPENDICULAR_SIN_ANGLE_THRESHOLD)) {
