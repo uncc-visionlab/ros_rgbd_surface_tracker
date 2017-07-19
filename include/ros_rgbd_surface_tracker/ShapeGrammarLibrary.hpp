@@ -100,7 +100,11 @@ namespace sg {
         }
 
         Plane(cv::Plane3f& _p) : cv::Plane3f(_p.x, _p.y, _p.z, _p.d) {
-        }
+        }        
+        
+        //Plane(cv::Vec3f ctr, cv::Vec2f dims, cv::Plane3f& _p) : cv::Plane3f(_p.x, _p.y, _p.z, _p.d) {
+        //    // TODO construct uv coords   
+        //}
 
         Plane(float a, float b, float c, float d) : cv::Plane3f(a, b, c, d) {
         }

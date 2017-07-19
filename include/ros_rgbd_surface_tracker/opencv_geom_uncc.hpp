@@ -270,17 +270,52 @@ namespace cv {
             return os;
         }
 
-        cv::Vec<_Tpl, 2> toNormalizedUVCoords(const Point3_<_Tpl>& p) {
-            cv::Vec<_Tpl, 2> uv;
-            static cv::Point3_<_Tpl> xVec(1.0, 0.0, 0.0);
-            static cv::Point3_<_Tpl> yVec(0.0, 1.0, 0.0);
-            cv::Point3_<_Tpl> scaled_norm = this->clone(); // copy the Point3f part (normal) of the plane
-            scaled_norm.x = scaled_norm.dot(p) * scaled_norm.x;
-            scaled_norm.y = scaled_norm.dot(p) * scaled_norm.y;
-            scaled_norm.z = scaled_norm.dot(p) * scaled_norm.z;
-            scaled_norm = p - scaled_norm;
-            uv[0] = scaled_norm.dot(xVec);
-            uv[1] = scaled_norm.dot(yVec);
+        cv::Point3_<_Tpl> uvToXYZ(const cv::Point_<_Tpl>& uv) {
+            _Tpl threshold = 0.6;
+            static cv::Point3_<_Tpl> uVec;
+            static cv::Point3_<_Tpl> vVec;
+            if (std::abs<_Tpl>(this->x) <= threshold) {
+                _Tpl inverse = 1.0 / std::sqrt(this->y * this->y + this->z * this->z);
+                uVec = cv::Point3_<_Tpl>((_Tpl) 0, inverse * this->z, -inverse * this->y);
+            } else if (std::abs<_Tpl>(this->y) <= threshold) {
+                _Tpl inverse = 1.0 / std::sqrt(this->x * this->x + this->z * this->z);
+                uVec = cv::Point3_<_Tpl>(-inverse * this->z, (_Tpl) 0, inverse * this->x);
+            } else {
+                _Tpl inverse = 1.0 / std::sqrt(this->x * this->x + this->y * this->y);
+                uVec = cv::Point3_<_Tpl>(inverse * this->y, -inverse * this->x, (_Tpl) 0);
+            }
+            vVec = uVec.cross(*this);
+            cv::Point3_<_Tpl> pt0(-d * this->x, -d * this->y, -d * this->z);
+            //uVec3 *= 1.0/std::sqrt(uVec3.dot(uVec3));
+            //vVec3 *= 1.0/std::sqrt(vVec3.dot(vVec3));
+            pt0.x = pt0.x + uv.x * uVec.x + uv.y * vVec.x;
+            pt0.y = pt0.y + uv.x * uVec.y + uv.y * vVec.y;
+            pt0.z = pt0.z + uv.x * uVec.z + uv.y * vVec.z;
+            return pt0;
+        }
+
+        cv::Point_<_Tpl> xyzToUV(const Point3_<_Tpl>& p) {
+            _Tpl threshold = 0.6;
+            cv::Point_<_Tpl> uv;
+            static cv::Point3_<_Tpl> uVec;
+            static cv::Point3_<_Tpl> vVec;
+            if (std::abs(this->x) <= threshold) {
+                _Tpl inverse = 1.0 / std::sqrt(this->y * this->y + this->z * this->z);
+                uVec = cv::Point3_<_Tpl>((_Tpl) 0.0, inverse * this->z, -inverse * this->y);
+            } else if (std::abs(this->y) <= threshold) {
+                _Tpl inverse = 1.0 / std::sqrt(this->x * this->x + this->z * this->z);
+                uVec = cv::Point3_<_Tpl>(-inverse * this->z, (_Tpl) 0.0, inverse * this->x);
+            } else {
+                _Tpl inverse = 1.0 / std::sqrt(this->x * this->x + this->y * this->y);
+                uVec = cv::Point3_<_Tpl>(inverse * this->y, -inverse * this->x, (_Tpl) 0.0);
+            }
+            vVec = uVec.cross(*this);
+            cv::Point3_<_Tpl> pt0(-d * this->x, -d * this->y, -d * this->z), uVec3, vVec3;
+            //uVec3 *= 1.0/std::sqrt(uVec3.dot(uVec3));
+            //vVec3 *= 1.0/std::sqrt(vVec3.dot(vVec3));
+            pt0 = p - pt0;
+            uv.x = pt0.dot(uVec);
+            uv.y = pt0.dot(vVec);
             return uv;
         }
 

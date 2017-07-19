@@ -53,11 +53,14 @@ namespace cv {
                 rgbdImg.getPoint3f(r0.x, r0.y + r0.height, pts[3]);
                 std::vector<cv::Vec2f> plane_uv_coords;
                 for (cv::Point3f pt : pts) {
-                    cv::Vec2f uv_coord = _plane->toNormalizedUVCoords(pt);
+                    cv::Point2f uv_coord = _plane->xyzToUV(pt);
+                    //std::cout << "xyz = " << pt << "-> uv = " << uv_coord << std::endl;
                     plane_uv_coords.push_back(uv_coord);
+                    cv::Point3f xyz3 = _plane->uvToXYZ(uv_coord);
+                    //std::cout << "uv = " << uv_coord << "-> xyz = " << xyz3 << std::endl;
                 }
-                sg::Plane plane = *plane_ptr;
-                plane.addCoords(plane_uv_coords);
+                //sg::Plane& plane = *plane_ptr;
+                plane_ptr->addCoords(plane_uv_coords);
                 // create texture coordinates
                 std::vector<cv::Vec2f> plane_uv_texcoords(4);
                 plane_uv_texcoords[0] = cv::Vec2f(((float) r0.x) / rgbdImg.getWidth(),
@@ -68,19 +71,13 @@ namespace cv {
                         1.0f - ((float) r0.y + r0.height) / (float) rgbdImg.getHeight());
                 plane_uv_texcoords[3] = cv::Vec2f(((float) r0.x) / rgbdImg.getWidth(),
                         1.0f - ((float) r0.y + r0.height) / (float) rgbdImg.getHeight());
-                plane.addTexCoords(plane_uv_texcoords);
+                plane_ptr->addTexCoords(plane_uv_texcoords);
                 //std::cout << "shape1 " << shapePtr->toString() << std::endl;
                 //std::cout << "shape2 " << getShape()->toString() << std::endl;
             }
 
-//            ~AlgebraicSurfacePatch() {
-//                std::cout << "Hello1" << std::endl;
-//                plane.~Plane();
-//                std::cout << "Hello2" << std::endl;
-//                //surfaceType.~;
-//                //std::cout << "Hello3" << std::endl;
-//                //delete shapePtr;
-//            }
+            virtual ~AlgebraicSurfacePatch() {
+            }
 
             SurfaceType getSurfaceType() {
                 return surfaceType;
@@ -125,7 +122,7 @@ namespace cv {
             SurfaceType getSurfaceType() {
                 return surfaceType;
             }
-            
+
             sg::Shape::Ptr getShape() {
                 return parentShape;
             }

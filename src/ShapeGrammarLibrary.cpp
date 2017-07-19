@@ -10,31 +10,47 @@
 namespace sg {
 
     std::vector<cv::Vec3f> Plane::generateCoords() {
-        std::vector<cv::Vec3f> pts(4);
-        pts[0] = cv::Vec3f(-0.5f, 0.5f, 0.0f);
-        pts[1] = cv::Vec3f(0.5f, 0.5f, 0.0f);
-        pts[2] = cv::Vec3f(0.5f, -0.5f, 0.0f);
-        pts[3] = cv::Vec3f(-0.5f, -0.5f, 0.0f);
+        std::vector<cv::Vec2f> uv_poly_coords = uv_coords[0];
+        std::vector<cv::Vec3f> pts(uv_poly_coords.size() + 1);
+        cv::Vec3f ctr_pt(0, 0, 0);
+        for (int ptidx=0; ptidx < uv_poly_coords.size(); ++ptidx) {
+            pts[ptidx] = uvToXYZ(uv_poly_coords[ptidx]);
+            ctr_pt += pts[ptidx];
+        }
+        ctr_pt *= 1.0f / uv_poly_coords.size();
+        pts[uv_poly_coords.size()] = ctr_pt;
+        for (int idx = 0; idx < pts.size(); ++idx) {
+            pose.transformInPlace(pts[idx]);
+        }
         return pts;
     }
 
     std::vector<cv::Vec3i> Plane::generateCoordIndices() {
-        std::vector<cv::Vec3i> ptidxs(2);
-        ptidxs[0] = cv::Vec3i(0, 3, 2);
-        ptidxs[1] = cv::Vec3i(0, 2, 1);
+        std::vector<cv::Vec2f> uv_poly_coords = uv_coords[0];
+        std::vector<cv::Vec3i> ptidxs(uv_poly_coords.size());
+        int ctr_pt_idx = uv_poly_coords.size();
+        for (int triIdx = 0; triIdx < ptidxs.size() - 1; ++triIdx) {
+            ptidxs[triIdx] = cv::Vec3i(ctr_pt_idx, triIdx, triIdx + 1);
+        }
+        ptidxs[ptidxs.size() - 1] = cv::Vec3i(ctr_pt_idx, ptidxs.size() - 1, 0);
         return ptidxs;
     }
 
     std::vector<cv::Vec3f> Plane::generateNormals() {
         std::vector<cv::Vec3f> norms(1);
-        norms[0] = cv::Vec3f(x, y, z);
+        norms[0] = cv::Vec3f(x, y, -z);
+        for (int idx = 0; idx < norms.size(); ++idx) {
+            pose.rotateInPlace(norms[idx]);
+        }
         return norms;
     }
 
     std::vector<cv::Vec3i> Plane::generateNormalCoordIndices() {
-        std::vector<cv::Vec3i> normidxs(2);
-        normidxs[0] = cv::Vec3i(0, 0, 0);
-        normidxs[1] = cv::Vec3i(0, 0, 0);
+        std::vector<cv::Vec2f> uv_poly_coords = uv_coords[0];
+        std::vector<cv::Vec3i> normidxs(uv_poly_coords.size());
+        for (int triIdx = 0; triIdx < uv_poly_coords.size(); ++triIdx) {
+            normidxs[triIdx] = cv::Vec3i(0, 0, 0);
+        }
         return normidxs;
     }
 
@@ -45,11 +61,12 @@ namespace sg {
     }
 
     std::vector<cv::Vec3i> Plane::generateColorCoordIndices() {
-        std::vector<cv::Vec3i> coloridxs(2);
-        coloridxs[0] = cv::Vec3i(0, 0, 0);
-        coloridxs[1] = cv::Vec3i(0, 0, 0);
+        std::vector<cv::Vec2f> uv_poly_coords = uv_coords[0];
+        std::vector<cv::Vec3i> coloridxs(uv_poly_coords.size());
+        for (int triIdx = 0; triIdx < uv_poly_coords.size(); ++triIdx) {
+            coloridxs[triIdx] = cv::Vec3i(0, 0, 0);
+        }
         return coloridxs;
-
     }
     // compute vertices
 
@@ -176,7 +193,6 @@ namespace sg {
         tris[N * 4 - 3] = cv::Vec3i(2 * N + 1, 2 * N, N + 1);
         tris[N * 4 - 2] = cv::Vec3i(0, 2 * N, N - 1);
         tris[N * 4 - 1] = cv::Vec3i(2 * N, 0, N + 1);
-
         return tris;
     }
 
