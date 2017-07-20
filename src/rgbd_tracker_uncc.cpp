@@ -58,7 +58,7 @@ namespace cv {
             }
 
             std::vector<cv::rgbd::AlgebraicSurfacePatch::Ptr> surfletPtrList;
-           surfdetector.detect(rgbd_img, surfletPtrList);
+            surfdetector.detect(rgbd_img, surfletPtrList);
 
             std::vector<cv::rgbd::ObjectGeometry> geomList;
             surfdescriptor_extractor.compute(rgbd_img, surfletPtrList, geomList);

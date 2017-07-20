@@ -11,7 +11,7 @@
 #include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>
 
-#define BLOCKSIZE 30
+#define BLOCKSIZE 32
 #define MARGIN_X 50
 #define MARGIN_Y 30
 
@@ -21,7 +21,7 @@ namespace cv {
         void SurfaceDetector::detect(const cv::rgbd::RgbdImage& rgbd_img,
                 std::vector<AlgebraicSurfacePatch::Ptr>& geometries,
                 cv::Mat mask) const {
-            rgbd_img.computeNormals();
+            //rgbd_img.computeNormals();
 
             cv::Size imSize(rgbd_img.getDepth().size());
             int blockSize = BLOCKSIZE;
@@ -37,18 +37,11 @@ namespace cv {
             findPlanes(roi, quadQueue, planeList, rgbd_img, quadTree, img_L, numLabels);
             for (int indexA = 0; indexA < planeList.size(); indexA++) {
                 TesselatedPlane3f::Ptr& planeA = planeList[indexA];
-                //std::cout << "areaA " << planeA->area() << " errorA = " << planeA->avgError() << " planeA = " << *planeA << std::endl;
-                geometries.push_back(AlgebraicSurfacePatch::create(planeA, rgbd_img));
-                //                for (int indexB = indexA + 1; indexB < planeList.size(); indexB++) {
-                //                    TesselatedPlane3f::Ptr& planeB = planeList[indexB ];
-                //                    if (planeA->epsilonPerpendicular(*planeB, 2 * Plane3f::PERPENDICULAR_SIN_ANGLE_THRESHOLD)) {
-                //                        //                    std::cout << "areaA " << planeA->area() << " errorA = " << planeA->avgError() << " planeA = " << *planeA
-                //                        //                            << " areaB " << planeB->area() << " errorB = " << planeB->avgError() << " planeB = " << *planeB
-                //                        //                            << " cosangle = " << planeA->cosDihedralAngle(*planeB)
-                //                        //                            << std::endl;
-                //                        edgeList.push_back(Edge3f(*planeA, *planeB));
-                //                    }
-                //                }
+                AlgebraicSurfacePatch::Ptr surfPatch = AlgebraicSurfacePatch::create(planeA, rgbd_img);
+                if (planeA->avgError() < 0.0025 * surfPatch->getAverageDepth()) {
+                    //std::cout << "areaA " << planeA->area() << " errorA = " << planeA->avgError() << " planeA = " << *planeA << std::endl;
+                    geometries.push_back(surfPatch);
+                }
             }
         }
 

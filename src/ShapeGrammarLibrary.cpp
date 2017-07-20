@@ -5,6 +5,9 @@
  */
 #include <vector>
 
+#include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
+
 #include <ros_rgbd_surface_tracker/ShapeGrammarLibrary.hpp>
 
 namespace sg {
@@ -13,7 +16,7 @@ namespace sg {
         std::vector<cv::Vec2f> uv_poly_coords = uv_coords[0];
         std::vector<cv::Vec3f> pts(uv_poly_coords.size() + 1);
         cv::Vec3f ctr_pt(0, 0, 0);
-        for (int ptidx=0; ptidx < uv_poly_coords.size(); ++ptidx) {
+        for (int ptidx = 0; ptidx < uv_poly_coords.size(); ++ptidx) {
             pts[ptidx] = uvToXYZ(uv_poly_coords[ptidx]);
             ctr_pt += pts[ptidx];
         }
@@ -38,7 +41,7 @@ namespace sg {
 
     std::vector<cv::Vec3f> Plane::generateNormals() {
         std::vector<cv::Vec3f> norms(1);
-        norms[0] = cv::Vec3f(x, y, -z);
+        norms[0] = cv::Vec3f(x, y, z);
         for (int idx = 0; idx < norms.size(); ++idx) {
             pose.rotateInPlace(norms[idx]);
         }
@@ -56,7 +59,11 @@ namespace sg {
 
     std::vector<cv::Vec3f> Plane::generateColorCoords() {
         std::vector<cv::Vec3f> colors(1);
-        colors[0] = cv::Vec3f(1.0f, 0.0f, 0.0f);
+        cv::Mat hsv(1, 1, CV_32FC3, cv::Scalar(x, y, 0.7));
+        cv::Mat rgb(1, 1, CV_32FC3);
+        cv::cvtColor(hsv, rgb, CV_HSV2BGR);
+        //colors[0] = cv::Vec3f(1.0f, 0.0f, 0.0f);
+        colors[0] = hsv.at<cv::Vec3f>(0, 0);
         return colors;
     }
 

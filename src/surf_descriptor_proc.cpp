@@ -34,6 +34,17 @@ namespace cv {
             //sg::Shape& shape = *shape_ptr;
             //std::cout << "shape " << shape_ptr->toString() << std::endl;
             //}
+            //                for (int indexB = indexA + 1; indexB < planeList.size(); indexB++) {
+            //                    TesselatedPlane3f::Ptr& planeB = planeList[indexB ];
+            //                    if (planeA->epsilonPerpendicular(*planeB, 2 * Plane3f::PERPENDICULAR_SIN_ANGLE_THRESHOLD)) {
+            //                        //                    std::cout << "areaA " << planeA->area() << " errorA = " << planeA->avgError() << " planeA = " << *planeA
+            //                        //                            << " areaB " << planeB->area() << " errorB = " << planeB->avgError() << " planeB = " << *planeB
+            //                        //                            << " cosangle = " << planeA->cosDihedralAngle(*planeB)
+            //                        //                            << std::endl;
+            //                        edgeList.push_back(Edge3f(*planeA, *planeB));
+            //                    }
+            //                }
+
             std::vector<cv::Edge3f> edgeList;
             std::vector<cv::Corner3f::Ptr> cornerList;
 
@@ -63,15 +74,15 @@ namespace cv {
             //                }
 
             // 11.25in x 8.75in x 6.25in @ depth 11 in
-//            sg::Box::Ptr b1ptr(boost::make_shared<sg::Box>(cv::Vec3f(0.28575, 0.2225, 0.15875),
-//                    Pose(cv::Vec3f(0, 0, 0.3794 + 0.15875 / 2), cv::Vec3f(0, 0, 0))));
-//            sg::Box::Ptr b2ptr(boost::make_shared<sg::Box>(cv::Vec3f(1, 1, 1),
-//                    Pose(cv::Vec3f(1.5, 1.5, 10), cv::Vec3f(0, 0, CV_PI / 6))));
-//            sg::Cylinder::Ptr cyl1ptr(boost::make_shared<sg::Cylinder>(0.5, 0.5,
-//                    Pose(cv::Vec3f(0, 0, 3.5), cv::Vec3f(-CV_PI / 6, 0, 0))));
-//            shapePtrVec.push_back(b1ptr);
-//            shapePtrVec.push_back(b2ptr);
-//            shapePtrVec.push_back(cyl1ptr);
+            //            sg::Box::Ptr b1ptr(boost::make_shared<sg::Box>(cv::Vec3f(0.28575, 0.2225, 0.15875),
+            //                    Pose(cv::Vec3f(0, 0, 0.3794 + 0.15875 / 2), cv::Vec3f(0, 0, 0))));
+            //            sg::Box::Ptr b2ptr(boost::make_shared<sg::Box>(cv::Vec3f(1, 1, 1),
+            //                    Pose(cv::Vec3f(1.5, 1.5, 10), cv::Vec3f(0, 0, CV_PI / 6))));
+            //            sg::Cylinder::Ptr cyl1ptr(boost::make_shared<sg::Cylinder>(0.5, 0.5,
+            //                    Pose(cv::Vec3f(0, 0, 3.5), cv::Vec3f(-CV_PI / 6, 0, 0))));
+            //            shapePtrVec.push_back(b1ptr);
+            //            shapePtrVec.push_back(b2ptr);
+            //            shapePtrVec.push_back(cyl1ptr);
             for (sg::Shape::Ptr shape_ptr : shapePtrVec) {
                 sg::Shape& shape = *shape_ptr;
                 ObjectGeometry geom;

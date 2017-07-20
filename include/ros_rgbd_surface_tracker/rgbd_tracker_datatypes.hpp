@@ -33,6 +33,7 @@ namespace cv {
         class AlgebraicSurfacePatch {
             sg::Plane::Ptr plane_ptr;
             SurfaceType surfaceType;
+            float avgDepth;
             //sg::Plane::Ptr shapePtr;
         public:
             typedef boost::shared_ptr<AlgebraicSurfacePatch> Ptr;
@@ -52,6 +53,7 @@ namespace cv {
                 rgbdImg.getPoint3f(r0.x + r0.width, r0.y + r0.height, pts[2]);
                 rgbdImg.getPoint3f(r0.x, r0.y + r0.height, pts[3]);
                 std::vector<cv::Vec2f> plane_uv_coords;
+                avgDepth = 0.25 * (pts[0].z + pts[1].z + pts[2].z + pts[3].z);
                 for (cv::Point3f pt : pts) {
                     cv::Point2f uv_coord = _plane->xyzToUV(pt);
                     //std::cout << "xyz = " << pt << "-> uv = " << uv_coord << std::endl;
@@ -85,6 +87,10 @@ namespace cv {
 
             sg::Shape::Ptr getShape() {
                 return plane_ptr;
+            }
+            
+            float getAverageDepth() {
+                return avgDepth;
             }
 
             static AlgebraicSurfacePatch::Ptr create(TesselatedPlane3f::Ptr _plane,
