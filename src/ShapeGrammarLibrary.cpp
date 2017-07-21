@@ -9,6 +9,7 @@
 #include <opencv2/imgproc.hpp>
 
 #include <ros_rgbd_surface_tracker/ShapeGrammarLibrary.hpp>
+#include <ros_rgbd_surface_tracker/rgbd_tracker_datatypes.hpp>
 
 namespace sg {
 
@@ -171,6 +172,34 @@ namespace sg {
         return tricols;
     }
 
+    std::vector<cv::rgbd::ObjectGeometry::Ptr> Box::getCorners() {
+        std::vector<cv::rgbd::ObjectGeometry::Ptr> geomVec;
+        std::vector<cv::Vec3f> pts = generateCoords();
+        std::vector<cv::Plane3f> planes(6);
+        planes[0] = cv::Plane3f(pts[0], pts[1], pts[2]); // FRONT
+        planes[1] = cv::Plane3f(pts[4], pts[7], pts[6]); // BACK
+        planes[2] = cv::Plane3f(pts[4], pts[0], pts[3]); // RIGHT
+        planes[3] = cv::Plane3f(pts[6], pts[2], pts[1]); // LEFT
+        planes[4] = cv::Plane3f(pts[7], pts[3], pts[2]); // TOP
+        planes[5] = cv::Plane3f(pts[1], pts[0], pts[4]); // BOTTOM
+        cv::rgbd::ObjectGeometry::Ptr geomPtr = cv::rgbd::ObjectGeometry::create();
+        cv::rgbd::AlgebraicSurfacePatch::Ptr surfPatchPtr = cv::rgbd::AlgebraicSurfacePatch::create(planes[0]);
+        geomPtr->addPart(surfPatchPtr);
+        geomVec.push_back(geomPtr);
+        return geomVec;
+    }
+
+    std::vector<cv::rgbd::ObjectGeometryPtr> Box::getEdges() {
+        std::vector<cv::rgbd::ObjectGeometryPtr> geomVec;
+        return geomVec;
+    }
+
+    std::vector<cv::rgbd::ObjectGeometryPtr> Box::getPlanes() {
+        std::vector<cv::rgbd::ObjectGeometryPtr> geomVec;
+        return geomVec;
+    }
+    
+    
     std::vector<cv::Vec3f> Cylinder::generateCoords(int N) {
         double x, z;
         std::vector<cv::Vec3f> pts(N * 2 + 2);

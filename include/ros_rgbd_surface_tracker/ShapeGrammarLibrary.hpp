@@ -22,6 +22,13 @@
 
 #ifdef __cplusplus
 
+namespace cv {
+    namespace rgbd {
+        class ObjectGeometry;
+        typedef boost::shared_ptr<ObjectGeometry> ObjectGeometryPtr;
+    }
+}
+
 class Pose {
 public:
 
@@ -147,6 +154,16 @@ namespace sg {
     public:
         typedef boost::shared_ptr<Box> Ptr;
 
+//        enum Faces {
+//            UNKNOWN = 0,
+//            FRONT,
+//            BACK,
+//            LEFT,
+//            RIGHT,
+//            TOP,
+//            BOTTOM
+//        };
+        
         Box() {
         }
 
@@ -170,6 +187,12 @@ namespace sg {
 
         std::vector<cv::Vec3i> generateColorCoordIndices();
 
+        std::vector<cv::rgbd::ObjectGeometryPtr> getCorners();
+
+        std::vector<cv::rgbd::ObjectGeometryPtr> getEdges();
+
+        std::vector<cv::rgbd::ObjectGeometryPtr> getPlanes();
+        
         std::string toString() {
             std::ostringstream stringStream;
             stringStream << "I AM A BOX";
@@ -178,7 +201,7 @@ namespace sg {
 
         static Box::Ptr create() {
             return Box::Ptr(boost::make_shared<Box>());
-        }        
+        }
         
     private:
         // -------------------------

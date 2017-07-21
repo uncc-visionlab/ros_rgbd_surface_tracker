@@ -122,13 +122,14 @@ namespace cv {
 
         Plane3_(_Tpl _x, _Tpl _y, _Tpl _z, _Tpl _d) : d(_d), Point3_<_Tpl>(_x, _y, _z) {
         }
+        
+        Plane3_(const Point3_<_Tpl>& pt1, const Point3_<_Tpl>& pt2,
+                const Point3_<_Tpl>& pt3) {
+            setCoeffs(pt1, pt2, pt3);
+        }
 
         Plane3_<_Tpl> clone() {
             return Plane3_<_Tpl>(this->x, this->y, this->z, this->d);
-        }
-
-        void alignPlanes(std::vector<Plane3_<_Tpl> > planesA, std::vector<Plane3_<_Tpl> > planesB) {
-
         }
 
         _Tpl orthogonalDistanceSquared(Point3_<_Tpl> pt) {

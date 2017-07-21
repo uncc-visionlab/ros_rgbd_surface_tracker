@@ -18,6 +18,13 @@
 #include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
 #include <ros_rgbd_surface_tracker/ShapeGrammarLibrary.hpp>
 
+//namespace sg {
+//    class Shape;
+//    class Plane;
+//    typedef boost::shared_ptr<Shape> ShapePtr;
+//    typedef boost::shared_ptr<Shape> PlanePtr;
+//}
+
 namespace cv {
     namespace rgbd {
 
@@ -31,12 +38,18 @@ namespace cv {
         extern std::map<SurfaceType, const char*> surfaceTypeToString;
 
         class AlgebraicSurfacePatch {
+            //sg::PlanePtr plane_ptr;
             sg::Plane::Ptr plane_ptr;
             SurfaceType surfaceType;
             float avgDepth;
             //sg::Plane::Ptr shapePtr;
         public:
             typedef boost::shared_ptr<AlgebraicSurfacePatch> Ptr;
+
+            AlgebraicSurfacePatch(cv::Plane3f _plane) :
+            plane_ptr(new sg::Plane(_plane)),
+            surfaceType(SurfaceType::PLANE){
+            }
 
             AlgebraicSurfacePatch(TesselatedPlane3f::Ptr _plane,
                     const cv::rgbd::RgbdImage& rgbdImg) :
@@ -81,6 +94,10 @@ namespace cv {
             virtual ~AlgebraicSurfacePatch() {
             }
 
+            void setPlane(cv::Plane3f _plane) {
+
+            }
+
             SurfaceType getSurfaceType() {
                 return surfaceType;
             }
@@ -88,9 +105,13 @@ namespace cv {
             sg::Shape::Ptr getShape() {
                 return plane_ptr;
             }
-            
+
             float getAverageDepth() {
                 return avgDepth;
+            }
+
+            static AlgebraicSurfacePatch::Ptr create(cv::Plane3f _plane) {
+                return AlgebraicSurfacePatch::Ptr(boost::make_shared<AlgebraicSurfacePatch>(_plane));
             }
 
             static AlgebraicSurfacePatch::Ptr create(TesselatedPlane3f::Ptr _plane,
@@ -125,12 +146,20 @@ namespace cv {
                 //std::cout << "parentShape " << parentShape->toString() << std::endl;
             }
 
+            void setShape(sg::Shape::Ptr _parentShape) {
+                parentShape = _parentShape;
+            }
+
             SurfaceType getSurfaceType() {
                 return surfaceType;
             }
 
             sg::Shape::Ptr getShape() {
                 return parentShape;
+            }
+
+            static ObjectGeometry::Ptr create() {
+                return ObjectGeometry::Ptr(boost::make_shared<ObjectGeometry>());
             }
         }; /* class ObjectGeometry */
 
