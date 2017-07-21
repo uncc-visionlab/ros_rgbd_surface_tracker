@@ -38,7 +38,6 @@ namespace cv {
         extern std::map<SurfaceType, const char*> surfaceTypeToString;
 
         class AlgebraicSurfacePatch {
-            //sg::PlanePtr plane_ptr;
             sg::Plane::Ptr plane_ptr;
             SurfaceType surfaceType;
             float avgDepth;
@@ -54,7 +53,6 @@ namespace cv {
             AlgebraicSurfacePatch(TesselatedPlane3f::Ptr _plane,
                     const cv::rgbd::RgbdImage& rgbdImg) :
             plane_ptr(new sg::Plane(*_plane)),
-            //shapePtr(new sg::Plane(_plane)),
             surfaceType(SurfaceType::PLANE) {
                 //shapePtr.reset(&plane);
                 // create in-plane (u,v) coordinates for 3D points
@@ -135,7 +133,7 @@ namespace cv {
 
             virtual ~ObjectGeometry() {
             }
-
+            
             void addPart(AlgebraicSurfacePatch::Ptr patch) {
                 patchVec.push_back(patch);
                 if (surfaceType != patch->getSurfaceType()) {
@@ -157,7 +155,18 @@ namespace cv {
             sg::Shape::Ptr getShape() {
                 return parentShape;
             }
-
+            
+            std::vector<cv::Plane3f::Ptr> getPlanes() {
+                std::vector<cv::Plane3f::Ptr> planeVec;
+                for (AlgebraicSurfacePatch::Ptr patchPtr : patchVec) {
+                    sg::Shape::Ptr shapePtr = patchPtr->getShape();
+                    if (patchPtr->getSurfaceType() == SurfaceType::PLANE) {
+                       sg::Plane::Ptr planePtr = boost::static_pointer_cast<sg::Plane>(shapePtr);
+                       planeVec.push_back(planePtr);
+                    }
+                }
+            }
+            
             static ObjectGeometry::Ptr create() {
                 return ObjectGeometry::Ptr(boost::make_shared<ObjectGeometry>());
             }
