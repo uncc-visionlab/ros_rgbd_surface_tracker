@@ -317,7 +317,7 @@ namespace cv {
         }
         
         
-        void planeListAlignment(
+        void planeListAlignmentCV(
                 std::vector<cv::Plane3f::Ptr>& moving_planes,
                 std::vector<cv::Plane3f::Ptr>& fixed_planes) {
             
@@ -437,7 +437,7 @@ namespace cv {
             
         }
         
-        void planeListAlignment2(
+        void planeListAlignmentEigen(
                 std::vector<cv::Plane3f::Ptr>& moving_planes,
                 std::vector<cv::Plane3f::Ptr>& fixed_planes) {
             
@@ -455,8 +455,8 @@ namespace cv {
                 Eigen::Matrix<double, Eigen::Dynamic, 1> diff_d(N, 1);
                 
                 for (std::size_t planeid = 0; planeid < N; ++planeid) {
-                    cv::Plane3f::Ptr& plane_tgt = fixed_planes.at(planeid);
-                    cv::Plane3f::Ptr& plane_src = moving_planes.at(planeid);
+                    auto& plane_tgt = fixed_planes.at(planeid);
+                    auto& plane_src = moving_planes.at(planeid);
                     
                     if (plane_tgt && plane_src) {
                         
@@ -545,7 +545,7 @@ namespace cv {
             auto begin1 = std::chrono::high_resolution_clock::now();
             
             for (std::size_t i = 0; i < 10000; i++)
-                planeListAlignment(moving_planes, fixed_planes);
+                planeListAlignmentCV(moving_planes, fixed_planes);
 
             auto end1 = std::chrono::high_resolution_clock::now();
             std::cout << std::chrono::duration_cast<std::chrono::nanoseconds>(end1-begin1).count() << "ns" << std::endl;
@@ -553,7 +553,7 @@ namespace cv {
             auto begin2 = std::chrono::high_resolution_clock::now();
             
             for (std::size_t i = 0; i < 10000; i++)
-                planeListAlignment2(moving_planes, fixed_planes);
+                planeListAlignmentEigen(moving_planes, fixed_planes);
 
             auto end2 = std::chrono::high_resolution_clock::now();
             std::cout << std::chrono::duration_cast<std::chrono::nanoseconds>(end2-begin2).count() << "ns" << std::endl;

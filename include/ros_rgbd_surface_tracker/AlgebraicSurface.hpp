@@ -892,7 +892,13 @@ public:
         
         RowVector3s pt(x, y, z);
         
-        return pt;
+        return pt/w;
+    }
+    
+    RowVector3s getPoint() {
+        
+        return CornerSurfaceProduct::getPoint(*this->subsurfaces[0], *this->subsurfaces[1], *this->subsurfaces[2]);
+        
     }
     
 //
