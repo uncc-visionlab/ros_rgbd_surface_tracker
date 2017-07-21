@@ -16,6 +16,11 @@
 #include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>
 #include <ros_rgbd_surface_tracker/Polygonizer.hpp>
 
+#include <chrono> // for timing & benchmarking
+#include <fstream>
+#include <iomanip>
+
+
 #define OUTLIER_THRESHOLD 0.02
 
 namespace cv {
@@ -312,35 +317,9 @@ namespace cv {
         }
         
         
-        void planeListAlignment(cv::rgbd::RgbdImage& rgbd_img, RgbdSurfaceTracker& surface_tracker,
-                cv::Mat& rgb_result) {
-
-            std::vector<cv::Plane3f::Ptr> fixed_planes;
-            std::vector<cv::Plane3f::Ptr> moving_planes;
-            
-            Eigen::Matrix<float, 3, 4> plane_coeffs;
-            plane_coeffs.row(0) << 0.4784, -0.5571, -0.6788, 30.8483;
-            plane_coeffs.row(1) << 0.6469, 0.4714, -0.5994, 2.8847;
-            plane_coeffs.row(2) << 0.0193, 0.6558, -0.7546, 39.4952;
-            
-            Eigen::Affine3f actual_trans;
-            actual_trans.matrix().block<3, 3>(0, 0) = (Eigen::Matrix3f() << 0.4930, 0.4808, -0.7251, 0.6240, 0.3855, 0.6798, 0.6064, -0.7876, -0.1100).finished().transpose();
-            actual_trans.translation() = Eigen::Vector3f(8.9612, 82.5965, 38.9587);
-            
-            Eigen::Matrix3f R_actual = (Eigen::Matrix3f() << 0.4930, 0.4808, -0.7251, 0.6240, 0.3855, 0.6798, 0.6064, -0.7876, -0.1100).finished().transpose();
-            Eigen::Vector3f t_actual = Eigen::Vector3f(8.9612, 82.5965, 38.9587);
-            
-            for (std::size_t i = 0; i < plane_coeffs.rows(); ++i) {
-                
-                Eigen::Vector4f this_fixed = plane_coeffs.row(i);
-                Eigen::Vector4f this_moving;
-                this_moving << R_actual*this_fixed.head(3), t_actual.dot(this_fixed.head(3)) + this_fixed(3);
-                this_moving = this_moving/this_moving.head(3).norm(); 
-                
-                fixed_planes.emplace_back(boost::make_shared<cv::Plane3f>(this_fixed(0), this_fixed(1), this_fixed(2), this_fixed(3)));
-                moving_planes.emplace_back(boost::make_shared<cv::Plane3f>(this_moving(0), this_moving(1), this_moving(2), this_moving(3)));            
-            
-            }
+        void planeListAlignment(
+                std::vector<cv::Plane3f::Ptr>& moving_planes,
+                std::vector<cv::Plane3f::Ptr>& fixed_planes) {
             
             if (fixed_planes.size() > 0 &&
                     fixed_planes.size() == moving_planes.size()) {
@@ -417,14 +396,14 @@ namespace cv {
                             normalsCovMat(0, 2) += plane_tgt->x * plane_tgt->z + plane_src->x * plane_src->z;
                             normalsCovMat(1, 2) += plane_tgt->y * plane_tgt->z + plane_src->y * plane_src->z;
                             
+                            double d_diff = plane_src->d - plane_tgt->d;
                             
-                            
-                            deltaDt_NA(0) += (plane_src->d - plane_tgt->d) * plane_src->x;
-                            deltaDt_NA(1) += (plane_src->d - plane_tgt->d) * plane_src->y;
-                            deltaDt_NA(2) += (plane_src->d - plane_tgt->d) * plane_src->z;
-                            deltaDt_NB(0) += (plane_src->d - plane_tgt->d) * plane_tgt->x;
-                            deltaDt_NB(1) += (plane_src->d - plane_tgt->d) * plane_tgt->y;
-                            deltaDt_NB(2) += (plane_src->d - plane_tgt->d) * plane_tgt->z;
+                            deltaDt_NA(0) += d_diff * plane_src->x;
+                            deltaDt_NA(1) += d_diff * plane_src->y;
+                            deltaDt_NA(2) += d_diff * plane_src->z;
+                            deltaDt_NB(0) += d_diff * plane_tgt->x;
+                            deltaDt_NB(1) += d_diff * plane_tgt->y;
+                            deltaDt_NB(2) += d_diff * plane_tgt->z;
                             
                         }
                     }
@@ -442,9 +421,9 @@ namespace cv {
                     Eigen::Matrix4d transformation_matrix = Eigen::Matrix4d::Zero();
                     transformation_matrix.topLeftCorner(3, 3) = R;
                     transformation_matrix.block<3, 1>(0, 3) = t;
-                    std::cout << "Estimated Transform:\n" << transformation_matrix << "\n";
-                    
-                    std::cout << "Actual Transform:\n" << actual_trans.matrix() << "\n";
+//                    std::cout << "Estimated Transform:\n" << transformation_matrix << "\n";
+//                    
+//                    std::cout << "Actual Transform:\n" << actual_trans.matrix() << "\n";
 //
 //                    Eigen::Quaterniond quat(transformation_matrix.block<3, 3>(0, 0));
 //                    Eigen::Vector3d translation(transformation_matrix.block<3, 1>(0, 3));
@@ -458,11 +437,165 @@ namespace cv {
             
         }
         
+        void planeListAlignment2(
+                std::vector<cv::Plane3f::Ptr>& moving_planes,
+                std::vector<cv::Plane3f::Ptr>& fixed_planes) {
+            
+            
+            if (fixed_planes.size() > 0 &&
+                    fixed_planes.size() == moving_planes.size()) {
+                
+                
+                std::size_t N = fixed_planes.size();
+                
+                Eigen::Matrix<double, Eigen::Dynamic, 3> fixed_norms(N, 3);
+                Eigen::Matrix<double, Eigen::Dynamic, 1> fixed_d(N, 1);
+                Eigen::Matrix<double, Eigen::Dynamic, 3> moving_norms(N, 3);
+                Eigen::Matrix<double, Eigen::Dynamic, 1> moving_d(N, 1);
+                Eigen::Matrix<double, Eigen::Dynamic, 1> diff_d(N, 1);
+                
+                for (std::size_t planeid = 0; planeid < N; ++planeid) {
+                    cv::Plane3f::Ptr& plane_tgt = fixed_planes.at(planeid);
+                    cv::Plane3f::Ptr& plane_src = moving_planes.at(planeid);
+                    
+                    if (plane_tgt && plane_src) {
+                        
+                        fixed_norms.row(planeid) << plane_tgt->x, plane_tgt->y, plane_tgt->z;
+                        moving_norms.row(planeid) << plane_src->x, plane_src->y, plane_src->z;
+                        diff_d(planeid) = plane_src->d - plane_tgt->d;
+                        
+                    } else{
+                        
+                        fixed_norms.row(planeid).setZero();
+                        moving_norms.row(planeid).setZero();
+                        diff_d(planeid) = 0;
+                        
+                    }
+                    
+                                        
+                }
+                
+                Eigen::Matrix3d normals_covariance = fixed_norms.transpose()*moving_norms;
+                
+                // Compute the Singular Value Decomposition
+                Eigen::JacobiSVD<Eigen::Matrix3d> svd(normals_covariance, Eigen::ComputeFullU | Eigen::ComputeFullV);
+                Eigen::Matrix3d u = svd.matrixU();
+                Eigen::Matrix3d v = svd.matrixV();
+                Eigen::Matrix3d R = v * u.transpose();
+                
+                Eigen::Matrix3Xd sum_norms = (moving_norms*R + fixed_norms).transpose();
+                
+                Eigen::Matrix3d rot_normals_covariance = sum_norms*fixed_norms;
+                
+                Eigen::Vector3d t = rot_normals_covariance.inverse()*(sum_norms*diff_d);
+                
+                
+                if (!t.hasNaN()) {
+                    
+                    // Return the correct transformation
+                    Eigen::Matrix4d transformation_matrix = Eigen::Matrix4d::Zero();
+                    transformation_matrix.topLeftCorner(3, 3) = R;
+                    transformation_matrix.block<3, 1>(0, 3) = t;
+//                    std::cout << "Estimated Transform:\n" << transformation_matrix << "\n";
+//                    
+//                    std::cout << "Actual Transform:\n" << actual_trans.matrix() << "\n";
+//
+//                    Eigen::Quaterniond quat(transformation_matrix.block<3, 3>(0, 0));
+//                    Eigen::Vector3d translation(transformation_matrix.block<3, 1>(0, 3));
+//                    tf::Quaternion tf_quat(quat.x(), quat.y(), quat.z(), quat.w());
+//                    tf::Transform xform(tf_quat,
+//                            tf::Vector3(translation[0], translation[1], translation[2]));
+
+                }
+
+            }
+            
+        }
+        
+        void benchmarkPlaneListAlignment(cv::rgbd::RgbdImage& rgbd_img, RgbdSurfaceTracker& surface_tracker,
+                cv::Mat& rgb_result) {
+            
+             Eigen::Matrix<float, 3, 4> plane_coeffs;
+            plane_coeffs.row(0) << 0.4784, -0.5571, -0.6788, 30.8483;
+            plane_coeffs.row(1) << 0.6469, 0.4714, -0.5994, 2.8847;
+            plane_coeffs.row(2) << 0.0193, 0.6558, -0.7546, 39.4952;
+            
+            Eigen::Affine3f actual_trans;
+            actual_trans.matrix().block<3, 3>(0, 0) = (Eigen::Matrix3f() << 0.4930, 0.4808, -0.7251, 0.6240, 0.3855, 0.6798, 0.6064, -0.7876, -0.1100).finished().transpose();
+            actual_trans.translation() = Eigen::Vector3f(8.9612, 82.5965, 38.9587);
+            
+            Eigen::Matrix3f R_actual = (Eigen::Matrix3f() << 0.4930, 0.4808, -0.7251, 0.6240, 0.3855, 0.6798, 0.6064, -0.7876, -0.1100).finished().transpose();
+            Eigen::Vector3f t_actual = Eigen::Vector3f(8.9612, 82.5965, 38.9587);
+            
+            std::vector<cv::Plane3f::Ptr> moving_planes;
+            std::vector<cv::Plane3f::Ptr> fixed_planes;
+            
+            for (std::size_t i = 0; i < plane_coeffs.rows(); ++i) {
+                
+                Eigen::Vector4f this_fixed = plane_coeffs.row(i);
+                Eigen::Vector4f this_moving;
+                this_moving << R_actual*this_fixed.head(3), t_actual.dot(this_fixed.head(3)) + this_fixed(3);
+                this_moving = this_moving/this_moving.head(3).norm(); 
+                
+                fixed_planes.emplace_back(boost::make_shared<cv::Plane3f>(this_fixed(0), this_fixed(1), this_fixed(2), this_fixed(3)));
+                moving_planes.emplace_back(boost::make_shared<cv::Plane3f>(this_moving(0), this_moving(1), this_moving(2), this_moving(3)));            
+            
+            }
+            
+            auto begin1 = std::chrono::high_resolution_clock::now();
+            
+            for (std::size_t i = 0; i < 10000; i++)
+                planeListAlignment(moving_planes, fixed_planes);
+
+            auto end1 = std::chrono::high_resolution_clock::now();
+            std::cout << std::chrono::duration_cast<std::chrono::nanoseconds>(end1-begin1).count() << "ns" << std::endl;
+            
+            auto begin2 = std::chrono::high_resolution_clock::now();
+            
+            for (std::size_t i = 0; i < 10000; i++)
+                planeListAlignment2(moving_planes, fixed_planes);
+
+            auto end2 = std::chrono::high_resolution_clock::now();
+            std::cout << std::chrono::duration_cast<std::chrono::nanoseconds>(end2-begin2).count() << "ns" << std::endl;
+            
+        }
+        
+        void analyzePlaneFits(cv::rgbd::RgbdImage& rgbd_img, RgbdSurfaceTracker& surface_tracker) {
+            
+            int tile_width = 100, tile_height = 100;
+            int x1 = floor(0.5*(rgbd_img.getWidth() - tile_width)) - 100;
+            int y1 = floor(0.5*(rgbd_img.getHeight() - tile_height));
+            int samples_per_tile = 100;
+
+            std::vector<cv::Point3f> tile_data;
+            tile_data.reserve(samples_per_tile);
+
+
+            rgbd_img.getTileData_Uniform(
+                x1, y1, tile_width, tile_height, tile_data, samples_per_tile);
+
+            cv::Plane3f plane;
+            cv::RectWithError rect;
+            
+            rgbd_img.fitImplicitPlaneLeastSquares(tile_data, plane, rect.error,
+                rect.noise, rect.inliers, rect.outliers, rect.invalid);
+            
+//            std::fstream plane_data_file("plane_data.csv", std::fstream::in | std::fstream::out | std::fstream::app);
+//            std::cout << plane.toString();
+//            
+//            if (plane_data_file.is_open()) {
+//
+//                plane_data_file << std::fixed << std::setprecision(8) << plane.x << "," << plane.y << "," << plane.z << "," << plane.d << "\n";
+//            
+//                plane_data_file.close();
+//            }
+            
+        }
+        
         void RgbdSurfaceTracker::iterativeAlignment(cv::rgbd::RgbdImage& rgbd_img, cv::Mat& rgb_result) {
             
 //            cornerAlignment(rgbd_img, *this, rgb_result);
-            planeListAlignment(rgbd_img, *this, rgb_result);
-
+            
         }
         
     } /* namespace rgbd */
