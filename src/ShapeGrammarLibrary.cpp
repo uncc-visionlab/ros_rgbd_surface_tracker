@@ -4,6 +4,8 @@
  * and open the template in the editor.
  */
 #include <vector>
+#include <algorithm>
+#include <iostream>
 
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
@@ -174,6 +176,7 @@ namespace sg {
 
     std::vector<cv::rgbd::ObjectGeometry::Ptr> Box::getCorners() {
         std::vector<cv::rgbd::ObjectGeometry::Ptr> geomVec;
+        std::vector<cv::rgbd::AlgebraicSurfacePatch::Ptr> faceVec;
         std::vector<cv::Vec3f> pts = generateCoords();
         std::vector<cv::Plane3f> planes(6);
         planes[0] = cv::Plane3f(pts[0], pts[1], pts[2]); // FRONT
@@ -183,9 +186,29 @@ namespace sg {
         planes[4] = cv::Plane3f(pts[7], pts[3], pts[2]); // TOP
         planes[5] = cv::Plane3f(pts[1], pts[0], pts[4]); // BOTTOM
         cv::rgbd::ObjectGeometry::Ptr geomPtr = cv::rgbd::ObjectGeometry::create();
-        cv::rgbd::AlgebraicSurfacePatch::Ptr surfPatchPtr = cv::rgbd::AlgebraicSurfacePatch::create(planes[0]);
-        geomPtr->addPart(surfPatchPtr);
-        geomVec.push_back(geomPtr);
+        for (int idx = 0; idx < 6; ++idx) {
+            faceVec.push_back(cv::rgbd::AlgebraicSurfacePatch::create(planes[idx]));
+        }
+        std::vector<cv::Vec3i> cornerIdxs(8);
+        cornerIdxs[0] = cv::Vec3i(4, 1, 2); // TOP, BACK, RIGHT
+        cornerIdxs[1] = cv::Vec3i(4, 1, 3); // TOP, BACK, LEFT
+        cornerIdxs[2] = cv::Vec3i(4, 0, 2); // TOP, FRONT, RIGHT
+        cornerIdxs[3] = cv::Vec3i(4, 0, 3); // TOP, FRONT, LEFT
+        cornerIdxs[4] = cv::Vec3i(5, 1, 2); // BOTTOM, BACK, RIGHT
+        cornerIdxs[5] = cv::Vec3i(5, 1, 3); // BOTTOM, BACK, LEFT
+        cornerIdxs[6] = cv::Vec3i(5, 0, 2); // BOTTOM, FRONT, RIGHT
+        cornerIdxs[7] = cv::Vec3i(5, 0, 3); // BOTTOM, FRONT, LEFT
+        std::vector<cv::rgbd::AlgebraicSurfacePatch::Ptr> cornerGeom(3);
+        for (int idx = 0; idx < 8; ++idx) {
+            cornerGeom[0] = faceVec[cornerIdxs[idx][0]];
+            cornerGeom[1] = faceVec[cornerIdxs[idx][1]];
+            cornerGeom[2] = faceVec[cornerIdxs[idx][2]];
+            cv::rgbd::ObjectGeometry::Ptr geomPtr = cv::rgbd::ObjectGeometry::create();
+            for (int planeIdx = 0; planeIdx < 3; ++planeIdx) {
+                geomPtr->addPart(cornerGeom[planeIdx]);                
+            }
+            geomVec.push_back(geomPtr);
+        }
         return geomVec;
     }
 
@@ -198,8 +221,7 @@ namespace sg {
         std::vector<cv::rgbd::ObjectGeometryPtr> geomVec;
         return geomVec;
     }
-    
-    
+
     std::vector<cv::Vec3f> Cylinder::generateCoords(int N) {
         double x, z;
         std::vector<cv::Vec3f> pts(N * 2 + 2);
