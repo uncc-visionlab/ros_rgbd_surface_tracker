@@ -212,13 +212,30 @@ namespace sg {
         return geomVec;
     }
 
-    std::vector<cv::rgbd::ObjectGeometryPtr> Box::getEdges() {
-        std::vector<cv::rgbd::ObjectGeometryPtr> geomVec;
+    std::vector<cv::rgbd::ObjectGeometry::Ptr> Box::getEdges() {
+        std::vector<cv::rgbd::ObjectGeometry::Ptr> geomVec;
+        std::vector<cv::rgbd::AlgebraicSurfacePatch::Ptr> faceVec;
+        std::vector<cv::Vec3f> pts = generateCoords();
+        std::vector<cv::Plane3f> planes(6);
+        planes[0] = cv::Plane3f(pts[0], pts[1], pts[2]); // FRONT
+        planes[1] = cv::Plane3f(pts[4], pts[7], pts[6]); // BACK
+        planes[2] = cv::Plane3f(pts[4], pts[0], pts[3]); // RIGHT
+        planes[3] = cv::Plane3f(pts[6], pts[2], pts[1]); // LEFT
+        planes[4] = cv::Plane3f(pts[7], pts[3], pts[2]); // TOP
+        planes[5] = cv::Plane3f(pts[1], pts[0], pts[4]); // BOTTOM
+        cv::rgbd::ObjectGeometry::Ptr geomPtr = cv::rgbd::ObjectGeometry::create();
+        for (int idx = 0; idx < 6; ++idx) {
+            faceVec.push_back(cv::rgbd::AlgebraicSurfacePatch::create(planes[idx]));
+        }
+        std::vector<cv::Vec2i> edgeIdxs(12);
+        edgeIdxs[0] = cv::Vec2i(0,1); 
+        edgeIdxs[0] = cv::Vec2i(0,1); 
+        edgeIdxs[0] = cv::Vec2i(0,1); 
         return geomVec;
     }
 
-    std::vector<cv::rgbd::ObjectGeometryPtr> Box::getPlanes() {
-        std::vector<cv::rgbd::ObjectGeometryPtr> geomVec;
+    std::vector<cv::rgbd::ObjectGeometry::Ptr> Box::getPlanes() {
+        std::vector<cv::rgbd::ObjectGeometry::Ptr> geomVec;
         return geomVec;
     }
 

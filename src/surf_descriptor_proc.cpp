@@ -45,79 +45,79 @@ namespace cv {
             //                    }
             //                }
 
-            
+
             bool corner_found = false;
             static bool have_last_corner;
             static ObjectGeometry last_corner_geometry;
             ObjectGeometry corner_geometry;
-            
-            for (auto shapeA_iter = surflets.begin(); shapeA_iter != surflets.end() - 1; ++shapeA_iter) {
-                
-                if (corner_found)
-                    break;
+//
+//            for (auto shapeA_iter = surflets.begin(); shapeA_iter != surflets.end() - 1; ++shapeA_iter) {
+//
+//                if (corner_found)
+//                    break;
+//
+//                if ((*shapeA_iter)->getSurfaceType() == SurfaceType::PLANE) {
+//
+//
+//                    sg::Plane::Ptr planeA = boost::static_pointer_cast<sg::Plane>((*shapeA_iter)->getShape());
+//
+//                    for (auto shapeB_iter = shapeA_iter + 1; shapeB_iter != surflets.end(); ++shapeB_iter) {
+//
+//                        if (corner_found)
+//                            break;
+//
+//                        if ((*shapeB_iter)->getSurfaceType() == SurfaceType::PLANE) {
+//                            sg::Plane::Ptr planeB = boost::static_pointer_cast<sg::Plane>((*shapeB_iter)->getShape());
+//
+//                            if (//planeB->avgError() < plane_error_thresh && //plane3 has no error
+//                                    planeA->epsilonPerpendicular(*planeB, 2 * cv::Plane3f::PERPENDICULAR_SIN_ANGLE_THRESHOLD)) {
+//                                //                                
+//                                cv::Point3f perp_vector = planeA->cross(*planeB);
+//
+//                                // look ahead for plane perpendicular to edge
+//                                if (shapeB_iter < surflets.end() - 1) {
+//                                    for (auto shapeC_iter = shapeB_iter + 1; shapeC_iter != surflets.end(); ++shapeC_iter) {
+//
+//                                        if ((*shapeC_iter)->getSurfaceType() == SurfaceType::PLANE) {
+//                                            sg::Plane::Ptr planeC = boost::static_pointer_cast<sg::Plane>((*shapeC_iter)->getShape());
+//
+//                                            float corner_certainty = std::abs(planeC->dot(perp_vector));
+//
+//                                            if (corner_certainty > .9) {
+//                                                std::cout << "Corner detected, certainty: " << std::abs(planeC->dot(perp_vector)) << std::endl;
+//                                                corner_found = true;
+//
+//                                                corner_geometry.addPart(*shapeA_iter);
+//                                                corner_geometry.addPart(*shapeB_iter);
+//                                                corner_geometry.addPart(*shapeC_iter);
+//
+//                                                if (!have_last_corner) {
+//                                                    last_corner_geometry = corner_geometry;
+//                                                    have_last_corner = true;
+//                                                }
+//
+//                                                break;
+//                                            }
+//                                        }
+//                                    }
+//                                }
+//                            }
+//
+//                        }
+//
+//                    }
+//                }
+//            }
 
-                if ((*shapeA_iter)->getSurfaceType() == SurfaceType::PLANE) {
-                    
-                    
-                    sg::Plane::Ptr planeA = boost::static_pointer_cast<sg::Plane>((*shapeA_iter)->getShape());
-                    
-                    for (auto shapeB_iter = shapeA_iter + 1; shapeB_iter != surflets.end(); ++shapeB_iter) {
-                        
-                        if (corner_found)
-                            break;
-                        
-                        if ((*shapeB_iter)->getSurfaceType() == SurfaceType::PLANE) {
-                            sg::Plane::Ptr planeB = boost::static_pointer_cast<sg::Plane>((*shapeB_iter)->getShape());
 
-                            if (//planeB->avgError() < plane_error_thresh && //plane3 has no error
-                                    planeA->epsilonPerpendicular(*planeB, 2 * cv::Plane3f::PERPENDICULAR_SIN_ANGLE_THRESHOLD)) {
-//                                
-                                cv::Point3f perp_vector = planeA->cross(*planeB);
-                                
-                                // look ahead for plane perpendicular to edge
-                                if (shapeB_iter < surflets.end() - 1) {
-                                    for (auto shapeC_iter = shapeB_iter + 1; shapeC_iter != surflets.end(); ++shapeC_iter) {
 
-                                        if ((*shapeC_iter)->getSurfaceType() == SurfaceType::PLANE) {
-                                            sg::Plane::Ptr planeC = boost::static_pointer_cast<sg::Plane>((*shapeC_iter)->getShape());
-                                            
-                                            float corner_certainty = std::abs(planeC->dot(perp_vector));
-                                            
-                                            if (corner_certainty > .9) {
-                                                std::cout << "Corner detected, certainty: " << std::abs(planeC->dot(perp_vector)) << std::endl;
-                                                corner_found = true;
-                                                
-                                                corner_geometry.addPart(*shapeA_iter);
-                                                corner_geometry.addPart(*shapeB_iter);
-                                                corner_geometry.addPart(*shapeC_iter);
-                                                
-                                                if (!have_last_corner) {
-                                                    last_corner_geometry = corner_geometry;
-                                                    have_last_corner = true;
-                                                }
-                                                
-                                                break;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                        }
-
-                    }
-                }
-            }
-            
-            
-            
             if (corner_found && have_last_corner) {
                 // estimate TF from corners
-                
+
                 last_corner_geometry = corner_geometry;
-                
+
             }
-            
+
             //
             //            std::vector<cv::TesselatedPlane3f::Ptr>& planeArray = quadTree.getObjects();
             //            *curPlanesPtr = planeArray;
@@ -144,16 +144,27 @@ namespace cv {
             //                }
 
             // 11.25in x 8.75in x 6.25in @ depth 11 in
-                        sg::Box::Ptr b1ptr(boost::make_shared<sg::Box>(cv::Vec3f(0.28575, 0.2225, 0.15875),
-                                Pose(cv::Vec3f(0, 0, 0.3794 + 0.15875 / 2), cv::Vec3f(0, 0, 0))));
-                        std::vector<cv::rgbd::ObjectGeometryPtr> planes = b1ptr->getPlanes();
+            sg::Box::Ptr b1ptr(boost::make_shared<sg::Box>(cv::Vec3f(0.28575, 0.2225, 0.15875),
+                    Pose(cv::Vec3f(0, 0, 0.3794 + 0.15875 / 2), cv::Vec3f(0, 0, 0))));
+            std::vector<cv::rgbd::ObjectGeometryPtr> planes = b1ptr->getPlanes();
 
-                        for (cv::rgbd::ObjectGeometryPtr plane : planes) {
-                            
-                            
-                        }
-            //            sg::Box::Ptr b2ptr(boost::make_shared<sg::Box>(cv::Vec3f(1, 1, 1),
-            //                    Pose(cv::Vec3f(1.5, 1.5, 10), cv::Vec3f(0, 0, CV_PI / 6))));
+            for (cv::rgbd::ObjectGeometryPtr plane : planes) {
+
+
+            }
+            //sg::Box::Ptr b2ptr(boost::make_shared<sg::Box>(cv::Vec3f(1, 1, 1),
+            //        Pose(cv::Vec3f(1.5, 1.5, 10), cv::Vec3f(0, 0, CV_PI / 6))));
+            sg::Box::Ptr b2ptr(boost::make_shared<sg::Box>(cv::Vec3f(1, 1, 1),
+                    Pose(cv::Vec3f(0,0,0), cv::Vec3f(0, 0, 0))));
+            std::vector<cv::rgbd::ObjectGeometry::Ptr> cornerPtrs = b2ptr->getCorners();
+            for (cv::rgbd::ObjectGeometry::Ptr cornerPtr : cornerPtrs) {
+                std::vector<cv::Plane3f::Ptr> planePtrs = cornerPtr->getPlanes();
+                std::cout << "corner = { ";
+                for (cv::Plane3f::Ptr planePtr : planePtrs) {
+                    std::cout << planePtr->toString() << ", ";
+                }
+                std::cout << "}" << std::endl;
+            }
             //            sg::Cylinder::Ptr cyl1ptr(boost::make_shared<sg::Cylinder>(0.5, 0.5,
             //                    Pose(cv::Vec3f(0, 0, 3.5), cv::Vec3f(-CV_PI / 6, 0, 0))));
             //            shapePtrVec.push_back(b1ptr);
