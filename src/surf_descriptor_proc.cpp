@@ -80,60 +80,71 @@ namespace cv {
 
                                         if ((*shapeC_iter)->getSurfaceType() == SurfaceType::PLANE) {
                                             cv::Plane3f::Ptr planeC = boost::static_pointer_cast<sg::Plane>((*shapeC_iter)->getShape());
-                                            
+
                                             float corner_certainty = std::abs(planeC->dot(perp_vector));
 
                                             if (corner_certainty > .9) {
-                                                std::cout << "Corner detected, certainty: " << std::abs(planeC->dot(perp_vector)) << std::endl;
+
                                                 corner_found = true;
 
                                                 corner_geometry.addPart(*shapeA_iter);
                                                 corner_geometry.addPart(*shapeB_iter);
                                                 corner_geometry.addPart(*shapeC_iter);
-                                                
+
                                                 // compute corner point
-                                                
+
                                                 CornerSurfaceProduct<float> corn;
                                                 corn.addSubSurface(boost::make_shared<PlanarSurface<float>>(Eigen::RowVector4f(planeA->d, planeA->x, planeA->y, planeA->z)));
                                                 corn.addSubSurface(boost::make_shared<PlanarSurface<float>>(Eigen::RowVector4f(planeB->d, planeB->x, planeB->y, planeB->z)));
                                                 corn.addSubSurface(boost::make_shared<PlanarSurface<float>>(Eigen::RowVector4f(planeC->d, planeC->x, planeC->y, planeC->z)));
-                                                Eigen::RowVector3f corner_pt = corn.getPoint();
-                                                
-                                                
-//                                                Eigen::Matrix<double, 3, 4> corner_coeffs_mat;
-//                                                corner_coeffs_mat.row(0) << planeA->d, planeA->x, planeA->y, planeA->z;
-//                                                corner_coeffs_mat.row(1) << planeB->d, planeB->x, planeB->y, planeB->z;
-//                                                corner_coeffs_mat.row(2) << planeC->d, planeC->x, planeC->y, planeC->z;
-//                                                
-//                                                float w = (Eigen::Matrix3d() << corner_coeffs_mat.col(1), corner_coeffs_mat.col(2), corner_coeffs_mat.col(3)).finished().determinant();
-//                                                float corner_x = (Eigen::Matrix3d() << corner_coeffs_mat.col(0), corner_coeffs_mat.col(2), corner_coeffs_mat.col(3)).finished().determinant()/w;
-//                                                float corner_y = (Eigen::Matrix3d() << corner_coeffs_mat.col(1), corner_coeffs_mat.col(0), corner_coeffs_mat.col(3)).finished().determinant()/w;
-//                                                float corner_z = (Eigen::Matrix3d() << corner_coeffs_mat.col(1), corner_coeffs_mat.col(2), corner_coeffs_mat.col(0)).finished().determinant()/w;
-                                                
-                                                
-                                                std::cout << "planeA:" << planeA->toString() << "\n";
-                                                std::cout << "planeB:" << planeB->toString() << "\n";
-                                                std::cout << "planeC:" << planeC->toString() << "\n";
-//                                                std::cout << "w:" << w << "\n";
-//                                                std::cout << "corner pt:" << corner_x << ", " << corner_y << ", " << corner_z << "\n";
-//                                                std::cout << "x_mat:\n" << (Eigen::Matrix3d() << corner_coeffs_mat.col(0), corner_coeffs_mat.col(2), corner_coeffs_mat.col(3)).finished() << "\n";
-//                                                std::cout << "y_mat:\n" << (Eigen::Matrix3d() << corner_coeffs_mat.col(1), corner_coeffs_mat.col(0), corner_coeffs_mat.col(3)).finished() << "\n";
-//                                                std::cout << "z_mat:\n" << (Eigen::Matrix3d() << corner_coeffs_mat.col(1), corner_coeffs_mat.col(2), corner_coeffs_mat.col(0)).finished() << "\n";
+                                                Eigen::RowVector3f corner_pt_eigen = corn.getPoint();
+                                                cv::Point3f corner_pt(corner_pt_eigen(0), corner_pt_eigen(1), corner_pt_eigen(2));
+
+                                                //                                                std::cout << "planeA:" << planeA->toString() << "\n";
+                                                //                                                std::cout << "planeB:" << planeB->toString() << "\n";
+                                                //                                                std::cout << "planeC:" << planeC->toString() << "\n";
                                                 std::cout << "Corner pt: " << corner_pt << "\n";
-                                                std::cout << "Evaluation: " << corn.evaluate(corner_pt) << "\n";
-                                                
-                                                
-                                                
+                                                std::cout << "|Normals|: " << corner_certainty << "\n";
+                                                std::cout << "Evaluation: " << corn.evaluate(corner_pt_eigen) << "\n";
+
+
                                                 if (!have_box) {
-                                                    
+
                                                     // assuming concave
-                                                    
-                                                    float assumed_length = 7.0;
-                                                    float assumed_width = 7.0;
-                                                    float assumed_height = 7.0;
-                                                    initial_box = boost::make_shared<sg::Box>(cv::Vec3f(assumed_length, assumed_width, assumed_height),
-                                                        Pose(cv::Vec3f(0, 0, 0.3794 + 0.15875 / 2), cv::Vec3f(0, 0, 0)));
-                                                            
+
+                                                    float length = .5;
+                                                    float width = .5;
+                                                    float height = .5;
+                                                    cv::Vec3f normA((*planeA).x,(*planeA).y,(*planeA).z);
+                                                    cv::Vec3f normB((*planeB).x,(*planeB).y,(*planeB).z);
+                                                    //cv::Vec3f normA(1.0/sqrt(2),0,1.0/sqrt(2));
+                                                    //cv::Vec3f normB(1.0/sqrt(2),-1.0/sqrt(2),0);
+                                                    normB -= normB.dot(normA) * normA;
+                                                    normA *= 1.0/std::sqrt(normA.dot(normA));
+                                                    normB *= 1.0/std::sqrt(normB.dot(normB));
+                                                    cv::Vec3f normC = normA.cross(normB);
+                                                    cv::Mat Rmat(3, 3, CV_32F);
+                                                    float *r0matptr = Rmat.ptr<float>(0, 0);
+                                                    float *r1matptr = Rmat.ptr<float>(1, 0);
+                                                    float *r2matptr = Rmat.ptr<float>(2, 0);
+                                                    for (int idx = 0; idx < 3; ++idx) {
+                                                        *r0matptr++ = normA[idx];
+                                                        *r1matptr++ = normB[idx];
+                                                        *r2matptr++ = normC[idx];
+                                                    }
+                                                    std::cout << Rmat << std::endl;
+                                                    std::cout << cv::determinant(Rmat) << std::endl;
+
+                                                    cv::Vec3f rVec;
+                                                    cv::transpose(Rmat, Rmat);
+                                                    cv::Rodrigues(Rmat, rVec);
+                                                    //initial_box = boost::make_shared<sg::Box>(cv::Vec3f(length, width, height),
+                                                            //Pose(static_cast<cv::Vec3f> (corner_pt + length / 2 * (*planeA) + width / 2 * (*planeB) + height / 2 * (*planeC)), rVec));
+                                                    initial_box = boost::make_shared<sg::Box>(cv::Vec3f(1,1,1),
+                                                            Pose(cv::Vec3f(corner_pt.x, corner_pt.y, corner_pt.z), rVec));
+
+                                                    shapePtrVec.push_back(initial_box);
+
                                                     have_box = true;
                                                 }
 
@@ -154,8 +165,8 @@ namespace cv {
 
             if (corner_found && have_box) {
                 // estimate TF from corners
-                
-                
+                shapePtrVec.push_back(initial_box);
+
 
             }
 
@@ -185,22 +196,22 @@ namespace cv {
             //                }
 
             // 11.25in x 8.75in x 6.25in @ depth 11 in
-//            sg::Box::Ptr b1ptr(boost::make_shared<sg::Box>(cv::Vec3f(0.28575, 0.2225, 0.15875),
-//                    Pose(cv::Vec3f(0, 0, 0.3794 + 0.15875 / 2), cv::Vec3f(0, 0, 0))));
+            //            sg::Box::Ptr b1ptr(boost::make_shared<sg::Box>(cv::Vec3f(0.28575, 0.2225, 0.15875),
+            //                    Pose(cv::Vec3f(0, 0, 0.3794 + 0.15875 / 2), cv::Vec3f(0, 0, 0))));
 
             //sg::Box::Ptr b2ptr(boost::make_shared<sg::Box>(cv::Vec3f(1, 1, 1),
             //        Pose(cv::Vec3f(1.5, 1.5, 10), cv::Vec3f(0, 0, CV_PI / 6))));
-//            sg::Box::Ptr b2ptr(boost::make_shared<sg::Box>(cv::Vec3f(1, 1, 1),
-//                    Pose(cv::Vec3f(0,0,0), cv::Vec3f(0, 0, 0))));
-//            std::vector<cv::rgbd::ObjectGeometry::Ptr> cornerPtrs = b2ptr->getCorners();
-//            for (cv::rgbd::ObjectGeometry::Ptr cornerPtr : cornerPtrs) {
-//                std::vector<cv::Plane3f::Ptr> planePtrs = cornerPtr->getPlanes();
-//                std::cout << "corner = { ";
-//                for (cv::Plane3f::Ptr planePtr : planePtrs) {
-//                    std::cout << planePtr->toString() << ", ";
-//                }
-//                std::cout << "}" << std::endl;
-//            }
+            //            sg::Box::Ptr b2ptr(boost::make_shared<sg::Box>(cv::Vec3f(1, 1, 1),
+            //                    Pose(cv::Vec3f(0,0,0), cv::Vec3f(0, 0, 0))));
+            //            std::vector<cv::rgbd::ObjectGeometry::Ptr> cornerPtrs = b2ptr->getCorners();
+            //            for (cv::rgbd::ObjectGeometry::Ptr cornerPtr : cornerPtrs) {
+            //                std::vector<cv::Plane3f::Ptr> planePtrs = cornerPtr->getPlanes();
+            //                std::cout << "corner = { ";
+            //                for (cv::Plane3f::Ptr planePtr : planePtrs) {
+            //                    std::cout << planePtr->toString() << ", ";
+            //                }
+            //                std::cout << "}" << std::endl;
+            //            }
             //            sg::Cylinder::Ptr cyl1ptr(boost::make_shared<sg::Cylinder>(0.5, 0.5,
             //                    Pose(cv::Vec3f(0, 0, 3.5), cv::Vec3f(-CV_PI / 6, 0, 0))));
             //            shapePtrVec.push_back(b1ptr);
