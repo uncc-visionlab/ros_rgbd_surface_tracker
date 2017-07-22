@@ -297,8 +297,8 @@ namespace cv {
         void OpenGLRenderer::renderGeometries(std::vector<ObjectGeometry> geomList) {
             int idx = 0;
             for (ObjectGeometry geom : geomList) {
-//                std::string geomName(std::string(surfaceTypeToString[geom.getSurfaceType()])
-//                        + " " + std::to_string(idx++));
+                //                std::string geomName(std::string(surfaceTypeToString[geom.getSurfaceType()])
+                //                        + " " + std::to_string(idx++));
                 std::string geomName(std::string("test")
                         + " " + std::to_string(idx++));
                 pushObject(geomName, geom);
@@ -308,7 +308,7 @@ namespace cv {
         }
 
         void OpenGLRenderer::renderPointCloud(cv::Mat points, cv::Mat colors) {
-            glPointSize(2.0);
+            glPointSize(1.5);
 
             glBegin(GL_POINTS);
             for (int y = 0; y < points.rows; ++y) {
@@ -316,7 +316,8 @@ namespace cv {
                 uchar *colors_ptr = colors.ptr<uchar>(y, 0);
                 for (int x = 0; x < points.cols; ++x) {
                     if (!std::isnan((*points_ptr)[0])) {
-                        glColor3ub(colors_ptr[2], colors_ptr[1], colors_ptr[0]);
+                        // MAKE POINT CLOUND TRANSPARENT
+                        glColor4ub(colors_ptr[2], colors_ptr[1], colors_ptr[0], 80);
                         glVertex3d((*points_ptr)[0], (*points_ptr)[1], (*points_ptr)[2]);
                         //std::cout << "vert " << (*points_ptr) << " color "
                         //        << (int) colors_ptr[0] << "," << (int) colors_ptr[1] 
