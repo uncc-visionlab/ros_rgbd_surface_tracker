@@ -56,6 +56,7 @@ public:
     void transformInPlace(cv::Vec3f& pt) {
         cv::Mat rotMat;
         cv::Rodrigues(rodrigues, rotMat);
+        //std::cout << "rodMat " << rotMat << std::endl;
         float *mm = rotMat.ptr<float>(0, 0);
         pt[0] = mm[0] * pt[0] + mm[1] * pt[1] + mm[2] * pt[2] + position[0];
         pt[1] = mm[3] * pt[0] + mm[4] * pt[1] + mm[5] * pt[2] + position[1];

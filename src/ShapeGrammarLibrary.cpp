@@ -205,7 +205,7 @@ namespace sg {
             cornerGeom[2] = faceVec[cornerIdxs[idx][2]];
             cv::rgbd::ObjectGeometry::Ptr geomPtr = cv::rgbd::ObjectGeometry::create();
             for (int planeIdx = 0; planeIdx < 3; ++planeIdx) {
-                geomPtr->addPart(cornerGeom[planeIdx]);                
+                geomPtr->addPart(cornerGeom[planeIdx]);
             }
             geomVec.push_back(geomPtr);
         }
@@ -228,14 +228,51 @@ namespace sg {
             faceVec.push_back(cv::rgbd::AlgebraicSurfacePatch::create(planes[idx]));
         }
         std::vector<cv::Vec2i> edgeIdxs(12);
-        edgeIdxs[0] = cv::Vec2i(0,1); 
-        edgeIdxs[0] = cv::Vec2i(0,1); 
-        edgeIdxs[0] = cv::Vec2i(0,1); 
+        edgeIdxs[0] = cv::Vec2i(0, 2);
+        edgeIdxs[1] = cv::Vec2i(0, 3);
+        edgeIdxs[2] = cv::Vec2i(0, 4);
+        edgeIdxs[3] = cv::Vec2i(0, 5);
+        edgeIdxs[4] = cv::Vec2i(1, 2);
+        edgeIdxs[5] = cv::Vec2i(1, 3);
+        edgeIdxs[6] = cv::Vec2i(1, 4);
+        edgeIdxs[7] = cv::Vec2i(1, 5);
+        edgeIdxs[8] = cv::Vec2i(2, 4);
+        edgeIdxs[9] = cv::Vec2i(2, 5);
+        edgeIdxs[10] = cv::Vec2i(3, 4);
+        edgeIdxs[11] = cv::Vec2i(3, 5);
+        std::vector<cv::rgbd::AlgebraicSurfacePatch::Ptr> edgeGeom(2);
+        for (int idx = 0; idx < 12; ++idx) {
+            edgeGeom[0] = faceVec[edgeIdxs[idx][0]];
+            edgeGeom[1] = faceVec[edgeIdxs[idx][1]];
+            cv::rgbd::ObjectGeometry::Ptr geomPtr = cv::rgbd::ObjectGeometry::create();
+            for (int planeIdx = 0; planeIdx < 2; ++planeIdx) {
+                geomPtr->addPart(edgeGeom[planeIdx]);
+            }
+            geomVec.push_back(geomPtr);
+        }
         return geomVec;
     }
 
     std::vector<cv::rgbd::ObjectGeometry::Ptr> Box::getPlanes() {
         std::vector<cv::rgbd::ObjectGeometry::Ptr> geomVec;
+        std::vector<cv::rgbd::AlgebraicSurfacePatch::Ptr> faceVec;
+        std::vector<cv::Vec3f> pts = generateCoords();
+        std::vector<cv::Plane3f> planes(6);
+        planes[0] = cv::Plane3f(pts[0], pts[1], pts[2]); // FRONT
+        planes[1] = cv::Plane3f(pts[4], pts[7], pts[6]); // BACK
+        planes[2] = cv::Plane3f(pts[4], pts[0], pts[3]); // RIGHT
+        planes[3] = cv::Plane3f(pts[6], pts[2], pts[1]); // LEFT
+        planes[4] = cv::Plane3f(pts[7], pts[3], pts[2]); // TOP
+        planes[5] = cv::Plane3f(pts[1], pts[0], pts[4]); // BOTTOM
+        cv::rgbd::ObjectGeometry::Ptr geomPtr = cv::rgbd::ObjectGeometry::create();
+        for (int idx = 0; idx < 6; ++idx) {
+            faceVec.push_back(cv::rgbd::AlgebraicSurfacePatch::create(planes[idx]));
+        }
+        for (int idx = 0; idx < 6; ++idx) {
+            cv::rgbd::ObjectGeometry::Ptr geomPtr = cv::rgbd::ObjectGeometry::create();
+            geomPtr->addPart(faceVec[idx]);
+            geomVec.push_back(geomPtr);
+        }
         return geomVec;
     }
 

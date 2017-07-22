@@ -27,47 +27,40 @@ namespace cv {
                 if (surfPatchPtr->getSurfaceType() == SurfaceType::PLANE) {
                     planeGeom.addPart(surfPatchPtr);
                     geometries.push_back(planeGeom);
-                    shapePtrVec.push_back(planeGeom.getShape());
+                    //shapePtrVec.push_back(planeGeom.getShape());
                 }
             }
             //for (sg::Shape::Ptr shape_ptr : shapePtrVec) {
             //sg::Shape& shape = *shape_ptr;
             //std::cout << "shape " << shape_ptr->toString() << std::endl;
             //}
-            //                for (int indexB = indexA + 1; indexB < planeList.size(); indexB++) {
-            //                    TesselatedPlane3f::Ptr& planeB = planeList[indexB ];
-            //                    if (planeA->epsilonPerpendicular(*planeB, 2 * Plane3f::PERPENDICULAR_SIN_ANGLE_THRESHOLD)) {
-            //                        //                    std::cout << "areaA " << planeA->area() << " errorA = " << planeA->avgError() << " planeA = " << *planeA
-            //                        //                            << " areaB " << planeB->area() << " errorB = " << planeB->avgError() << " planeB = " << *planeB
-            //                        //                            << " cosangle = " << planeA->cosDihedralAngle(*planeB)
-            //                        //                            << std::endl;
-            //                        edgeList.push_back(Edge3f(*planeA, *planeB));
-            //                    }
-            //                }
-
 
             bool corner_found = false;
             static bool have_box;
             static sg::Box::Ptr initial_box;
             ObjectGeometry corner_geometry;
 
-            for (auto shapeA_iter = surflets.begin(); shapeA_iter != surflets.end() - 1; ++shapeA_iter) {
-
+            if (have_box) {
+                // estimate TF from corners
+                shapePtrVec.push_back(initial_box);
+            }
+            
+            for (auto surfPatchA_iter = surflets.begin();
+                    surfPatchA_iter != surflets.end() - 1; ++surfPatchA_iter) {
+                AlgebraicSurfacePatch::Ptr surfPatchA = (*surfPatchA_iter);
                 if (corner_found)
                     break;
+                if (surfPatchA->getSurfaceType() == SurfaceType::PLANE) {
+                    cv::Plane3f::Ptr planeA = boost::static_pointer_cast<sg::Plane>(surfPatchA->getShape());
 
-                if ((*shapeA_iter)->getSurfaceType() == SurfaceType::PLANE) {
-
-
-                    cv::Plane3f::Ptr planeA = boost::static_pointer_cast<sg::Plane>((*shapeA_iter)->getShape());
-
-                    for (auto shapeB_iter = shapeA_iter + 1; shapeB_iter != surflets.end(); ++shapeB_iter) {
-
+                    for (auto surfPatchB_iter = surfPatchA_iter + 1;
+                            surfPatchB_iter != surflets.end(); ++surfPatchB_iter) {
+                        AlgebraicSurfacePatch::Ptr surfPatchB = (*surfPatchB_iter);
                         if (corner_found)
                             break;
 
-                        if ((*shapeB_iter)->getSurfaceType() == SurfaceType::PLANE) {
-                            cv::Plane3f::Ptr planeB = boost::static_pointer_cast<sg::Plane>((*shapeB_iter)->getShape());
+                        if (surfPatchB->getSurfaceType() == SurfaceType::PLANE) {
+                            cv::Plane3f::Ptr planeB = boost::static_pointer_cast<sg::Plane>(surfPatchB->getShape());
 
                             if (//planeB->avgError() < plane_error_thresh && //plane3 has no error
                                     planeA->epsilonPerpendicular(*planeB, 2 * cv::Plane3f::PERPENDICULAR_SIN_ANGLE_THRESHOLD)) {
@@ -75,11 +68,12 @@ namespace cv {
                                 cv::Point3f perp_vector = planeA->cross(*planeB);
 
                                 // look ahead for plane perpendicular to edge
-                                if (shapeB_iter < surflets.end() - 1) {
-                                    for (auto shapeC_iter = shapeB_iter + 1; shapeC_iter != surflets.end(); ++shapeC_iter) {
-
-                                        if ((*shapeC_iter)->getSurfaceType() == SurfaceType::PLANE) {
-                                            cv::Plane3f::Ptr planeC = boost::static_pointer_cast<sg::Plane>((*shapeC_iter)->getShape());
+                                if (surfPatchB_iter < surflets.end() - 1) {
+                                    for (auto surfPatchC_iter = surfPatchB_iter + 1;
+                                            surfPatchC_iter != surflets.end(); ++surfPatchC_iter) {
+                                        AlgebraicSurfacePatch::Ptr surfPatchC = (*surfPatchC_iter);
+                                        if (surfPatchC->getSurfaceType() == SurfaceType::PLANE) {
+                                            cv::Plane3f::Ptr planeC = boost::static_pointer_cast<sg::Plane>(surfPatchC->getShape());
 
                                             float corner_certainty = std::abs(planeC->dot(perp_vector));
 
@@ -87,9 +81,9 @@ namespace cv {
 
                                                 corner_found = true;
 
-                                                corner_geometry.addPart(*shapeA_iter);
-                                                corner_geometry.addPart(*shapeB_iter);
-                                                corner_geometry.addPart(*shapeC_iter);
+                                                corner_geometry.addPart(surfPatchA);
+                                                corner_geometry.addPart(surfPatchB);
+                                                corner_geometry.addPart(surfPatchC);
 
                                                 // compute corner point
 
@@ -115,14 +109,14 @@ namespace cv {
                                                     float length = .5;
                                                     float width = .5;
                                                     float height = .5;
-                                                    cv::Vec3f normA((*planeA).x,(*planeA).y,(*planeA).z);
-                                                    cv::Vec3f normB((*planeB).x,(*planeB).y,(*planeB).z);
+                                                    cv::Vec3f normA((*planeA).x, (*planeA).y, (*planeA).z);
+                                                    cv::Vec3f normB((*planeB).x, (*planeB).y, (*planeB).z);
                                                     //cv::Vec3f normA(1.0/sqrt(2),0,1.0/sqrt(2));
                                                     //cv::Vec3f normB(1.0/sqrt(2),-1.0/sqrt(2),0);
                                                     normB -= normB.dot(normA) * normA;
-                                                    normA *= 1.0/std::sqrt(normA.dot(normA));
-                                                    normB *= 1.0/std::sqrt(normB.dot(normB));
-                                                    cv::Vec3f normC = normA.cross(normB);
+                                                    normA *= 1.0 / std::sqrt(normA.dot(normA));
+                                                    normB *= 1.0 / std::sqrt(normB.dot(normB));
+                                                    cv::Vec3f normC = normB.cross(normA);
                                                     cv::Mat Rmat(3, 3, CV_32F);
                                                     float *r0matptr = Rmat.ptr<float>(0, 0);
                                                     float *r1matptr = Rmat.ptr<float>(1, 0);
@@ -135,65 +129,31 @@ namespace cv {
                                                     std::cout << Rmat << std::endl;
                                                     std::cout << cv::determinant(Rmat) << std::endl;
 
+                                                    //cv::Vec3f rVec(0, 1.0 / std::sqrt(2.0), 0);
                                                     cv::Vec3f rVec;
-                                                    cv::transpose(Rmat, Rmat);
+                                                    //cv::transpose(Rmat, Rmat);
                                                     cv::Rodrigues(Rmat, rVec);
                                                     //initial_box = boost::make_shared<sg::Box>(cv::Vec3f(length, width, height),
-                                                            //Pose(static_cast<cv::Vec3f> (corner_pt + length / 2 * (*planeA) + width / 2 * (*planeB) + height / 2 * (*planeC)), rVec));
-                                                    initial_box = boost::make_shared<sg::Box>(cv::Vec3f(1,1,1),
+                                                    //Pose(static_cast<cv::Vec3f> (corner_pt + length / 2 * (*planeA) + width / 2 * (*planeB) + height / 2 * (*planeC)), rVec));
+                                                    initial_box = boost::make_shared<sg::Box>(cv::Vec3f(.5, .5, .5),
                                                             Pose(cv::Vec3f(corner_pt.x, corner_pt.y, corner_pt.z), rVec));
 
                                                     shapePtrVec.push_back(initial_box);
 
                                                     have_box = true;
-                                                }
+                                                } /* make a box at this detected corner */
 
                                                 break;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                                            } /* restrict triplet matches to be approximately perpendicular */
+                                        } /* restrict triplet matches comparisons to planes */
+                                    } /* loop over candidate third surface elements (plane triplets) */
+                                } // check for third surface availability (not really necessary)
+                            } /* restrict pair matches to be approximately perpendicular */
+                        } /* restrict surface pairwise comparisons to planes */
+                    } /* loop over candidate second match surface elements (surface pairs) */
+                } /* restrict surface comparisons to plane pairs */
+            } /* loop over candidate surface elements */
 
-                        }
-
-                    }
-                }
-            }
-
-
-
-            if (corner_found && have_box) {
-                // estimate TF from corners
-                shapePtrVec.push_back(initial_box);
-
-
-            }
-
-            //
-            //            std::vector<cv::TesselatedPlane3f::Ptr>& planeArray = quadTree.getObjects();
-            //            *curPlanesPtr = planeArray;
-            //            if (curPlanesPtr->size() > 0 &&
-            //                    curPlanesPtr->size() == prevPlanesPtr->size()) {
-            //                //        std::cout << "planes_src_tgt = [ ";
-            //                Eigen::Matrix<Scalar, 3, 3> normalsCovMat = Eigen::Matrix<Scalar, 3, 3>::Zero();
-            //                Eigen::Matrix<Scalar, 1, 3> deltaDt_NA = Eigen::Matrix<Scalar, 1, 3>::Zero();
-            //                Eigen::Matrix<Scalar, 1, 3> deltaDt_NB = Eigen::Matrix<Scalar, 1, 3>::Zero();
-            //
-            //                for (int indexA = 0; indexA < planeArray.size(); indexA++) {
-            //                    cv::TesselatedPlane3f::Ptr& plane_tgt = curPlanesPtr->at(indexA);
-            //                    cv::TesselatedPlane3f::Ptr& plane_src = prevPlanesPtr->at(indexA);
-            //                    //            std::cout << "areaA " << planeA->area() << " errorA = " << planeA->avgError() 
-            //                    //                    << " planeA = " << *planeA << std::endl;
-            //                    if (plane_tgt && plane_src) {
-            //                        float norm = (plane_tgt->x - plane_src->x)*(plane_tgt->x - plane_src->x) +
-            //                                (plane_tgt->y - plane_src->y)*(plane_tgt->y - plane_src->y)+
-            //                                (plane_tgt->z - plane_src->z)*(plane_tgt->z - plane_src->z)+
-            //                                (plane_tgt->d - plane_src->d)*(plane_tgt->d - plane_src->d);
-            //                        if (norm < OUTLIER_THRESHOLD) {
-            //                        }
-            //                    }
-            //                }
 
             // 11.25in x 8.75in x 6.25in @ depth 11 in
             //            sg::Box::Ptr b1ptr(boost::make_shared<sg::Box>(cv::Vec3f(0.28575, 0.2225, 0.15875),

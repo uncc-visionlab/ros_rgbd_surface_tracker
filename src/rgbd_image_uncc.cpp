@@ -62,16 +62,16 @@ namespace cv {
             //                        normalMethod);
             //                setNormalsComputer(normalsComputer);
             //
-            //                cv::Mat normals(getDepth().size(), CV_32FC3);
-            //                cv::Mat points(getDepth().size(), CV_32FC3);
-            //                for (int r = 0; r < getDepth().rows; ++r) {
-            //                    for (int c = 0; c < getDepth().cols; ++c) {
-            //                        const float& depth = zptr[r * zstep + c];
-            //                        points.at<cv::Point3f>(r, c).x = (c - cx) * inv_f*depth;
-            //                        points.at<cv::Point3f>(r, c).y = (r - cy) * inv_f*depth;
-            //                        points.at<cv::Point3f>(r, c).z = depth;
-            //                    }
-            //                }
+            //cv::Mat normals(getDepth().size(), CV_32FC3);
+            cv::Mat points(getDepth().size(), CV_32FC3);
+            for (int r = 0; r < getDepth().rows; ++r) {
+                for (int c = 0; c < getDepth().cols; ++c) {
+                    const float& depth = zptr[r * zstep + c];
+                    points.at<cv::Point3f>(r, c).x = (c - cx) * inv_f*depth;
+                    points.at<cv::Point3f>(r, c).y = (r - cy) * inv_f*depth;
+                    points.at<cv::Point3f>(r, c).z = depth;
+                }
+            }
             //                (*normalsComputer)(points, normals);
 
             //                                cv::Mat normals2(getDepth().size(), CV_32FC3);
@@ -79,9 +79,9 @@ namespace cv {
             cv::Mat normals3(getDepth().size(), CV_32FC3);
             iImgs.computeExplicit_Impl(getDepth(), normals3);
             //iImgs.computeCurvatureFiniteDiff_Impl(getDepth(), normals3);
-            //                cv::Mat axisVecs(1, 3, CV_32F);
-            //                cv::Mat axisDirs(1, 3, CV_32F);
-            //                iImgs.plucker(points, normals3, axisVecs, axisDirs);
+            cv::Mat axisVecs(1, 3, CV_32F);
+            cv::Mat axisDirs(1, 3, CV_32F);
+            iImgs.plucker(points, normals3, axisVecs, axisDirs);
 
             //                                cv::Point2i tlc(315, 235);
             //                cv::Rect roi(tlc.x, tlc.y, width - 2 * tlc.x, height - 2 * tlc.y);
@@ -113,12 +113,12 @@ namespace cv {
             cv::Vec3f normal;
             return iImgs.computeNormalExplicit(r, getDepth(), normal);
 
-                    //return fitTileExplicitPlaneLeastSquares(r.x, r.y, r.width, plane3, r.error,
-                    //        r.noise, r.inliers, r.outliers, r.invalid);
-                    //            return fitTileImplicitPlaneLeastSquares(r.x, r.y, r.width, plane3,
-                    //                    r.error, r.noise, r.inliers, r.outliers, r.invalid);
-                    //            return fitPlaneSimple(r.x, r.y, r.width, plane3, r.error,
-                    //                    r.noise, r.inliers, r.outliers, r.invalid);
+            //return fitTileExplicitPlaneLeastSquares(r.x, r.y, r.width, plane3, r.error,
+            //        r.noise, r.inliers, r.outliers, r.invalid);
+            //            return fitTileImplicitPlaneLeastSquares(r.x, r.y, r.width, plane3,
+            //                    r.error, r.noise, r.inliers, r.outliers, r.invalid);
+            //            return fitPlaneSimple(r.x, r.y, r.width, plane3, r.error,
+            //                    r.noise, r.inliers, r.outliers, r.invalid);
         }
 
         LineSegment2f RgbdImage::getVisibleLineSegment2f(Line3f& line3) const {
@@ -243,14 +243,17 @@ namespace cv {
 
         void DepthIntegralImages::plucker(cv::Mat& points, cv::Mat& normals,
                 cv::Mat& axisVecs, cv::Mat& axisDirs) {
-            static cv::Mat quadraticConstraints = cv::Mat::zeros(6, 6, CV_32F);
-            quadraticConstraints.at<float>(0, 0) = 1.0f;
-            quadraticConstraints.at<float>(1, 1) = 1.0f;
-            quadraticConstraints.at<float>(2, 2) = 1.0f;
+            static cv::Mat quadraticConstraints = (cv::Mat_<float>(6, 6) <<
+                    1, 0, 0, 0, 0, 0,
+                    0, 1, 0, 0, 0, 0,
+                    0, 0, 1, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0);
             cv::Mat pluckerScatter = cv::Mat::zeros(6, 6, CV_32F);
             float normf;
-            cv::Point2i tlc(315, 235);
-            cv::Rect roi(tlc.x, tlc.y, width - tlc.x, height - tlc.y);
+            cv::Point2i tlc(290, 200);
+            cv::Rect roi(tlc.x, tlc.y, width - 2 * tlc.x, height - 2 * tlc.y);
             for (int y = roi.y; y < roi.y + roi.height; ++y) {
                 cv::Vec3f* pt_ptr = points.ptr<cv::Vec3f>(y, roi.x);
                 cv::Vec3f* norm_ptr = normals.ptr<cv::Vec3f>(y, roi.x);
@@ -281,20 +284,24 @@ namespace cv {
             //std::cout << "pluckerScatter = " << pluckerScatter << std::endl;
             cv::Mat ipluckerScatter = pluckerScatter.inv();
             cv::Mat ipluckerConstrained = ipluckerScatter*quadraticConstraints;
+            //cv::Mat eVals, eVecs;
+            //cv::eigen(ipluckerConstrained, eVals, eVecs);
+            //std::cout << "eVals = " << eVals << std::endl;
+            //std::cout << "eVecs = " << eVecs << std::endl;
             cv::Mat U, W, Vt;
             cv::SVDecomp(ipluckerConstrained, W, U, Vt);
-            //std::cout << "U = " << U << std::endl;
-            //std::cout << "W = " << W << std::endl;
+            std::cout << "U = " << U << std::endl;
+            std::cout << "W = " << W << std::endl;
             //std::cout << "Vt = " << Vt << std::endl;
-            cv::Vec6f pluckerAxisLine = cv::Mat(U, cv::Rect(0, 0, 1, U.cols));
+            cv::Vec6f pluckerAxisLine = cv::Mat(U, cv::Rect(2, 0, 1, U.cols));
             cv::Vec3f linePt(pluckerAxisLine[0], pluckerAxisLine[1], pluckerAxisLine[2]);
             cv::Vec3f lineDir(pluckerAxisLine[3], pluckerAxisLine[4], pluckerAxisLine[5]);
             //std::cout << "pt = " << linePt << " dir = " << lineDir << std::endl;
-            cv::Vec3f xP = linePt.cross(lineDir);
+            linePt = lineDir.cross(linePt);
             //std::cout << "pt = " << linePt << " dir = " << lineDir << std::endl;
-            normf = 1.0f / std::sqrt(xP.dot(xP));
+            normf = 1.0f / lineDir.dot(lineDir);
             linePt *= normf;
-            normf = 1.0f / std::sqrt(lineDir.dot(lineDir));
+            normf = std::sqrt(normf);
             lineDir *= normf;
             std::cout << "pt = " << linePt << " dir = " << lineDir << std::endl;
         }

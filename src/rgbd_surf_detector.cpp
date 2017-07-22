@@ -22,7 +22,6 @@ namespace cv {
                 std::vector<AlgebraicSurfacePatch::Ptr>& geometries,
                 cv::Mat mask) const {
             //rgbd_img.computeNormals();
-
             cv::Size imSize(rgbd_img.getDepth().size());
             int blockSize = BLOCKSIZE;
             int numLabels = 1;
