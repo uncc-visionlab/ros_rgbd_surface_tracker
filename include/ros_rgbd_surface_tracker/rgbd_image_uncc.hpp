@@ -38,6 +38,11 @@
 namespace cv {
     namespace rgbd {
 
+        /* Implementation in surface_alignment_optimizer.cpp */
+        bool planeListAlignmentCV(std::vector<cv::Plane3f::Ptr>& moving_planes,
+                std::vector<cv::Plane3f::Ptr>& fixed_planes,
+                Eigen::Matrix4f& transformation_matrix);
+
         // Comment in/out CACHE_INVERSE to enable/disable caching of 
         // depth matrix inverses for explicit normal estimation. 
         // When active a significant speedup is obtained.

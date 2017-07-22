@@ -287,8 +287,6 @@ namespace cv {
             }
             vVec = uVec.cross(*this);
             cv::Point3_<_Tpl> pt0(-d * this->x, -d * this->y, -d * this->z);
-            //uVec3 *= 1.0/std::sqrt(uVec3.dot(uVec3));
-            //vVec3 *= 1.0/std::sqrt(vVec3.dot(vVec3));
             pt0.x = pt0.x + uv.x * uVec.x + uv.y * vVec.x;
             pt0.y = pt0.y + uv.x * uVec.y + uv.y * vVec.y;
             pt0.z = pt0.z + uv.x * uVec.z + uv.y * vVec.z;
@@ -312,8 +310,6 @@ namespace cv {
             }
             vVec = uVec.cross(*this);
             cv::Point3_<_Tpl> pt0(-d * this->x, -d * this->y, -d * this->z), uVec3, vVec3;
-            //uVec3 *= 1.0/std::sqrt(uVec3.dot(uVec3));
-            //vVec3 *= 1.0/std::sqrt(vVec3.dot(vVec3));
             pt0 = p - pt0;
             uv.x = pt0.dot(uVec);
             uv.y = pt0.dot(vVec);

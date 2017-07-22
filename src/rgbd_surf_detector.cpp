@@ -11,7 +11,7 @@
 #include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>
 
-#define BLOCKSIZE 32
+#define BLOCKSIZE 64
 #define MARGIN_X 50
 #define MARGIN_Y 30
 
