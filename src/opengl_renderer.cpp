@@ -29,11 +29,9 @@ namespace cv {
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             glPushMatrix();
-            glBegin(GL_TRIANGLES);
             for (std::pair<std::string, ObjectGeometry> mapElement : geomList) {
                 renderGeometry(mapElement);
             }
-            glEnd();
             glPopMatrix();
 
             glFlush();
@@ -282,8 +280,9 @@ namespace cv {
         }
 
         void OpenGLRenderer::renderGeometry(std::pair<std::string, ObjectGeometry> mapElement) {
+            bool wireframe = false;
             ObjectGeometry geom = mapElement.second;
-
+            wireframe ? glBegin(GL_LINE_LOOP) : glBegin(GL_TRIANGLES);
             for (int idx = 0; idx < geom.verts.size(); ++idx) {
                 cv::Vec3f vert = geom.verts[idx];
                 cv::Vec3f normal = geom.normals[idx];
@@ -292,6 +291,7 @@ namespace cv {
                 glNormal3f(normal[0], normal[1], normal[2]);
                 glVertex3f(vert[0], vert[1], vert[2]);
             }
+            glEnd();
         }
 
         void OpenGLRenderer::renderGeometries(std::vector<ObjectGeometry> geomList) {
@@ -305,6 +305,32 @@ namespace cv {
             }
             callbackDisplay();
             clearObjects();
+        }
+
+        void OpenGLRenderer::renderPointCloudNormals(cv::Mat points, cv::Mat normals, 
+                float scale, float density, bool outwardPointing) const {
+            
+            scale = outwardPointing ? scale : -scale;
+            int skip = (int) (1.0f/density);
+            glBegin(GL_LINES);
+            for (int y = 0; y < points.rows; y += skip) {
+                cv::Vec3f *points_ptr = points.ptr<cv::Vec3f>(y, 0);
+                cv::Vec3f *normals_ptr = normals.ptr<cv::Vec3f>(y, 0);
+                for (int x = 0; x < points.cols; x += skip) {
+                    if (!std::isnan((*points_ptr)[0])) {
+                        glColor3f(1.0, 0.0, 0.0);
+                        glVertex3f((*points_ptr)[0], (*points_ptr)[1], (*points_ptr)[2]);
+                        glVertex3f((*points_ptr)[0] + scale * (*normals_ptr)[0],
+                                (*points_ptr)[1] + scale * (*normals_ptr)[1],
+                                (*points_ptr)[2] + scale * (*normals_ptr)[2]);
+                    }
+                    points_ptr += skip;
+                    normals_ptr += skip;
+                }
+            }
+            glEnd();
+            glFlush();
+            glutSwapBuffers();
         }
 
         void OpenGLRenderer::renderPointCloud(cv::Mat points, cv::Mat colors) {

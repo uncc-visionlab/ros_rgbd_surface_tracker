@@ -18,7 +18,7 @@ namespace cv {
 
         void SurfaceDescriptorExtractor::compute(const cv::rgbd::RgbdImage& rgbd_img,
                 std::vector<AlgebraicSurfacePatch::Ptr>& surflets,
-                std::vector<ObjectGeometry>& geometries) const {
+                std::vector<ObjectGeometry>& geometries, cv::Mat& rgb_result) const {
 
             std::vector<sg::Shape::Ptr> shapePtrVec;
 
@@ -97,10 +97,11 @@ namespace cv {
                                                     //                                                std::cout << "planeA:" << planeA->toString() << "\n";
                                                     //                                                std::cout << "planeB:" << planeB->toString() << "\n";
                                                     //                                                std::cout << "planeC:" << planeC->toString() << "\n";
-                                                    std::cout << "Corner pt: " << corner_pt << "\n";
-                                                    std::cout << "|Normals|: " << corner_certainty << "\n";
-                                                    std::cout << "Evaluation: " << corn.evaluate(corner_pt_eigen) << "\n";
-
+                                                    //std::cout << "Corner pt: " << corner_pt << "\n";
+                                                    //std::cout << "|Normals|: " << corner_certainty << "\n";
+                                                    //std::cout << "Evaluation: " << corn.evaluate(corner_pt_eigen) << "\n";
+                                                    Point2f corner_proj = rgbd_img.project(corner_pt);
+                                                    cv::circle(rgb_result, corner_proj, 5, cv::Scalar(255, 255, 0), 3);
 
                                                     if (!have_box) {
 
@@ -116,19 +117,22 @@ namespace cv {
                                                         Eigen::Matrix4f eigenTransform = Eigen::Matrix4f::Zero(4, 4);
                                                         std::vector<cv::Plane3f::Ptr> moving_planes(3);
                                                         std::vector<cv::Plane3f::Ptr> fixed_planes(3);
-                                                        moving_planes[0] = boost::make_shared<cv::Plane3f>(0, 0, 1, -0.0);
-                                                        moving_planes[1] = boost::make_shared<cv::Plane3f>(-1, 0, 0, -0.0);
-                                                        moving_planes[2] = boost::make_shared<cv::Plane3f>(0, 1, 0, -0.0);
+                                                        //moving_planes[0] = boost::make_shared<cv::Plane3f>(0, 0, 1, -0.0);
+                                                        //moving_planes[1] = boost::make_shared<cv::Plane3f>(-1, 0, 0, -0.0);
+                                                        //moving_planes[2] = boost::make_shared<cv::Plane3f>(0, 1, 0, -0.0);
+                                                        moving_planes[0] = boost::make_shared<cv::Plane3f>(1, 0, 0, -0.0);
+                                                        moving_planes[1] = boost::make_shared<cv::Plane3f>(0, 1, 0, -0.0);
+                                                        moving_planes[2] = boost::make_shared<cv::Plane3f>(0, 0, -1, -0.0);
                                                         fixed_planes[0] = planeA;
                                                         fixed_planes[1] = planeB;
                                                         fixed_planes[2] = planeC;
                                                         planeListAlignmentCV(moving_planes,
                                                                 fixed_planes, eigenTransform);
-                                                        std::cout << "eigen mat = " << eigenTransform << std::endl;
+                                                        //std::cout << "eigen mat = " << eigenTransform << std::endl;
                                                         eigenTransformMap = eigenTransform;
-                                                        std::cout << "eigen mat mapped = " << eigenTransformMap << std::endl;
+                                                        //std::cout << "eigen mat mapped = " << eigenTransformMap << std::endl;
                                                         cv::transpose(cvTransform, cvTransform);
-                                                        std::cout << "cvTransform = " << cvTransform << std::endl;
+                                                        //std::cout << "cvTransform = " << cvTransform << std::endl;
                                                         cv::Vec3f normA((*planeA).x, (*planeA).y, (*planeA).z);
                                                         cv::Vec3f normB((*planeB).x, (*planeB).y, (*planeB).z);
                                                         //cv::Vec3f normA(1.0/sqrt(2),0,1.0/sqrt(2));
@@ -146,19 +150,19 @@ namespace cv {
                                                             *r1matptr++ = normB[idx];
                                                             *r2matptr++ = normC[idx];
                                                         }
-                                                        std::cout << Rmat << std::endl;
-                                                        std::cout << cv::determinant(Rmat) << std::endl;
+                                                        //std::cout << Rmat << std::endl;
+                                                        //std::cout << cv::determinant(Rmat) << std::endl;
                                                         cv::Vec3f tVec = cvTransform(cv::Rect(3, 0, 1, 3));
                                                         // chose the front top left corner to align
                                                         // position of the Box center relative to this corner is below
-                                                        tVec[0] += 0.05f;
-                                                        tVec[0] -= 0.05f;
-                                                        tVec[0] -= 0.05f;
+                                                        //tVec[0] += 0.05f;
+                                                        //tVec[0] -= 0.05f;
+                                                        //tVec[0] -= 0.05f;
                                                         cv::Vec3f rVec;
                                                         cv::Mat rotMat = cvTransform(cv::Rect(0, 0, 3, 3));
+                                                        cv::transpose(rotMat, rotMat);
                                                         std::cout << "R = " << rotMat << std::endl;
                                                         std::cout << "t = " << tVec << std::endl;
-                                                        cv::transpose(rotMat, rotMat);
                                                         //cv::Mat tMat(3, 1, CV_32F);
                                                         //tMat = tVec;
                                                         //tMat = rotMat*tMat;
@@ -166,7 +170,7 @@ namespace cv {
                                                         cv::Rodrigues(rotMat, rVec);
                                                         //initial_box = boost::make_shared<sg::Box>(cv::Vec3f(length, width, height),
                                                         //Pose(static_cast<cv::Vec3f> (corner_pt + length / 2 * (*planeA) + width / 2 * (*planeB) + height / 2 * (*planeC)), rVec));
-                                                        initial_box = boost::make_shared<sg::Box>(cv::Vec3f(.1, .1, .1),
+                                                        initial_box = boost::make_shared<sg::Box>(cv::Vec3f(.3, .3, .3),
                                                                 Pose(tVec, rVec));
 
                                                         shapePtrVec.push_back(initial_box);

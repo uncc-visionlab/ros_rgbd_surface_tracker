@@ -369,7 +369,8 @@ namespace cv {
             Eigen::Matrix3d u = svd.matrixU();
             Eigen::Matrix3d v = svd.matrixV();
             Eigen::Matrix3d R = v * u.transpose();
-
+            //std::cout << "singular values = " << svd.singularValues() << std::endl;
+            //std::cout << "det(R) = " << R.determinant() << std::endl;
             normalsCovMat.setZero();
 
             for (int indexA = 0; indexA < fixed_planes.size(); indexA++) {

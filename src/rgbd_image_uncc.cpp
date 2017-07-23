@@ -48,7 +48,7 @@ namespace cv {
             }
         }
 
-        bool RgbdImage::computeNormals() const {
+        bool RgbdImage::computeNormals() {
             int normalWinSize = iImgs.getWindowSize().width;
             int normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_FALS; // 7.0 fps
             //int normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_LINEMOD;
@@ -78,6 +78,7 @@ namespace cv {
             //                                iImgs.computeImplicit_Impl(getDepth(), normals2);
             cv::Mat normals3(getDepth().size(), CV_32FC3);
             iImgs.computeExplicit_Impl(getDepth(), normals3);
+            setNormals(normals3);
             //iImgs.computeCurvatureFiniteDiff_Impl(getDepth(), normals3);
             cv::Mat axisVecs(1, 3, CV_32F);
             cv::Mat axisDirs(1, 3, CV_32F);
@@ -252,6 +253,7 @@ namespace cv {
                     0, 0, 0, 0, 0, 0);
             cv::Mat pluckerScatter = cv::Mat::zeros(6, 6, CV_32F);
             float normf;
+            int numPts = 0;
             cv::Point2i tlc(290, 200);
             cv::Rect roi(tlc.x, tlc.y, width - 2 * tlc.x, height - 2 * tlc.y);
             for (int y = roi.y; y < roi.y + roi.height; ++y) {
@@ -266,9 +268,7 @@ namespace cv {
                     cv::Vec6f pluckerLineVec(norm[0], norm[1], norm[2],
                             pt[1] * norm[2] - pt[2] * norm[1],
                             pt[2] * norm[0] - pt[0] * norm[2],
-                            pt[0] * norm[1] - pt[1] * norm[2]);
-                    //normf = 1.0f / std::sqrt(pluckerLineVec.dot(pluckerLineVec));
-                    //pluckerLineVec *= normf;
+                            pt[0] * norm[1] - pt[1] * norm[0]);
                     // form upper triangular scatter matrix
                     float *pluckerScatter_ptr = pluckerScatter.ptr<float>(0, 0);
                     for (int row = 0; row < 6; ++row) {
@@ -277,6 +277,7 @@ namespace cv {
                             *pluckerScatter_ptr += pluckerLineVec[row] * pluckerLineVec[col];
                         }
                     }
+                    numPts++;
                 }
             }
             //std::cout << "pluckerScatter = " << pluckerScatter << std::endl;
@@ -290,10 +291,10 @@ namespace cv {
             //std::cout << "eVecs = " << eVecs << std::endl;
             cv::Mat U, W, Vt;
             cv::SVDecomp(ipluckerConstrained, W, U, Vt);
-            std::cout << "U = " << U << std::endl;
-            std::cout << "W = " << W << std::endl;
+            //std::cout << "U = " << U << std::endl;
+            //std::cout << "W = " << W << std::endl;
             //std::cout << "Vt = " << Vt << std::endl;
-            cv::Vec6f pluckerAxisLine = cv::Mat(U, cv::Rect(2, 0, 1, U.cols));
+            cv::Vec6f pluckerAxisLine = cv::Mat(U, cv::Rect(0, 0, 1, U.cols));
             cv::Vec3f linePt(pluckerAxisLine[0], pluckerAxisLine[1], pluckerAxisLine[2]);
             cv::Vec3f lineDir(pluckerAxisLine[3], pluckerAxisLine[4], pluckerAxisLine[5]);
             //std::cout << "pt = " << linePt << " dir = " << lineDir << std::endl;
@@ -303,7 +304,12 @@ namespace cv {
             linePt *= normf;
             normf = std::sqrt(normf);
             lineDir *= normf;
-            std::cout << "pt = " << linePt << " dir = " << lineDir << std::endl;
+            
+            float error = 1.0f / std::sqrt(W.at<float>(0, 0) / (float) (numPts - 5));
+            float threshold = 40;
+            if (error < threshold) {
+                std::cout << "Cylinder detected: error = " << error << " pt = " << linePt << " dir = " << lineDir << std::endl;
+            }
         }
 
         void DepthIntegralImages::computeCurvatureFiniteDiff_Impl(const cv::Mat& depth, cv::Mat& normals) {

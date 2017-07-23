@@ -57,12 +57,15 @@ namespace cv {
                 glDraw.init(rgbd_img.getWidth(), rgbd_img.getHeight(), offscreen_rendering);
             }
 
+            cv::Rect rectVal(290, 200, 640 - 2 * 290, 480 - 2 * 200);
+            cv::rectangle(rgb_result, rectVal, cv::Scalar(0, 255, 0), 3);            
+            rgbd_img.computeNormals();            
+            
             std::vector<cv::rgbd::AlgebraicSurfacePatch::Ptr> surfletPtrList;
-            surfdetector.detect(rgbd_img, surfletPtrList);
-            //cv::Rect rectVal(290, 200, 640 - 2 * 290, 480 - 2 * 200);
-            //cv::rectangle(rgb_result, rectVal, cv::Scalar(0, 255, 0), 3);
+            surfdetector.detect(rgbd_img, surfletPtrList, rgb_result);
+
             std::vector<cv::rgbd::ObjectGeometry> geomList;
-            surfdescriptor_extractor.compute(rgbd_img, surfletPtrList, geomList);
+            surfdescriptor_extractor.compute(rgbd_img, surfletPtrList, geomList, rgb_result);
 
             glDraw.setImage(rgbd_img.getRGB());
             glDraw.renderGeometries(geomList);
@@ -70,6 +73,8 @@ namespace cv {
             cv::Mat points, colors;
             rgbd_img.getPointCloud(points, colors);
             glDraw.renderPointCloud(points, colors);
+            glDraw.renderPointCloudNormals(points, rgbd_img.getNormals());
+            
             //glDraw.callbackDisplay();
 
             std::vector<cv::DMatch> geometricMatches;

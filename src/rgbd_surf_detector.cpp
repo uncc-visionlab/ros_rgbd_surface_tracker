@@ -11,7 +11,7 @@
 #include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>
 
-#define BLOCKSIZE 64
+#define BLOCKSIZE 32
 #define MARGIN_X 50
 #define MARGIN_Y 30
 
@@ -20,8 +20,8 @@ namespace cv {
 
         void SurfaceDetector::detect(const cv::rgbd::RgbdImage& rgbd_img,
                 std::vector<AlgebraicSurfacePatch::Ptr>& geometries,
-                cv::Mat mask) const {
-            //rgbd_img.computeNormals();
+                cv::Mat& rgb_result, cv::Mat mask) const {
+
             cv::Size imSize(rgbd_img.getDepth().size());
             int blockSize = BLOCKSIZE;
             int numLabels = 1;

@@ -26,7 +26,7 @@ namespace cv {
         class OpenGLRenderer {
         private:
             cv::Mat imgSeg;
-            std::unordered_map<std::string, ObjectGeometry> geomList;           
+            std::unordered_map<std::string, ObjectGeometry> geomList;
             GLuint color;
             GLuint depth;
             GLuint fbo;
@@ -50,7 +50,7 @@ namespace cv {
             static void callbackKeyboard(unsigned char key, int x, int y);
 
             static void callbackMouseClick(int button, int state, int x, int y);
-            
+
             static void callbackMouseMotion(int x, int y);
 
             static void callbackPassiveMouseMotion(int x, int y);
@@ -70,6 +70,10 @@ namespace cv {
             void renderGeometry(std::pair<std::string, ObjectGeometry> mapElement);
 
             void renderPointCloud(cv::Mat points, cv::Mat colors);
+
+            void renderPointCloudNormals(cv::Mat points, cv::Mat normals,
+                    float scale = 0.01f, float density = 0.33f,
+                    bool outwardPointing = true) const;
 
             void pushObject(std::string name, ObjectGeometry geom);
 

@@ -387,7 +387,15 @@ namespace cv {
 
             cv::Ptr<RgbdNormals> getNormalsComputer(cv::Ptr<RgbdNormals> _nc);
 
-            bool computeNormals() const;
+            void setNormals(cv::Mat& _normals) {
+                img_N = _normals;
+            }
+            
+            cv::Mat getNormals() const {
+                return img_N;
+            }
+            
+            bool computeNormals();
 
             int getWidth() const {
                 return width;
@@ -408,6 +416,7 @@ namespace cv {
             const float* zptr;
             int zstep;
             cv::Mat img_I;
+            cv::Mat img_N;
             const uchar* iptr;
             int istep;
 

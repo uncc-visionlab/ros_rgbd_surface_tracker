@@ -148,12 +148,12 @@ namespace sg {
 
     std::vector<cv::Vec3f> Box::generateColorCoords() {
         std::vector<cv::Vec3f> colors(6);
-        colors[0] = cv::Point3f(1, 0, 0);
-        colors[1] = cv::Point3f(0, 1, 0);
-        colors[2] = cv::Point3f(0, 0, 1);
-        colors[3] = cv::Point3f(1, 0, 0); // not red
-        colors[4] = cv::Point3f(0, 1, 0); // not red
-        colors[5] = cv::Point3f(0, 0, 1);
+        colors[0] = cv::Point3f(1.0, 0.0, 0.0);
+        colors[1] = cv::Point3f(0.0, 1.0, 0.0);
+        colors[2] = cv::Point3f(0.0, 0.0, 1.0);
+        colors[3] = cv::Point3f(1.0, 0.3, 0.0);
+        colors[4] = cv::Point3f(0.0, 1.0, 0.3);
+        colors[5] = cv::Point3f(0.3, 0.0, 1.0);
         return colors;
     }
 
@@ -163,14 +163,14 @@ namespace sg {
         tricols[1] = cv::Vec3i(0, 0, 0);
         tricols[2] = cv::Vec3i(1, 1, 1);
         tricols[3] = cv::Vec3i(1, 1, 1);
-        tricols[4] = cv::Vec3i(0, 0, 0);
-        tricols[5] = cv::Vec3i(0, 0, 0);
-        tricols[6] = cv::Vec3i(1, 1, 1);
-        tricols[7] = cv::Vec3i(1, 1, 1);
+        tricols[4] = cv::Vec3i(3, 3, 3); // face opposite red
+        tricols[5] = cv::Vec3i(3, 3, 3); // face opposite red
+        tricols[6] = cv::Vec3i(4, 4, 4); // face opposite green
+        tricols[7] = cv::Vec3i(4, 4, 4); // face opposite green
         tricols[8] = cv::Vec3i(2, 2, 2);
         tricols[9] = cv::Vec3i(2, 2, 2);
-        tricols[10] = cv::Vec3i(2, 2, 2);
-        tricols[11] = cv::Vec3i(2, 2, 2);
+        tricols[10] = cv::Vec3i(5, 5, 5); // face opposite blue
+        tricols[11] = cv::Vec3i(5, 5, 5); // face opposite blue
         return tricols;
     }
 

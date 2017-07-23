@@ -46,7 +46,7 @@ namespace cv {
         public:
             void detect(const cv::rgbd::RgbdImage& rgbd_img,
                     std::vector<AlgebraicSurfacePatch::Ptr>& surflets,
-                    const cv::Mat mask = cv::Mat()) const;
+                     cv::Mat& rgb_result, const cv::Mat mask = cv::Mat()) const;
 
             void findPlanes(const Rect& roi,
                     ErrorSortedRectQueue& quadQueue,
@@ -62,7 +62,7 @@ namespace cv {
         public:
             void compute(const cv::rgbd::RgbdImage& rgbd_img,
                     std::vector<AlgebraicSurfacePatch::Ptr>& surflets,
-                    std::vector<ObjectGeometry>& geometries) const;
+                    std::vector<ObjectGeometry>& geometries, cv::Mat& rgb_result) const;
         }; /* class SurfaceDescriptorExtractor */
 
         class SurfaceDescriptorMatcher {
