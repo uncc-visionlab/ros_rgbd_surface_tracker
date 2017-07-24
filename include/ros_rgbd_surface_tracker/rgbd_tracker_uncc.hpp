@@ -46,7 +46,7 @@ namespace cv {
         public:
             void detect(const cv::rgbd::RgbdImage& rgbd_img,
                     std::vector<AlgebraicSurfacePatch::Ptr>& surflets,
-                     cv::Mat& rgb_result, const cv::Mat mask = cv::Mat()) const;
+                    cv::Mat& rgb_result, const cv::Mat mask = cv::Mat()) const;
 
             void findPlanes(const Rect& roi,
                     ErrorSortedRectQueue& quadQueue,
@@ -55,7 +55,7 @@ namespace cv {
                     QuadPyramid<TesselatedPlane3f::Ptr>& quadTree,
                     Mat& img_labels, int& numLabels) const;
 
-            
+
         }; /* class SurfaceDetector */
 
         class SurfaceDescriptorExtractor {
@@ -75,6 +75,7 @@ namespace cv {
         class RgbdSurfaceTracker {
         public:
             static OpenGLRenderer glDraw;
+            //static OpenGLRenderAttributes glAttr;
             typedef boost::shared_ptr<RgbdSurfaceTracker> Ptr;
 
             RgbdSurfaceTracker() {

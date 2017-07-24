@@ -24,19 +24,21 @@
 namespace cv {
     namespace rgbd {
 
-        void OpenGLRenderer::callbackDisplay(void) {
+        void OpenGLRenderer::initFrame(void) {
             //  Clear screen and Z-buffer
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            // get window input events
+            glutMainLoopEvent();
+        }
 
+        void OpenGLRenderer::callbackDisplay(void) {
             glPushMatrix();
             for (std::pair<std::string, ObjectGeometry> mapElement : geomList) {
                 renderGeometry(mapElement);
             }
             glPopMatrix();
-
-            glFlush();
+            //glFlush();
             glutSwapBuffers();
-            glutMainLoopEvent();
         }
 
         void OpenGLRenderer::callbackIdle(void) {
@@ -59,6 +61,18 @@ namespace cv {
                     break;
                 case 's':
                     glTranslatef(0.0f, -0.2f, 0.0f);
+                    break;
+                case 'l':
+                    attrs.showWireframe = !attrs.showWireframe;
+                    break;
+                case 'n':
+                    attrs.showPointcloudNormals = !attrs.showPointcloudNormals;
+                    break;
+                case 'p':
+                    attrs.showPointcloud = !attrs.showPointcloud;
+                    break;
+                case 'm':
+                    attrs.showDetections = !attrs.showDetections;
                     break;
                 case '\n':
                 case '\r':
@@ -94,14 +108,15 @@ namespace cv {
         void OpenGLRenderer::callbackMouseClick(int button, int state, int x, int y) {
             specialKey = glutGetModifiers();
             // if both a mouse button, and the ALT key, are pressed then
+            std::cout << "Got click ";
             if ((state == GLUT_DOWN) &&
                     (specialKey == GLUT_ACTIVE_ALT)) {
-                // set the color to pure red for the left button
                 if (button == GLUT_LEFT_BUTTON) {
-                }// set the color to pure green for the middle button
-                else if (button == GLUT_MIDDLE_BUTTON) {
-                }// set the color to pure blue for the right button
-                else {
+                    std::cout << "Got ALT+Left Click";
+                } else if (button == GLUT_MIDDLE_BUTTON) {
+                    std::cout << "Got ALT+Left Click";
+                } else {
+                    std::cout << "Got ALT+Right Click";
                 }
             }
         }
@@ -280,9 +295,8 @@ namespace cv {
         }
 
         void OpenGLRenderer::renderGeometry(std::pair<std::string, ObjectGeometry> mapElement) {
-            bool wireframe = false;
             ObjectGeometry geom = mapElement.second;
-            wireframe ? glBegin(GL_LINE_LOOP) : glBegin(GL_TRIANGLES);
+            attrs.showWireframe ? glBegin(GL_LINE_LOOP) : glBegin(GL_TRIANGLES);
             for (int idx = 0; idx < geom.verts.size(); ++idx) {
                 cv::Vec3f vert = geom.verts[idx];
                 cv::Vec3f normal = geom.normals[idx];
@@ -304,14 +318,13 @@ namespace cv {
                 pushObject(geomName, geom);
             }
             callbackDisplay();
-            clearObjects();
         }
 
-        void OpenGLRenderer::renderPointCloudNormals(cv::Mat points, cv::Mat normals, 
+        void OpenGLRenderer::renderPointCloudNormals(cv::Mat points, cv::Mat normals,
                 float scale, float density, bool outwardPointing) const {
-            
+
             scale = outwardPointing ? scale : -scale;
-            int skip = (int) (1.0f/density);
+            int skip = (int) (1.0f / density);
             glBegin(GL_LINES);
             for (int y = 0; y < points.rows; y += skip) {
                 cv::Vec3f *points_ptr = points.ptr<cv::Vec3f>(y, 0);

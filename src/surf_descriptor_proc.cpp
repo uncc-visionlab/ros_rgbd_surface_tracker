@@ -13,6 +13,7 @@
 
 #include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>
+
 namespace cv {
     namespace rgbd {
 
@@ -150,7 +151,7 @@ namespace cv {
                                                             *r1matptr++ = normB[idx];
                                                             *r2matptr++ = normC[idx];
                                                         }
-                                                        //std::cout << Rmat << std::endl;
+                                                        std::cout << "Rmat = " << Rmat << std::endl;
                                                         //std::cout << cv::determinant(Rmat) << std::endl;
                                                         cv::Vec3f tVec = cvTransform(cv::Rect(3, 0, 1, 3));
                                                         // chose the front top left corner to align

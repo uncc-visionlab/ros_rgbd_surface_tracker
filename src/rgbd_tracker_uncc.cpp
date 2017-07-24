@@ -24,7 +24,11 @@ namespace cv {
 
         // construct static class member for OpenGL based rendering of scene objects
         OpenGLRenderer RgbdSurfaceTracker::glDraw;
+        //OpenGLRenderAttributes RgbdSurfaceTracker::glAttr;
         int OpenGLRenderer::specialKey;
+        OpenGLRenderAttributes OpenGLRenderer::attrs;
+
+
         std::map<SurfaceType, const char*> surfaceTypeToString = {
             {SurfaceType::UNKNOWN, "Uknown"},
             {SurfaceType::PLANE, "Plane"},
@@ -55,34 +59,44 @@ namespace cv {
 
             if (!glDraw.initialized()) {
                 glDraw.init(rgbd_img.getWidth(), rgbd_img.getHeight(), offscreen_rendering);
+                //glDraw.setAttributes(glAttr);
             }
 
             cv::Rect rectVal(290, 200, 640 - 2 * 290, 480 - 2 * 200);
-            cv::rectangle(rgb_result, rectVal, cv::Scalar(0, 255, 0), 3);            
-            rgbd_img.computeNormals();            
-            
+            cv::rectangle(rgb_result, rectVal, cv::Scalar(0, 255, 0), 3);
+            rgbd_img.computeNormals();
+
             std::vector<cv::rgbd::AlgebraicSurfacePatch::Ptr> surfletPtrList;
             surfdetector.detect(rgbd_img, surfletPtrList, rgb_result);
 
             std::vector<cv::rgbd::ObjectGeometry> geomList;
             surfdescriptor_extractor.compute(rgbd_img, surfletPtrList, geomList, rgb_result);
 
+            // OpenGL rendering
             glDraw.setImage(rgbd_img.getRGB());
-            glDraw.renderGeometries(geomList);
-
-            cv::Mat points, colors;
-            rgbd_img.getPointCloud(points, colors);
-            glDraw.renderPointCloud(points, colors);
-            glDraw.renderPointCloudNormals(points, rgbd_img.getNormals());
+            glDraw.initFrame();
             
-            //glDraw.callbackDisplay();
+            if (glDraw.attrs.showPointcloud || glDraw.attrs.showPointcloudNormals) {
+                cv::Mat points, colors;
+                rgbd_img.getPointCloud(points, colors);
+                if (glDraw.attrs.showPointcloud) {
+                    glDraw.renderPointCloud(points, colors);
+                }
+                if (glDraw.attrs.showPointcloudNormals) {
+                    glDraw.renderPointCloudNormals(points, rgbd_img.getNormals());
+                }
+            }
+
+            if (glDraw.attrs.showDetections) {             
+                glDraw.renderGeometries(geomList);
+            }
 
             std::vector<cv::DMatch> geometricMatches;
             surfmatcher.match(geomList, geomList, geometricMatches);
 
             //iterativeAlignment(rgbd_img, rgb_result);
 
-
+            glDraw.clearObjects();
 #ifdef PROFILE_CALLGRIND
             CALLGRIND_TOGGLE_COLLECT;
 #endif      

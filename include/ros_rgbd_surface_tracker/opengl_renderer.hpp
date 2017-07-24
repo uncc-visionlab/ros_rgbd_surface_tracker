@@ -23,16 +23,38 @@
 namespace cv {
     namespace rgbd {
 
+        class OpenGLRenderAttributes {
+        public:
+            bool showWireframe;
+            bool showPointcloud;
+            bool showPointcloudNormals;
+            bool showDetections;
+            int specialKey;
+
+            OpenGLRenderAttributes() : showWireframe(false),
+            showPointcloud(true),
+            showPointcloudNormals(false),
+            showDetections(true) {
+            }
+
+        };
+
         class OpenGLRenderer {
         private:
+            // texture map RGB image
             cv::Mat imgSeg;
+
+            // list of geometries to render
             std::unordered_map<std::string, ObjectGeometry> geomList;
+            
+            // buffer references for offscreen rendering
             GLuint color;
             GLuint depth;
             GLuint fbo;
         public:
             static int specialKey;
-
+            static OpenGLRenderAttributes attrs;
+            
             OpenGLRenderer() {
             }
 
@@ -45,6 +67,12 @@ namespace cv {
 
             int init(int width, int height, bool offscreen = false);
 
+            void initFrame(void);
+            
+            void setAttributes(OpenGLRenderAttributes& _attrs) {
+                attrs = _attrs;
+            }
+            
             static void callbackIdle(void);
 
             static void callbackKeyboard(unsigned char key, int x, int y);
