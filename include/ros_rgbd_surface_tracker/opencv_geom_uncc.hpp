@@ -100,9 +100,27 @@ namespace cv {
         }
 
         _Tpl xyzToLambda(const Point3_<_Tpl>& pt) {
-            Point3_<_Tpl> vecToPt = pt - p0;            
-            _Tpl lambda = v.dot(vecToPt)/std::sqrt(v.dot(v));
+            Point3_<_Tpl> vecToPt = pt - p0;
+            _Tpl lambda = v.dot(vecToPt) / std::sqrt(v.dot(v));
             return lambda;
+        }
+
+        _Tpl intersect( Line3_<_Tpl>& line2, Point3_<_Tpl>& pt) {
+            _Tpl error = 0;
+            cv::Vec<_Tpl, 3> line12_perp = v.cross(line2.v);
+            cv::Vec<_Tpl, 3> p0_To_p1 = line2.p0 - p0;
+            _Tpl inv_line12_perp_lensq = 1.0 / line12_perp.dot(line12_perp);
+            line12_perp *= inv_line12_perp_lensq;
+            cv::Vec<_Tpl, 3> v1 = p0_To_p1.cross(line2.v);
+            _Tpl v1p = v1.dot(line12_perp);
+            cv::Vec<_Tpl, 3> v2 = p0_To_p1.cross(v);
+            _Tpl v2p = v2.dot(line12_perp);
+            Point3_<_Tpl> p_line1 = getPoint(v1p);
+            Point3_<_Tpl> p_line2 = line2.getPoint(v2p);
+            pt = 0.5 * (p_line1 + p_line2);
+            Point3_<_Tpl> errorVec = p_line1-p_line2;
+            error = std::sqrt(errorVec.dot(errorVec));        
+            return error;
         }
 
         friend std::ostream& operator<<(std::ostream& os, const Line3_<_Tpl>& l) {

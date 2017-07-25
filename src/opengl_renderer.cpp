@@ -303,7 +303,8 @@ namespace cv {
 
         void OpenGLRenderer::renderGeometry(std::pair<std::string, ObjectGeometry> mapElement) {
             ObjectGeometry geom = mapElement.second;
-            if (geom.getSurfaceType() != cv::rgbd::EDGE) {
+            if (geom.getSurfaceType() != cv::rgbd::EDGE && 
+                    geom.getSurfaceType() != cv::rgbd::CORNER) {
                 attrs.showWireframe ? glBegin(GL_LINE_LOOP) : glBegin(GL_TRIANGLES);
                 for (int idx = 0; idx < geom.verts.size(); ++idx) {
                     cv::Vec3f vert = geom.verts[idx];
@@ -314,7 +315,7 @@ namespace cv {
                     glVertex3f(vert[0], vert[1], vert[2]);
                 }
                 glEnd();
-            } else {   // Render EDGE Object Geometry
+            } else {   // Render EDGE and CORNER Object Geometries
                 glBegin(GL_LINES);
                 for (int idx = 0; idx < geom.verts.size(); ++idx) {
                     cv::Vec3f vert = geom.verts[idx];

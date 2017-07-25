@@ -223,6 +223,52 @@ namespace sg {
         }
     };
 
+    class Corner : public Shape, public cv::Point3f {
+        Edge::Ptr edges[3]; // sorted by increasing z normal components        
+        //  parametric location of corner 
+        // on each edge line pair, (0,1), (1,2), (0,2)
+        float eline_lambdas[3];
+    public:
+        typedef boost::shared_ptr<Corner> Ptr;
+
+        Corner(Edge::Ptr edgeA, Edge::Ptr edgeB, Edge::Ptr edgeC) : sg::Shape(), cv::Point3f() {
+            edges[0] = edgeA;
+            edges[1] = edgeB;
+            edges[2] = edgeC;
+            // solve for corner location and set (cv::Point3f) this to the corner position
+            edges[0]->intersect(*edges[1], *this);
+            // get lambda for plane  pair (0,2)
+            eline_lambdas[0] = edges[0]->xyzToLambda(*this);
+            eline_lambdas[1] = edges[1]->xyzToLambda(*this);
+            eline_lambdas[2] = edges[2]->xyzToLambda(*this);
+        }
+
+        virtual ~Corner() {
+        }
+
+        std::vector<cv::Vec3f> generateCoords();
+
+        std::vector<int> generateCoordIndices();
+
+        std::vector<cv::Vec3f> generateNormals();
+
+        std::vector<int> generateNormalCoordIndices();
+
+        std::vector<cv::Vec3f> generateColorCoords();
+
+        std::vector<int> generateColorCoordIndices();
+
+        std::string toString() {
+            std::ostringstream stringStream;
+            stringStream << this;
+            return stringStream.str();
+        }
+
+        static Corner::Ptr create(Edge::Ptr edgeA, Edge::Ptr edgeB, Edge::Ptr edgeC) {
+            return Corner::Ptr(boost::make_shared<Corner>(edgeA, edgeB, edgeC));
+        }
+    };
+
     class Box : public Shape {
     public:
         typedef boost::shared_ptr<Box> Ptr;

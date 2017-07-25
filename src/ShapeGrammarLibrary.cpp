@@ -15,43 +15,6 @@
 
 namespace sg {
 
-    std::vector<cv::Vec3f> Edge::generateCoords() {
-        std::vector<cv::Vec3f> pts = {
-            getPoint(start),
-            getPoint(end),
-            //getPoint(tstart[0]),
-            //getPoint(tend[0]),
-            //getPoint(tstart[1]),
-            //getPoint(tend[1])
-        };
-        return pts;
-    }
-
-    std::vector<int> Edge::generateCoordIndices() {
-        std::vector<int> ptIdxs = {0, 1};//, 2, 3};
-        return ptIdxs;
-    }
-
-    std::vector<cv::Vec3f> Edge::generateNormals() {
-        std::vector<cv::Vec3f> norms = {cv::Vec3f(0, 0, -1)};
-        return norms;
-    }
-
-    std::vector<int> Edge::generateNormalCoordIndices() {
-        std::vector<int> normIdxs = {0, 0};//, 0, 0};
-        return normIdxs;
-    }
-
-    std::vector<cv::Vec3f> Edge::generateColorCoords() {
-        std::vector<cv::Vec3f> colors = {cv::Vec3f(1, 0, 0)};//, cv::Vec3f(0, 1, 0)};
-        return colors;
-    }
-
-    std::vector<int> Edge::generateColorCoordIndices() {
-        std::vector<int> colorIdxs = {0, 0};//, 1, 1};
-        return colorIdxs;
-    }
-
     std::vector<cv::Vec3f> Plane::generateCoords() {
         std::vector<cv::Vec2f> uv_poly_coords = uv_coords[0];
         std::vector<cv::Vec3f> pts(uv_poly_coords.size() + 1);
@@ -115,6 +78,84 @@ namespace sg {
         return coloridxs;
     }
     // compute vertices
+
+    std::vector<cv::Vec3f> Edge::generateCoords() {
+        std::vector<cv::Vec3f> pts = {
+            getPoint(start),
+            getPoint(end),
+            //getPoint(tstart[0]),
+            //getPoint(tend[0]),
+            //getPoint(tstart[1]),
+            //getPoint(tend[1])
+        };
+        return pts;
+    }
+
+    std::vector<int> Edge::generateCoordIndices() {
+        std::vector<int> ptIdxs = {0, 1}; //, 2, 3};
+        return ptIdxs;
+    }
+
+    std::vector<cv::Vec3f> Edge::generateNormals() {
+        std::vector<cv::Vec3f> norms = {cv::Vec3f(0, 0, -1)};
+        return norms;
+    }
+
+    std::vector<int> Edge::generateNormalCoordIndices() {
+        std::vector<int> normIdxs = {0, 0}; //, 0, 0};
+        return normIdxs;
+    }
+
+    std::vector<cv::Vec3f> Edge::generateColorCoords() {
+        std::vector<cv::Vec3f> colors = {cv::Vec3f(1, 0, 0)}; //, cv::Vec3f(0, 1, 0)};
+        return colors;
+    }
+
+    std::vector<int> Edge::generateColorCoordIndices() {
+        std::vector<int> colorIdxs = {0, 0}; //, 1, 1};
+        return colorIdxs;
+    }
+
+    std::vector<cv::Vec3f> Corner::generateCoords() {
+        std::vector<cv::Vec3f> pts = {
+            edges[0]->getPoint(edges[0]->end),
+            edges[0]->getPoint(eline_lambdas[0]),
+            edges[1]->getPoint(edges[1]->end),
+            edges[1]->getPoint(eline_lambdas[1]),
+            edges[2]->getPoint(edges[2]->end),
+            edges[2]->getPoint(eline_lambdas[2])
+        };
+        return pts;
+    }
+
+    std::vector<int> Corner::generateCoordIndices() {
+        std::vector<int> ptIdxs = {0, 1, 2, 3, 4, 5};
+        return ptIdxs;
+    }
+
+    std::vector<cv::Vec3f> Corner::generateNormals() {
+        std::vector<cv::Vec3f> norms = {cv::Vec3f(0, 0, -1)};
+        return norms;
+    }
+
+    std::vector<int> Corner::generateNormalCoordIndices() {
+        std::vector<int> normIdxs = {0, 0, 0, 0, 0, 0};
+        return normIdxs;
+    }
+
+    std::vector<cv::Vec3f> Corner::generateColorCoords() {
+        std::vector<cv::Vec3f> colors = {
+            cv::Vec3f(0, 1, 0),
+            cv::Vec3f(0, 1, 0),
+            cv::Vec3f(0, 1, 0)
+        };
+        return colors;
+    }
+
+    std::vector<int> Corner::generateColorCoordIndices() {
+        std::vector<int> colorIdxs = {0, 0, 1, 1, 2, 2};
+        return colorIdxs;
+    }
 
     std::vector<cv::Vec3f> Box::generateCoords() {
         std::vector<cv::Vec3f> pts = {
