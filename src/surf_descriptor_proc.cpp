@@ -81,6 +81,65 @@ namespace cv {
             } /* loop over candidate surface elements */
 //foundEdge:
 
+            for (std::vector<ObjectGeometry>::iterator geoA_iter = geometries.begin();
+                    geoA_iter != geometries.end() - 2; ++geoA_iter) {
+                
+                ObjectGeometry geometryA = *geoA_iter;
+                
+                if (geometryA.getSurfaceType() == cv::rgbd::EDGE) {
+                    sg::Edge::Ptr edgeA = boost::static_pointer_cast<sg::Edge>(geometryA.getShape());
+                    
+                    for (std::vector<ObjectGeometry>::iterator geoB_iter = geoA_iter + 1;
+                            geoB_iter != geometries.end() - 1; ++geoB_iter) {
+                        
+                        ObjectGeometry geometryB = *geoB_iter;
+                        
+                        if (geometryB.getSurfaceType() == cv::rgbd::EDGE) {
+                            sg::Edge::Ptr edgeB = boost::static_pointer_cast<sg::Edge>(geometryB.getShape());
+                            
+                            if (std::abs(edgeA->v.dot(edgeB->v)) < .05) {
+                                std::cout << "Approx. perpendicular edge found\n";
+                                
+                                cv::Point3f perp_vector = edgeA->v.cross(edgeB->v);
+                                
+                                for (std::vector<ObjectGeometry>::iterator geoC_iter = geoB_iter + 1;
+                                        geoC_iter != geometries.end(); ++geoC_iter) {
+
+                                    ObjectGeometry geometryC = *geoC_iter;
+
+                                    if (geometryC.getSurfaceType() == cv::rgbd::EDGE) {
+                                        sg::Edge::Ptr edgeC = boost::static_pointer_cast<sg::Edge>(geometryC.getShape());
+                                        
+                                        float piped_volume = std::abs(edgeC->v.dot(perp_vector));
+                                        
+                                        if (piped_volume > .95) {
+                                            std::cout << "Found corner, parallelpiped volume = " << piped_volume << std::endl;
+                                            sg::Corner::Ptr corner_ptr = sg::Corner::create(edgeA, edgeB, edgeC);
+                                            ObjectGeometry cornerGeom;
+//                                            cornerGeom.addPart(surfPatchA);
+//                                            cornerGeom.addPart(surfPatchB);
+                                            cornerGeom.setShape(corner_ptr);
+                                            cornerGeom.setSurfaceType(cv::rgbd::CORNER);
+                                            geometries.push_back(cornerGeom);
+                                            goto foundCorner;
+                                        }
+                                        
+                                    }
+                                    
+                                }
+                                
+                            }
+                            
+                        }
+                        
+                    }
+                    
+                }
+                
+            }
+            
+foundCorner:
+            
             for (auto surfPatchA_iter = surflets.begin();
                     surfPatchA_iter != surflets.end(); ++surfPatchA_iter) {
                 AlgebraicSurfacePatch::Ptr surfPatchA = (*surfPatchA_iter);
