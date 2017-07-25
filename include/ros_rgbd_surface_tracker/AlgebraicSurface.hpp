@@ -901,29 +901,48 @@ public:
         
     }
     
-//
-//    static double inexactDeterminant3x3(double[][] m) {
-//        double[][] m00_minor = {
-//            {m[1][1], m[1][2]},
-//            {m[2][1], m[2][2]}};
-//        double[][] m01_minor = {
-//            {m[1][0], m[1][2]},
-//            {m[2][0], m[2][2]}};
-//        double[][] m02_minor = {
-//            {m[1][0], m[1][1]},
-//            {m[2][0], m[2][1]}};
-//        double det = m[0][0] * inexactDeterminant2x2(m00_minor)
-//                - m[0][1] * inexactDeterminant2x2(m01_minor)
-//                + m[0][2] * inexactDeterminant2x2(m02_minor);
-//        return det;
-//    }
-//
-//    static double inexactDeterminant2x2(double[][] m) {
-//        double det = m[0][0] * m[1][1] - m[0][1] * m[1][0];
-//        return det;
-//    }
-
-
+    ScalarType evaluateSecondDerivative(int coord_index, const Eigen::Ref<const RowVector3s>& pt) {
+        if (this->subsurfaces.size() != 3 && SAFETY_CHECKS)
+            throw "Subsurfaces != 3!";
+            
+        ScalarType a1 = this->subsurfaces[0]->coeffs[1];
+        ScalarType a2 = this->subsurfaces[1]->coeffs[1];
+        ScalarType a3 = this->subsurfaces[2]->coeffs[1];
+        
+        ScalarType b1 = this->subsurfaces[0]->coeffs[2];
+        ScalarType b2 = this->subsurfaces[1]->coeffs[2];
+        ScalarType b3 = this->subsurfaces[2]->coeffs[2];
+        
+        ScalarType c1 = this->subsurfaces[0]->coeffs[3];
+        ScalarType c2 = this->subsurfaces[1]->coeffs[3];
+        ScalarType c3 = this->subsurfaces[2]->coeffs[3];
+        
+        ScalarType d1 = this->subsurfaces[0]->coeffs[0];
+        ScalarType d2 = this->subsurfaces[1]->coeffs[0];
+        ScalarType d3 = this->subsurfaces[2]->coeffs[0];
+        
+        ScalarType result;
+        
+        switch(coord_index) {
+            case 0:
+                result = 6*a1*a2*a3*pt(0) + (2*a1*a2*b3 + 2*a1*a3*b2 + 2*a2*a3*b1)*pt(1) + (2*a1*a2*c3 + 2*a1*a3*c2 + 2*a2*a3*c1)*pt(2) + 2*a1*a2*d3 + 2*a1*a3*d2 + 2*a2*a3*d1;
+                break;
+            case 1:
+                result = (2*a1*b2*b3 + 2*a2*b1*b3 + 2*a3*b1*b2)*pt(0) + 6*b1*b2*b3*pt(1) + (2*b1*b2*c3 + 2*b1*b3*c2 + 2*b2*b3*c1)*pt(2) + 2*b1*b2*d3 + 2*b1*b3*d2 + 2*b2*b3*d1;
+                break;
+            case 2:
+                result = (2*a1*c2*c3 + 2*a2*c1*c3 + 2*a3*c1*c2)*pt(0) + (2*b1*c2*c3 + 2*b2*c1*c3 + 2*b3*c1*c2)*pt(1) + 6*c1*c2*c3*pt(2) + 2*c1*c2*d3 + 2*c1*c3*d2 + 2*c2*c3*d1;
+                break;
+            default:
+                throw "Invalid dimension!";
+                break;
+                
+        }
+        
+        return result;
+        
+    }
+    
 
 };
 

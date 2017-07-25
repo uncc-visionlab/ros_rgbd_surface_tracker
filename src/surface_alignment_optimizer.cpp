@@ -376,7 +376,9 @@ namespace cv {
             
             if (detR < 0) {
                 std::cout << "|R| = " << detR << ", fixing...\n";
-                R.col(2) *= -1;
+                Eigen::Matrix3d eye_with_neg = Eigen::Matrix3d::Identity();
+                eye_with_neg(2, 2) = -1;
+                R = v*eye_with_neg*u.transpose();
             }
             
             normalsCovMat.setZero();
@@ -393,7 +395,7 @@ namespace cv {
                     plane_src_coeffs.head(3) = R.transpose() * plane_src_coeffs.head(3);
                     plane_src = boost::make_shared<cv::Plane3f>(plane_src_coeffs(0), plane_src_coeffs(1), plane_src_coeffs(2), plane_src_coeffs(3));
                     plane_src->convertHessianNormalForm();
-
+                    
                     float norm = (plane_tgt->x - plane_src->x)*(plane_tgt->x - plane_src->x) +
                             (plane_tgt->y - plane_src->y)*(plane_tgt->y - plane_src->y) +
                             (plane_tgt->z - plane_src->z)*(plane_tgt->z - plane_src->z) +
