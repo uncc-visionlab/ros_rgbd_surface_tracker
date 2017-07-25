@@ -148,6 +148,10 @@ namespace cv {
                 parentShape = _parentShape;
             }
 
+            void setSurfaceType(SurfaceType _surfaceType) {
+                surfaceType = _surfaceType;
+            }
+
             SurfaceType getSurfaceType() {
                 return surfaceType;
             }

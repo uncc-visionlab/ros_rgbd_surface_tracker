@@ -52,7 +52,6 @@ namespace cv {
             GLuint depth;
             GLuint fbo;
         public:
-            static int specialKey;
             static OpenGLRenderAttributes attrs;
             
             OpenGLRenderer() {

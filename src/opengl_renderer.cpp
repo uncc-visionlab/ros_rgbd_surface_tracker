@@ -106,24 +106,31 @@ namespace cv {
         }
 
         void OpenGLRenderer::callbackMouseClick(int button, int state, int x, int y) {
-            specialKey = glutGetModifiers();
+            attrs.specialKey = glutGetModifiers();
             // if both a mouse button, and the ALT key, are pressed then
-            std::cout << "Got click ";
-            if ((state == GLUT_DOWN) &&
-                    (specialKey == GLUT_ACTIVE_ALT)) {
+            // Each wheel event reports like a button click, GLUT_DOWN then GLUT_UP
+            if (state == GLUT_UP) return; // Disregard redundant GLUT_UP (MouseButtonRelease) events            
+            if ((state == GLUT_DOWN)) { // &&
+                //(attrs.specialKey == GLUT_ACTIVE_SHIFT)) {
                 if (button == GLUT_LEFT_BUTTON) {
-                    std::cout << "Got ALT+Left Click";
+                    //std::cout << "Got Left Click";
                 } else if (button == GLUT_MIDDLE_BUTTON) {
-                    std::cout << "Got ALT+Left Click";
-                } else {
-                    std::cout << "Got ALT+Right Click";
+                    //std::cout << "Got Middle Click";
+                } else if (button == GLUT_RIGHT_BUTTON) {
+                    //std::cout << "Got Right Click";
+                } else if (button == 3) { // Mouse wheel Scroll Up
+                    //std::cout << "Got Mouse Scroll Up Click";
+                    glTranslatef(0.0f, 0.0f, -0.1f);
+                } else if (button == 4) { // Mouse wheel Scroll Down
+                    //std::cout << "Got Mouse Scroll Down Click";
+                    glTranslatef(0.0f, 0.0f, +0.1f);
                 }
             }
         }
 
         void OpenGLRenderer::callbackMouseMotion(int x, int y) {
             // the ALT key was used in the previous function
-            if (specialKey != GLUT_ACTIVE_ALT) {
+            if (attrs.specialKey != GLUT_ACTIVE_ALT) {
                 // setting red to be relative to the mouse
                 // position inside the window
             }
@@ -132,7 +139,7 @@ namespace cv {
         void OpenGLRenderer::callbackPassiveMouseMotion(int x, int y) {
             // User must press the SHIFT key to change the
             // rotation in the X axis
-            if (specialKey != GLUT_ACTIVE_SHIFT) {
+            if (attrs.specialKey != GLUT_ACTIVE_SHIFT) {
                 // setting the angle to be relative to the mouse
                 // position inside the window
                 //if (x < 0)
@@ -296,16 +303,29 @@ namespace cv {
 
         void OpenGLRenderer::renderGeometry(std::pair<std::string, ObjectGeometry> mapElement) {
             ObjectGeometry geom = mapElement.second;
-            attrs.showWireframe ? glBegin(GL_LINE_LOOP) : glBegin(GL_TRIANGLES);
-            for (int idx = 0; idx < geom.verts.size(); ++idx) {
-                cv::Vec3f vert = geom.verts[idx];
-                cv::Vec3f normal = geom.normals[idx];
-                cv::Vec3f color = geom.colors[idx];
-                glColor4f(color[0], color[1], color[2], 0.5f);
-                glNormal3f(normal[0], normal[1], normal[2]);
-                glVertex3f(vert[0], vert[1], vert[2]);
+            if (geom.getSurfaceType() != cv::rgbd::EDGE) {
+                attrs.showWireframe ? glBegin(GL_LINE_LOOP) : glBegin(GL_TRIANGLES);
+                for (int idx = 0; idx < geom.verts.size(); ++idx) {
+                    cv::Vec3f vert = geom.verts[idx];
+                    cv::Vec3f normal = geom.normals[idx];
+                    cv::Vec3f color = geom.colors[idx];
+                    glColor4f(color[0], color[1], color[2], 0.5f);
+                    glNormal3f(normal[0], normal[1], normal[2]);
+                    glVertex3f(vert[0], vert[1], vert[2]);
+                }
+                glEnd();
+            } else {   // Render EDGE Object Geometry
+                glBegin(GL_LINES);
+                for (int idx = 0; idx < geom.verts.size(); ++idx) {
+                    cv::Vec3f vert = geom.verts[idx];
+                    cv::Vec3f normal = geom.normals[idx];
+                    cv::Vec3f color = geom.colors[idx];
+                    glColor4f(color[0], color[1], color[2], 0.5f);
+                    glNormal3f(normal[0], normal[1], normal[2]);
+                    glVertex3f(vert[0], vert[1], vert[2]);
+                }
+                glEnd();
             }
-            glEnd();
         }
 
         void OpenGLRenderer::renderGeometries(std::vector<ObjectGeometry> geomList) {

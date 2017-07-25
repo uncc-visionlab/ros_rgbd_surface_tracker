@@ -24,10 +24,7 @@ namespace cv {
 
         // construct static class member for OpenGL based rendering of scene objects
         OpenGLRenderer RgbdSurfaceTracker::glDraw;
-        //OpenGLRenderAttributes RgbdSurfaceTracker::glAttr;
-        int OpenGLRenderer::specialKey;
         OpenGLRenderAttributes OpenGLRenderer::attrs;
-
 
         std::map<SurfaceType, const char*> surfaceTypeToString = {
             {SurfaceType::UNKNOWN, "Uknown"},
@@ -59,7 +56,6 @@ namespace cv {
 
             if (!glDraw.initialized()) {
                 glDraw.init(rgbd_img.getWidth(), rgbd_img.getHeight(), offscreen_rendering);
-                //glDraw.setAttributes(glAttr);
             }
 
             cv::Rect rectVal(290, 200, 640 - 2 * 290, 480 - 2 * 200);
@@ -75,7 +71,6 @@ namespace cv {
             // OpenGL rendering
             glDraw.setImage(rgbd_img.getRGB());
             glDraw.initFrame();
-            
             if (glDraw.attrs.showPointcloud || glDraw.attrs.showPointcloudNormals) {
                 cv::Mat points, colors;
                 rgbd_img.getPointCloud(points, colors);
@@ -83,10 +78,11 @@ namespace cv {
                     glDraw.renderPointCloud(points, colors);
                 }
                 if (glDraw.attrs.showPointcloudNormals) {
+                    //glDraw.renderPointCloudNormals(points, rgbd_img.getNormals(),
+                    //        0.2, 0.33, false);
                     glDraw.renderPointCloudNormals(points, rgbd_img.getNormals());
                 }
             }
-
             if (glDraw.attrs.showDetections) {             
                 glDraw.renderGeometries(geomList);
             }

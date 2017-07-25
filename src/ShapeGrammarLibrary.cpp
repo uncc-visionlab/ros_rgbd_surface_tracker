@@ -15,6 +15,70 @@
 
 namespace sg {
 
+    std::vector<cv::Vec3f> Edge::generateCoords() {
+        std::vector<cv::Vec3f> pts;
+        std::vector<cv::Vec3f> ptsA = surfaces[0]->generateCoords();
+        float lambda;
+        for (cv::Vec3f pt : ptsA) {
+            lambda = xyzToLambda(pt);
+            if (lambda < start) {
+                start = lambda;
+            }
+            if (lambda > end) {
+                end = lambda;
+            }
+        }
+        cv::Point3f startPtA = this->getPoint(start);
+        cv::Point3f endPtA = this->getPoint(end);
+        //cv::Point2f uvStartPtA = surfaces[0]->xyzToUV(startPtA);
+        //cv::Point2f uvEndPtA = surfaces[0]->xyzToUV(endPtA);
+        
+       std::vector<cv::Vec3f> ptsB = surfaces[1]->generateCoords();
+        for (cv::Vec3f pt : ptsB) {
+            lambda = xyzToLambda(pt);
+            if (lambda < start) {
+                start = lambda;
+            }
+            if (lambda > end) {
+                end = lambda;
+            }
+        }
+        cv::Point3f startPtB = this->getPoint(start);
+        cv::Point3f endPtB = this->getPoint(end);
+        //cv::Point2f uvStartPtB = surfaces[0]->xyzToUV(startPtA);
+        //cv::Point2f uvEndPtB = surfaces[0]->xyzToUV(endPtA);
+        pts.push_back(startPtA);
+        pts.push_back(endPtA);
+        pts.push_back(startPtB);
+        pts.push_back(endPtA);
+        return pts;
+    }
+
+    std::vector<int> Edge::generateCoordIndices() {
+        std::vector<int> ptIdxs = { 1, 2, 3, 4};
+        return ptIdxs;
+    }
+
+    std::vector<cv::Vec3f> Edge::generateNormals() {
+        std::vector<cv::Vec3f> norms = { cv::Vec3f(0,0,-1) };        
+        return norms;
+    }
+
+    std::vector<int> Edge::generateNormalCoordIndices() {
+        std::vector<int> normIdxs = { 0, 0, 0, 0};
+        return normIdxs;
+    }
+
+    std::vector<cv::Vec3f> Edge::generateColorCoords() {
+        std::vector<cv::Vec3f> colors = { cv::Vec3f(1,0,0) };
+        return colors;
+    }
+
+    std::vector<int> Edge::generateColorCoordIndices() {
+        std::vector<int> colorIdxs = { 0, 0, 0, 0};
+        return colorIdxs;
+    }
+
     std::vector<cv::Vec3f> Plane::generateCoords() {
         std::vector<cv::Vec2f> uv_poly_coords = uv_coords[0];
         std::vector<cv::Vec3f> pts(uv_poly_coords.size() + 1);
@@ -31,14 +95,14 @@ namespace sg {
         return pts;
     }
 
-    std::vector<cv::Vec3i> Plane::generateCoordIndices() {
+    std::vector<int> Plane::generateCoordIndices() {
         std::vector<cv::Vec2f> uv_poly_coords = uv_coords[0];
-        std::vector<cv::Vec3i> ptidxs(uv_poly_coords.size());
+        std::vector<int> ptidxs; // reserve(uv_poly_coords.size()*3)
         int ctr_pt_idx = uv_poly_coords.size();
-        for (int triIdx = 0; triIdx < ptidxs.size() - 1; ++triIdx) {
-            ptidxs[triIdx] = cv::Vec3i(ctr_pt_idx, triIdx, triIdx + 1);
+        for (int triIdx = 0; triIdx < uv_poly_coords.size() - 1; ++triIdx) {
+            ptidxs.insert(ptidxs.end(),{ctr_pt_idx, triIdx, triIdx + 1});
         }
-        ptidxs[ptidxs.size() - 1] = cv::Vec3i(ctr_pt_idx, ptidxs.size() - 1, 0);
+        ptidxs.insert(ptidxs.end(),{ctr_pt_idx, (int) uv_poly_coords.size() - 1, 0});
         return ptidxs;
     }
 
@@ -51,11 +115,11 @@ namespace sg {
         return norms;
     }
 
-    std::vector<cv::Vec3i> Plane::generateNormalCoordIndices() {
+    std::vector<int> Plane::generateNormalCoordIndices() {
         std::vector<cv::Vec2f> uv_poly_coords = uv_coords[0];
-        std::vector<cv::Vec3i> normidxs(uv_poly_coords.size());
+        std::vector<int> normidxs; // reserve(uv_poly_coords.size()*3);
         for (int triIdx = 0; triIdx < uv_poly_coords.size(); ++triIdx) {
-            normidxs[triIdx] = cv::Vec3i(0, 0, 0);
+            normidxs.insert(normidxs.end(),{0, 0, 0});
         }
         return normidxs;
     }
@@ -70,11 +134,11 @@ namespace sg {
         return colors;
     }
 
-    std::vector<cv::Vec3i> Plane::generateColorCoordIndices() {
+    std::vector<int> Plane::generateColorCoordIndices() {
         std::vector<cv::Vec2f> uv_poly_coords = uv_coords[0];
-        std::vector<cv::Vec3i> coloridxs(uv_poly_coords.size());
+        std::vector<int> coloridxs; // reserve(uv_poly_coords.size()*3);
         for (int triIdx = 0; triIdx < uv_poly_coords.size(); ++triIdx) {
-            coloridxs[triIdx] = cv::Vec3i(0, 0, 0);
+            coloridxs.insert(coloridxs.end(),{0, 0, 0});
         }
         return coloridxs;
     }
@@ -98,21 +162,22 @@ namespace sg {
 
     // compute triangle surfaces
 
-    std::vector<cv::Vec3i> Box::generateCoordIndices() {
-        std::vector<cv::Vec3i> tris(12);
-        tris[0] = cv::Vec3i(0, 5, 4);
-        tris[1] = cv::Vec3i(5, 0, 1);
-        tris[2] = cv::Vec3i(1, 6, 5);
-        tris[3] = cv::Vec3i(6, 1, 2);
-        tris[4] = cv::Vec3i(2, 7, 6);
-        tris[5] = cv::Vec3i(7, 2, 3);
-        tris[6] = cv::Vec3i(3, 4, 7);
-        tris[7] = cv::Vec3i(4, 3, 0);
-        tris[8] = cv::Vec3i(4, 6, 7);
-        tris[9] = cv::Vec3i(6, 4, 5);
-        tris[10] = cv::Vec3i(1, 3, 2);
-        tris[11] = cv::Vec3i(3, 1, 0);
-        return tris;
+    std::vector<int> Box::generateCoordIndices() {
+        std::vector<int> triIdxs = {
+            0, 5, 4,
+            5, 0, 1,
+            1, 6, 5,
+            6, 1, 2,
+            2, 7, 6,
+            7, 2, 3,
+            3, 4, 7,
+            4, 3, 0,
+            4, 6, 7,
+            6, 4, 5,
+            1, 3, 2,
+            3, 1, 0
+        };
+        return triIdxs;
     }
 
     std::vector<cv::Vec3f> Box::generateNormals() {
@@ -129,21 +194,22 @@ namespace sg {
         return norms;
     }
 
-    std::vector<cv::Vec3i> Box::generateNormalCoordIndices() {
-        std::vector<cv::Vec3i> tricols(12);
-        tricols[0] = cv::Vec3i(0, 0, 0);
-        tricols[1] = cv::Vec3i(0, 0, 0);
-        tricols[2] = cv::Vec3i(1, 1, 1);
-        tricols[3] = cv::Vec3i(1, 1, 1);
-        tricols[4] = cv::Vec3i(2, 2, 2);
-        tricols[5] = cv::Vec3i(2, 2, 2);
-        tricols[6] = cv::Vec3i(3, 3, 3);
-        tricols[7] = cv::Vec3i(3, 3, 3);
-        tricols[8] = cv::Vec3i(4, 4, 4);
-        tricols[9] = cv::Vec3i(4, 4, 4);
-        tricols[10] = cv::Vec3i(5, 5, 5);
-        tricols[11] = cv::Vec3i(5, 5, 5);
-        return tricols;
+    std::vector<int> Box::generateNormalCoordIndices() {
+        std::vector<int> trinormIdxs = {
+            0, 0, 0,
+            0, 0, 0,
+            1, 1, 1,
+            1, 1, 1,
+            2, 2, 2,
+            2, 2, 2,
+            3, 3, 3,
+            3, 3, 3,
+            4, 4, 4,
+            4, 4, 4,
+            5, 5, 5,
+            5, 5, 5
+        };
+        return trinormIdxs;
     }
 
     std::vector<cv::Vec3f> Box::generateColorCoords() {
@@ -157,21 +223,22 @@ namespace sg {
         return colors;
     }
 
-    std::vector<cv::Vec3i> Box::generateColorCoordIndices() {
-        std::vector<cv::Vec3i> tricols(12);
-        tricols[0] = cv::Vec3i(0, 0, 0);
-        tricols[1] = cv::Vec3i(0, 0, 0);
-        tricols[2] = cv::Vec3i(1, 1, 1);
-        tricols[3] = cv::Vec3i(1, 1, 1);
-        tricols[4] = cv::Vec3i(3, 3, 3); // face opposite red
-        tricols[5] = cv::Vec3i(3, 3, 3); // face opposite red
-        tricols[6] = cv::Vec3i(4, 4, 4); // face opposite green
-        tricols[7] = cv::Vec3i(4, 4, 4); // face opposite green
-        tricols[8] = cv::Vec3i(2, 2, 2);
-        tricols[9] = cv::Vec3i(2, 2, 2);
-        tricols[10] = cv::Vec3i(5, 5, 5); // face opposite blue
-        tricols[11] = cv::Vec3i(5, 5, 5); // face opposite blue
-        return tricols;
+    std::vector<int> Box::generateColorCoordIndices() {
+        std::vector<int> tricolIdxs = {
+            0, 0, 0,
+            0, 0, 0,
+            1, 1, 1,
+            1, 1, 1,
+            3, 3, 3, // face opposite red
+            3, 3, 3, // face opposite red
+            4, 4, 4, // face opposite green
+            4, 4, 4, // face opposite green
+            2, 2, 2,
+            2, 2, 2,
+            5, 5, 5, // face opposite blue
+            5, 5, 5 // face opposite blue
+        };
+        return tricolIdxs;
     }
 
     std::vector<cv::rgbd::ObjectGeometry::Ptr> Box::getCorners() {
@@ -293,18 +360,18 @@ namespace sg {
         return pts;
     }
 
-    std::vector<cv::Vec3i> Cylinder::generateCoordIndices(int N) {
-        std::vector<cv::Vec3i> tris(N * 4);
+    std::vector<int> Cylinder::generateCoordIndices(int N) {
+        std::vector<int> tris; // reserve(N * 4 * 3);
         for (int i = 0; i < N - 1; ++i) {
-            tris[i * 4] = cv::Vec3i(N, i + 1, i);
-            tris[i * 4 + 1] = cv::Vec3i(2 * N + 1, N + 1 + i, N + 2 + i);
-            tris[i * 4 + 2] = cv::Vec3i(N + i + 1, i + 1, N + 2 + i);
-            tris[i * 4 + 3] = cv::Vec3i(i + 1, N + i + 1, i);
+            tris.insert(tris.end(),{N, i + 1, i});
+            tris.insert(tris.end(),{2 * N + 1, N + 1 + i, N + 2 + i});
+            tris.insert(tris.end(),{N + i + 1, i + 1, N + 2 + i});
+            tris.insert(tris.end(),{i + 1, N + i + 1, i});
         }
-        tris[N * 4 - 4] = cv::Vec3i(N, 0, N - 1);
-        tris[N * 4 - 3] = cv::Vec3i(2 * N + 1, 2 * N, N + 1);
-        tris[N * 4 - 2] = cv::Vec3i(0, 2 * N, N - 1);
-        tris[N * 4 - 1] = cv::Vec3i(2 * N, 0, N + 1);
+        tris.insert(tris.end(),{N, 0, N - 1});
+        tris.insert(tris.end(),{2 * N + 1, 2 * N, N + 1});
+        tris.insert(tris.end(),{0, 2 * N, N - 1});
+        tris.insert(tris.end(),{2 * N, 0, N + 1});
         return tris;
     }
 
@@ -325,19 +392,19 @@ namespace sg {
         return norms;
     }
 
-    std::vector<cv::Vec3i> Cylinder::generateNormalCoordIndices() {
+    std::vector<int> Cylinder::generateNormalCoordIndices() {
         static int N = DEFAULT_RESOLUTION;
-        std::vector<cv::Vec3i> norms(N * 4);
+        std::vector<int> norms; // reserve(N * 4 * 3);
         for (int i = 0; i < N - 1; ++i) {
-            norms[i * 4] = cv::Vec3i(N, N, N);
-            norms[i * 4 + 1] = cv::Vec3i(N + 1, N + 1, N + 1);
-            norms[i * 4 + 2] = cv::Vec3i(i, i + 1, 1 + i);
-            norms[i * 4 + 3] = cv::Vec3i(i + 1, i, i);
+            norms.insert(norms.end(),{N, N, N});
+            norms.insert(norms.end(),{N + 1, N + 1, N + 1});
+            norms.insert(norms.end(),{i, i + 1, 1 + i});
+            norms.insert(norms.end(),{i + 1, i, i});
         }
-        norms[N * 4 - 4] = cv::Vec3i(N, N, N);
-        norms[N * 4 - 3] = cv::Vec3i(N + 1, N + 1, N + 1);
-        norms[N * 4 - 2] = cv::Vec3i(0, N - 1, N - 1);
-        norms[N * 4 - 1] = cv::Vec3i(N - 1, 0, N - 1);
+        norms.insert(norms.end(),{N, N, N});
+        norms.insert(norms.end(),{N + 1, N + 1, N + 1});
+        norms.insert(norms.end(),{0, N - 1, N - 1});
+        norms.insert(norms.end(),{N - 1, 0, N - 1});
         return norms;
     }
 
@@ -350,19 +417,19 @@ namespace sg {
         return colors;
     }
 
-    std::vector<cv::Vec3i> Cylinder::generateColorCoordIndices() {
+    std::vector<int> Cylinder::generateColorCoordIndices() {
         static int N = DEFAULT_RESOLUTION;
-        std::vector<cv::Vec3i> colorIdxs(N * 4);
+        std::vector<int> colorIdxs; //reserve(N * 4 * 3);
         for (int i = 0; i < N - 1; ++i) {
-            colorIdxs[i * 4] = cv::Vec3i(1, 1, 1);
-            colorIdxs[i * 4 + 1] = cv::Vec3i(2, 2, 2);
-            colorIdxs[i * 4 + 2] = cv::Vec3i(0, 0, 0);
-            colorIdxs[i * 4 + 3] = cv::Vec3i(0, 0, 0);
+            colorIdxs.insert(colorIdxs.end(),{1, 1, 1});
+            colorIdxs.insert(colorIdxs.end(),{2, 2, 2});
+            colorIdxs.insert(colorIdxs.end(),{0, 0, 0});
+            colorIdxs.insert(colorIdxs.end(),{0, 0, 0});
         }
-        colorIdxs[N * 4 - 4] = cv::Vec3i(1, 1, 1);
-        colorIdxs[N * 4 - 3] = cv::Vec3i(2, 2, 2);
-        colorIdxs[N * 4 - 2] = cv::Vec3i(0, 0, 0);
-        colorIdxs[N * 4 - 1] = cv::Vec3i(0, 0, 0);
+        colorIdxs.insert(colorIdxs.end(),{1, 1, 1});
+        colorIdxs.insert(colorIdxs.end(),{2, 2, 2});
+        colorIdxs.insert(colorIdxs.end(),{0, 0, 0});
+        colorIdxs.insert(colorIdxs.end(),{0, 0, 0});
         return colorIdxs;
     }
 } /* namespace sg */

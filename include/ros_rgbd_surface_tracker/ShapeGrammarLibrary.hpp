@@ -84,14 +84,21 @@ namespace sg {
     public:
         typedef boost::shared_ptr<Shape> Ptr;
 
+        Shape() : pose() {
+        }
+
+        Shape(Pose _pose) : pose(_pose) {
+        }
+
         virtual ~Shape() {
         }
+
         virtual std::vector<cv::Vec3f> generateCoords() = 0;
-        virtual std::vector<cv::Vec3i> generateCoordIndices() = 0;
+        virtual std::vector<int> generateCoordIndices() = 0;
         virtual std::vector<cv::Vec3f> generateNormals() = 0;
-        virtual std::vector<cv::Vec3i> generateNormalCoordIndices() = 0;
+        virtual std::vector<int> generateNormalCoordIndices() = 0;
         virtual std::vector<cv::Vec3f> generateColorCoords() = 0;
-        virtual std::vector<cv::Vec3i> generateColorCoordIndices() = 0;
+        virtual std::vector<int> generateColorCoordIndices() = 0;
         virtual std::string toString() = 0;
 
     protected:
@@ -104,17 +111,17 @@ namespace sg {
     public:
         typedef boost::shared_ptr<Plane> Ptr;
 
-        Plane() : cv::Plane3f() {
+        Plane() : sg::Shape(), cv::Plane3f() {
         }
 
-        Plane(cv::Plane3f& _p) : cv::Plane3f(_p.x, _p.y, _p.z, _p.d) {
-        }        
-        
+        Plane(cv::Plane3f& _p) : sg::Shape(), cv::Plane3f(_p.x, _p.y, _p.z, _p.d) {
+        }
+
         //Plane(cv::Vec3f ctr, cv::Vec2f dims, cv::Plane3f& _p) : cv::Plane3f(_p.x, _p.y, _p.z, _p.d) {
         //    // TODO construct uv coords   
         //}
 
-        Plane(float a, float b, float c, float d) : cv::Plane3f(a, b, c, d) {
+        Plane(float a, float b, float c, float d) : sg::Shape(), cv::Plane3f(a, b, c, d) {
         }
 
         virtual ~Plane() {
@@ -130,47 +137,92 @@ namespace sg {
 
         std::vector<cv::Vec3f> generateCoords();
 
-        std::vector<cv::Vec3i> generateCoordIndices();
+        std::vector<int> generateCoordIndices();
 
         std::vector<cv::Vec3f> generateNormals();
 
-        std::vector<cv::Vec3i> generateNormalCoordIndices();
+        std::vector<int> generateNormalCoordIndices();
 
         std::vector<cv::Vec3f> generateColorCoords();
 
-        std::vector<cv::Vec3i> generateColorCoordIndices();
+        std::vector<int> generateColorCoordIndices();
 
         std::string toString() {
             std::ostringstream stringStream;
             stringStream << cv::Plane3f::toString();
             return stringStream.str();
         }
-        
+
         static Plane::Ptr create() {
             return Plane::Ptr(boost::make_shared<Plane>());
-        }        
+        }
+    };
+
+    class Edge : public Shape, public cv::LineSegment3f {
+        Plane::Ptr surfaces[2]; // sorted by increasing z normal components
+    public:
+        typedef boost::shared_ptr<Edge> Ptr;
+
+        Edge(Plane::Ptr planeA, Plane::Ptr planeB) : sg::Shape(), cv::LineSegment3f() {
+            if (planeA->z < planeB->z) {
+                surfaces[0] = planeA;
+                surfaces[1] = planeB;
+            } else {
+                surfaces[0] = planeB;
+                surfaces[1] = planeA;
+            }
+            surfaces[0]->intersect(*surfaces[1], *this);
+            if (this->v.z < 0) {
+                this->v = -this->v;
+            }
+            this->start = std::numeric_limits<float>::infinity();
+            this->end = -std::numeric_limits<float>::infinity();
+        }
+
+        virtual ~Edge() {
+        }
+
+        std::vector<cv::Vec3f> generateCoords();
+
+        std::vector<int> generateCoordIndices();
+
+        std::vector<cv::Vec3f> generateNormals();
+
+        std::vector<int> generateNormalCoordIndices();
+
+        std::vector<cv::Vec3f> generateColorCoords();
+
+        std::vector<int> generateColorCoordIndices();
+
+        std::string toString() {
+            std::ostringstream stringStream;
+            stringStream << cv::LineSegment3f::toString();
+            return stringStream.str();
+        }
+
+        static Edge::Ptr create(Plane::Ptr planeA, Plane::Ptr planeB) {
+            return Edge::Ptr(boost::make_shared<Edge>(planeA, planeB));
+        }
     };
 
     class Box : public Shape {
     public:
         typedef boost::shared_ptr<Box> Ptr;
 
-//        enum Faces {
-//            UNKNOWN = 0,
-//            FRONT,
-//            BACK,
-//            LEFT,
-//            RIGHT,
-//            TOP,
-//            BOTTOM
-//        };
-        
-        Box() {
+        //        enum Faces {
+        //            UNKNOWN = 0,
+        //            FRONT,
+        //            BACK,
+        //            LEFT,
+        //            RIGHT,
+        //            TOP,
+        //            BOTTOM
+        //        };
+
+        Box() : sg::Shape() {
         }
 
-        Box(cv::Vec3f _dims, Pose _pose) {
-            dims = _dims;
-            pose = _pose;
+        Box(cv::Vec3f _dims, Pose _pose) : dims(_dims), sg::Shape(_pose) {
         }
 
         virtual ~Box() {
@@ -178,22 +230,22 @@ namespace sg {
 
         std::vector<cv::Vec3f> generateCoords();
 
-        std::vector<cv::Vec3i> generateCoordIndices();
+        std::vector<int> generateCoordIndices();
 
         std::vector<cv::Vec3f> generateNormals();
 
-        std::vector<cv::Vec3i> generateNormalCoordIndices();
+        std::vector<int> generateNormalCoordIndices();
 
         std::vector<cv::Vec3f> generateColorCoords();
 
-        std::vector<cv::Vec3i> generateColorCoordIndices();
+        std::vector<int> generateColorCoordIndices();
 
         std::vector<cv::rgbd::ObjectGeometryPtr> getCorners();
 
         std::vector<cv::rgbd::ObjectGeometryPtr> getEdges();
 
         std::vector<cv::rgbd::ObjectGeometryPtr> getPlanes();
-        
+
         std::string toString() {
             std::ostringstream stringStream;
             stringStream << "I AM A BOX";
@@ -203,7 +255,7 @@ namespace sg {
         static Box::Ptr create() {
             return Box::Ptr(boost::make_shared<Box>());
         }
-        
+
     private:
         // -------------------------
         // Disabling default copy constructor and default
@@ -218,13 +270,11 @@ namespace sg {
     public:
         typedef boost::shared_ptr<Cylinder> Ptr;
 
-        Cylinder() {
+        Cylinder() : sg::Shape() {
         }
 
-        Cylinder(float _radius, float _height, Pose _pose) {
-            r = _radius;
-            h = _height;
-            pose = _pose;
+        Cylinder(float _radius, float _height, Pose _pose)
+        : r(_radius), h(_height), sg::Shape(_pose) {
         }
 
         virtual ~Cylinder() {
@@ -237,30 +287,30 @@ namespace sg {
 
         std::vector<cv::Vec3f> generateCoords(int N);
 
-        std::vector<cv::Vec3i> generateCoordIndices() {
+        std::vector<int> generateCoordIndices() {
             static int N = DEFAULT_RESOLUTION;
             return generateCoordIndices(N);
         }
 
-        std::vector<cv::Vec3i> generateCoordIndices(int N);
+        std::vector<int> generateCoordIndices(int N);
 
         std::vector<cv::Vec3f> generateNormals();
 
-        std::vector<cv::Vec3i> generateNormalCoordIndices();
+        std::vector<int> generateNormalCoordIndices();
 
         std::vector<cv::Vec3f> generateColorCoords();
 
-        std::vector<cv::Vec3i> generateColorCoordIndices();
+        std::vector<int> generateColorCoordIndices();
 
         std::string toString() {
             std::ostringstream stringStream;
             stringStream << "I AM A CYLINDER";
             return stringStream.str();
         }
-        
+
         static Cylinder::Ptr create() {
             return Cylinder::Ptr(boost::make_shared<Cylinder>());
-        }            
+        }
     private:
         // -------------------------
         // Disabling default copy constructor and default

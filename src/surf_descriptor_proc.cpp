@@ -45,6 +45,41 @@ namespace cv {
             // estimate TF from corners
             //shapePtrVec.push_back(initial_box);
             //}
+            for (auto surfPatchA_iter = surflets.begin();
+                    surfPatchA_iter != surflets.end(); ++surfPatchA_iter) {
+                AlgebraicSurfacePatch::Ptr surfPatchA = (*surfPatchA_iter);
+                if (corner_found)
+                    break;
+                if (surfPatchA->getSurfaceType() == SurfaceType::PLANE) {
+                    sg::Plane::Ptr planeA = boost::static_pointer_cast<sg::Plane>(surfPatchA->getShape());
+                    if (surfPatchA_iter + 1 != surflets.end()) {
+                        for (auto surfPatchB_iter = surfPatchA_iter + 1;
+                                surfPatchB_iter != surflets.end(); ++surfPatchB_iter) {
+                            AlgebraicSurfacePatch::Ptr surfPatchB = (*surfPatchB_iter);
+                            if (corner_found)
+                                break;
+
+                            if (surfPatchB->getSurfaceType() == SurfaceType::PLANE) {
+                                sg::Plane::Ptr planeB = boost::static_pointer_cast<sg::Plane>(surfPatchB->getShape());
+
+                                if (//planeB->avgError() < plane_error_thresh && //plane3 has no error
+                                        planeA->epsilonPerpendicular(*planeB, 2 * cv::Plane3f::PERPENDICULAR_SIN_ANGLE_THRESHOLD)) {
+                                    //std::cout << "surfABEdge = " << surfABEdge.toString() << std::endl;
+                                    sg::Edge::Ptr edge = boost::make_shared<sg::Edge>(planeA, planeB);
+                                    ObjectGeometry edgeGeom;
+                                    edgeGeom.addPart(surfPatchA);
+                                    edgeGeom.addPart(surfPatchB);
+                                    edgeGeom.setShape(edge);
+                                    edgeGeom.setSurfaceType(cv::rgbd::EDGE);
+                                    geometries.push_back(edgeGeom);
+                                    //goto foundEdge;
+                                } /* restrict pair matches to be approximately perpendicular */
+                            } /* restrict surface pairwise comparisons to planes */
+                        } /* loop over candidate second match surface elements (surface pairs) */
+                    } // check for second surface availability (not really necessary)
+                } /* restrict surface comparisons to plane pairs */
+            } /* loop over candidate surface elements */
+foundEdge:
 
             for (auto surfPatchA_iter = surflets.begin();
                     surfPatchA_iter != surflets.end(); ++surfPatchA_iter) {
@@ -151,7 +186,7 @@ namespace cv {
                                                             *r1matptr++ = normB[idx];
                                                             *r2matptr++ = normC[idx];
                                                         }
-                                                        std::cout << "Rmat = " << Rmat << std::endl;
+                                                        //std::cout << "Rmat = " << Rmat << std::endl;
                                                         //std::cout << cv::determinant(Rmat) << std::endl;
                                                         cv::Vec3f tVec = cvTransform(cv::Rect(3, 0, 1, 3));
                                                         // chose the front top left corner to align
@@ -162,8 +197,8 @@ namespace cv {
                                                         cv::Vec3f rVec;
                                                         cv::Mat rotMat = cvTransform(cv::Rect(0, 0, 3, 3));
                                                         cv::transpose(rotMat, rotMat);
-                                                        std::cout << "R = " << rotMat << std::endl;
-                                                        std::cout << "t = " << tVec << std::endl;
+                                                        //std::cout << "R = " << rotMat << std::endl;
+                                                        //std::cout << "t = " << tVec << std::endl;
                                                         //cv::Mat tMat(3, 1, CV_32F);
                                                         //tMat = tVec;
                                                         //tMat = rotMat*tMat;
@@ -175,6 +210,13 @@ namespace cv {
                                                                 Pose(tVec, rVec));
 
                                                         shapePtrVec.push_back(initial_box);
+                                                        ObjectGeometry cornerGeom;
+                                                        cornerGeom.addPart(surfPatchA);
+                                                        cornerGeom.addPart(surfPatchB);
+                                                        cornerGeom.addPart(surfPatchC);
+                                                        cornerGeom.setShape(initial_box);
+                                                        cornerGeom.setSurfaceType(cv::rgbd::BOX);
+                                                        geometries.push_back(cornerGeom);
 
                                                         //have_box = true;
                                                     } /* make a box at this detected corner */
@@ -214,32 +256,26 @@ namespace cv {
             //            shapePtrVec.push_back(b1ptr);
             //            shapePtrVec.push_back(b2ptr);
             //            shapePtrVec.push_back(cyl1ptr);
-            for (sg::Shape::Ptr shape_ptr : shapePtrVec) {
-                sg::Shape& shape = *shape_ptr;
-                ObjectGeometry geom;
+            //for (sg::Shape::Ptr shape_ptr : shapePtrVec) {
+            //    sg::Shape& shape = *shape_ptr;
+            for (ObjectGeometry& geom : geometries) {
+                sg::Shape& shape = *geom.getShape();
                 std::vector<cv::Vec3f> pts = shape.generateCoords();
-                std::vector<cv::Vec3i> triIdxList = shape.generateCoordIndices();
-                for (cv::Vec3i triIdxs : triIdxList) {
-                    geom.verts.push_back(pts[triIdxs[0]]);
-                    geom.verts.push_back(pts[triIdxs[1]]);
-                    geom.verts.push_back(pts[triIdxs[2]]);
+                std::vector<int> triIdxList = shape.generateCoordIndices();
+                for (int triIdxs : triIdxList) {
+                    geom.verts.push_back(pts[triIdxs]);
                 }
                 std::vector<cv::Vec3f> norms = shape.generateNormals();
-                std::vector<cv::Vec3i> triNormalIdxList = shape.generateNormalCoordIndices();
-                for (cv::Vec3i triNormalIdxs : triNormalIdxList) {
-                    geom.normals.push_back(norms[triNormalIdxs[0]]);
-                    geom.normals.push_back(norms[triNormalIdxs[1]]);
-                    geom.normals.push_back(norms[triNormalIdxs[2]]);
+                std::vector<int> triNormalIdxList = shape.generateNormalCoordIndices();
+                for (int triNormalIdxs : triNormalIdxList) {
+                    geom.normals.push_back(norms[triNormalIdxs]);
                 }
                 std::vector<cv::Vec3f> colors = shape.generateColorCoords();
-                std::vector<cv::Vec3i> triColorIdxList = shape.generateColorCoordIndices();
-                for (cv::Vec3i triColorIdxs : triColorIdxList) {
-
-                    geom.colors.push_back(colors[triColorIdxs[0]]);
-                    geom.colors.push_back(colors[triColorIdxs[1]]);
-                    geom.colors.push_back(colors[triColorIdxs[2]]);
+                std::vector<int> triColorIdxList = shape.generateColorCoordIndices();
+                for (int triColorIdxs : triColorIdxList) {
+                    geom.colors.push_back(colors[triColorIdxs]);
                 }
-                geometries.push_back(geom);
+                //geometries.push_back(geom);
             }
         }
 

@@ -84,7 +84,7 @@ namespace cv {
             cv::Mat axisDirs(1, 3, CV_32F);
             iImgs.plucker(points, normals3, axisVecs, axisDirs);
 
-            //                                cv::Point2i tlc(315, 235);
+            //                cv::Point2i tlc(315, 235);
             //                cv::Rect roi(tlc.x, tlc.y, width - 2 * tlc.x, height - 2 * tlc.y);
             //                cv::Point2i winCenter;
             //                cv::Vec3f *normptr, *normptr2, *normptr3;
@@ -106,7 +106,7 @@ namespace cv {
             //                    }
             //                }
 
-            std::cout << "normals computed " << std::endl;
+            //std::cout << "normals computed " << std::endl;
             return true;
         }
 
@@ -242,6 +242,8 @@ namespace cv {
             //std::cout.flush();
         }
 
+        // Estimate the axis of an axially symmetric surface from point and normal values
+        // Pottmann & Wallner, Computational Line Geometry p. 197
         void DepthIntegralImages::plucker(cv::Mat& points, cv::Mat& normals,
                 cv::Mat& axisVecs, cv::Mat& axisDirs) {
             static cv::Mat quadraticConstraints = (cv::Mat_<float>(6, 6) <<
@@ -297,19 +299,24 @@ namespace cv {
             cv::Vec6f pluckerAxisLine = cv::Mat(U, cv::Rect(0, 0, 1, U.cols));
             cv::Vec3f linePt(pluckerAxisLine[0], pluckerAxisLine[1], pluckerAxisLine[2]);
             cv::Vec3f lineDir(pluckerAxisLine[3], pluckerAxisLine[4], pluckerAxisLine[5]);
+            normf = 1.0f / lineDir.dot(lineDir);
+            // pitch of the linear complex - Computational Line Geometry p. 168
+            // this is the only Euclidean invariant of the line complex
+            float linearComplexPitch = linePt.dot(lineDir) * normf;
             //std::cout << "pt = " << linePt << " dir = " << lineDir << std::endl;
             linePt = lineDir.cross(linePt);
             //std::cout << "pt = " << linePt << " dir = " << lineDir << std::endl;
-            normf = 1.0f / lineDir.dot(lineDir);
             linePt *= normf;
             normf = std::sqrt(normf);
             lineDir *= normf;
-            
             float error = 1.0f / std::sqrt(W.at<float>(0, 0) / (float) (numPts - 5));
-            float threshold = 40;
-            if (error < threshold) {
-                std::cout << "Cylinder detected: error = " << error << " pt = " << linePt << " dir = " << lineDir << std::endl;
-            }
+            float error_std = 1.0f / std::sqrt(W.at<float>(0, 0) / (float) (numPts - 5));
+            float threshold = 100;
+            //if (error < threshold) {
+                std::cout << "Cylinder detected: error = " << error << " pt = "
+                        << linePt << " dir = " << lineDir
+                        << " pitch = " << linearComplexPitch << std::endl;
+            //}
         }
 
         void DepthIntegralImages::computeCurvatureFiniteDiff_Impl(const cv::Mat& depth, cv::Mat& normals) {

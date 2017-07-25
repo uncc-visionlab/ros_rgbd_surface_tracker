@@ -72,6 +72,9 @@ namespace cv {
         typedef boost::shared_ptr<Line3_<_Tpl> > Ptr;
         typedef boost::shared_ptr<const Line3_<_Tpl> > ConstPtr;
 
+        Line3_() {
+        }
+
         Line3_(const Point3_<_Tpl>& tip, const Point3_<_Tpl>& tail) {
             this->p0 = tail;
             this->v = tip - tail;
@@ -96,6 +99,14 @@ namespace cv {
             return (num.x * num.x + num.y * num.y + num.z * num.z) / (v.x * v.x + v.y * v.y + v.z * v.z);
         }
 
+        _Tpl xyzToLambda(const Point3_<_Tpl>& pt) {
+            _Tpl vDotPt = v.dot(pt);
+            Point3_<_Tpl> perp_proj((1.0 - vDotPt) * pt.x - p0.x,
+                    (1.0 - vDotPt) * pt.y - p0.y,
+                    (1.0 - vDotPt) * pt.z - p0.z);
+            return std::sqrt( perp_proj.dot(perp_proj));
+        }
+
         friend std::ostream& operator<<(std::ostream& os, const Line3_<_Tpl>& l) {
             os << "[" << l.v << ", " << l.p0 << "]";
             return os;
@@ -105,6 +116,26 @@ namespace cv {
     };
     typedef Line3_<float> Line3f;
     typedef Line3_<double> Line3d;
+
+    template<typename _Tpl> class LineSegment3_ : public Line3_<_Tpl> {
+    public:
+
+        friend std::ostream& operator<<(std::ostream& os, const LineSegment3_<_Tpl>& l) {
+            os << "[" << l.v << ", " << l.p0 << ", "
+                    << l.getPoint(l.start) << ", " << l.getPoint(l.end) << "]";
+            return os;
+        }
+
+        std::string toString() {
+            std::ostringstream stringStream;
+            stringStream << "[" << this->v << ", " << this->p0 << ", "
+                    << this->getPoint(this->start) << ", " << this->getPoint(this->end) << "]";
+            return stringStream.str();
+        }
+        _Tpl start, end;
+    };
+    typedef LineSegment3_<float> LineSegment3f;
+    typedef LineSegment3_<double> LineSegment3d;
 
     template<typename _Tpl> class Plane3_ : public Point3_<_Tpl> {
     public:
@@ -122,7 +153,7 @@ namespace cv {
 
         Plane3_(_Tpl _x, _Tpl _y, _Tpl _z, _Tpl _d) : d(_d), Point3_<_Tpl>(_x, _y, _z) {
         }
-        
+
         Plane3_(const Point3_<_Tpl>& pt1, const Point3_<_Tpl>& pt2,
                 const Point3_<_Tpl>& pt3) {
             setCoeffs(pt1, pt2, pt3);
