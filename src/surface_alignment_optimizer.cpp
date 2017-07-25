@@ -318,14 +318,17 @@ namespace cv {
 
         }
 
-        bool planeListAlignmentCV(
+        int planeListAlignmentCV(
                 std::vector<cv::Plane3f::Ptr>& moving_planes,
                 std::vector<cv::Plane3f::Ptr>& fixed_planes,
                 Eigen::Matrix4f& transformation_matrix) {
-
+            
+            int result = 0;
+            
             if (fixed_planes.size() == 0 || moving_planes.size() == 0 ||
                     fixed_planes.size() != moving_planes.size()) {
-                return false;
+                result = -1;
+                return result;
             }
 
             Eigen::Matrix3d normalsCovMat = Eigen::Matrix3d::Zero();
@@ -375,10 +378,11 @@ namespace cv {
             float detR = R.determinant();
             
             if (detR < 0) {
-                std::cout << "|R| = " << detR << ", fixing...\n";
-                Eigen::Matrix3d eye_with_neg = Eigen::Matrix3d::Identity();
-                eye_with_neg(2, 2) = -1;
-                R = v*eye_with_neg*u.transpose();
+//                std::cout << "|R| = " << detR << ", fixing...\n";
+//                Eigen::Matrix3d eye_with_neg = Eigen::Matrix3d::Identity();
+//                eye_with_neg(2, 2) = -1;
+//                R = v*eye_with_neg*u.transpose();
+                result = 1; //R contains reflection!
             }
             
             normalsCovMat.setZero();
@@ -431,13 +435,16 @@ namespace cv {
             Eigen::Matrix<double, 3, 1> t = normalsCovMat.inverse()*(deltaDt_NA + deltaDt_NB);
 
             if (t.hasNaN()) {
-                return false;
+                result = -1;
+                return result;
             }
             // Return the correct transformation
             //Eigen::Matrix4d transformation_matrix = Eigen::Matrix4d::Zero();
             transformation_matrix.topLeftCorner(3, 3) = R.cast<float>();
             transformation_matrix.block<3, 1>(0, 3) = t.cast<float>();
             transformation_matrix(3, 3) = 1.0f;
+            
+            return result;
             //                    std::cout << "Estimated Transform:\n" << transformation_matrix << "\n";
             //                    
             //                    std::cout << "Actual Transform:\n" << actual_trans.matrix() << "\n";

@@ -39,7 +39,7 @@ namespace cv {
     namespace rgbd {
 
         /* Implementation in surface_alignment_optimizer.cpp */
-        bool planeListAlignmentCV(std::vector<cv::Plane3f::Ptr>& moving_planes,
+        int planeListAlignmentCV(std::vector<cv::Plane3f::Ptr>& moving_planes,
                 std::vector<cv::Plane3f::Ptr>& fixed_planes,
                 Eigen::Matrix4f& transformation_matrix);
 

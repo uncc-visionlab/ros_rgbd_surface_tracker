@@ -79,7 +79,7 @@ namespace cv {
                     } // check for second surface availability (not really necessary)
                 } /* restrict surface comparisons to plane pairs */
             } /* loop over candidate surface elements */
-foundEdge:
+//foundEdge:
 
             for (auto surfPatchA_iter = surflets.begin();
                     surfPatchA_iter != surflets.end(); ++surfPatchA_iter) {
@@ -142,7 +142,7 @@ foundEdge:
                                                     if (!have_box) {
 
                                                         // assuming concave
-
+                                                        
                                                         float length = .5;
                                                         float width = .5;
                                                         float height = .5;
@@ -158,12 +158,40 @@ foundEdge:
                                                         //moving_planes[2] = boost::make_shared<cv::Plane3f>(0, 1, 0, -0.0);
                                                         moving_planes[0] = boost::make_shared<cv::Plane3f>(1, 0, 0, -0.0);
                                                         moving_planes[1] = boost::make_shared<cv::Plane3f>(0, 1, 0, -0.0);
-                                                        moving_planes[2] = boost::make_shared<cv::Plane3f>(0, 0, -1, -0.0);
+                                                        moving_planes[2] = boost::make_shared<cv::Plane3f>(0, 0, 1, -0.0);
                                                         fixed_planes[0] = planeA;
                                                         fixed_planes[1] = planeB;
                                                         fixed_planes[2] = planeC;
-                                                        planeListAlignmentCV(moving_planes,
+
+                                                        std::sort(fixed_planes.begin(), fixed_planes.end(),
+                                                                [](const cv::Plane3f::Ptr& a, const cv::Plane3f::Ptr & b) {
+                                                                    return std::abs(a->x) > std::abs(b->x);
+                                                                });
+
+                                                        if (std::abs(fixed_planes[1]->y) < std::abs(fixed_planes[2]->y))
+                                                            std::swap(fixed_planes[1], fixed_planes[2]);
+
+                                                        int num_axis_flipped = 0;
+                                                        if (fixed_planes[0]->x < 0)
+                                                            num_axis_flipped++;
+                                                        if (fixed_planes[1]->y < 0)
+                                                            num_axis_flipped++;
+                                                        if (fixed_planes[2]->z < 0)
+                                                            num_axis_flipped++;
+                                                            
+                                                        bool corner_left_handed = (num_axis_flipped % 2 != 0);
+                                                        bool expect_reflection = corner_left_handed;
+                                                        
+                                                        (corner_left_handed) ? std::cout << "Left-handed corner detected\n" : std::cout << "Right-handed corner detected\n";
+                                                        
+                                                        int alignment_result = planeListAlignmentCV(moving_planes,
                                                                 fixed_planes, eigenTransform);
+                                                        
+                                                        if (alignment_result == 1)
+                                                            std::cout << "R contains reflection!\n";
+                                                        else if (alignment_result == -1)
+                                                            std::cout << "NaNs in transformation!\n";
+                                                        
                                                         //std::cout << "eigen mat = " << eigenTransform << std::endl;
                                                         eigenTransformMap = eigenTransform;
                                                         //std::cout << "eigen mat mapped = " << eigenTransformMap << std::endl;
