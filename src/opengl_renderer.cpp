@@ -320,7 +320,7 @@ namespace cv {
                     cv::Vec3f vert = geom.verts[idx];
                     cv::Vec3f normal = geom.normals[idx];
                     cv::Vec3f color = geom.colors[idx];
-                    glColor4f(color[0], color[1], color[2], 0.5f);
+                    glColor3f(color[0], color[1], color[2]);
                     glNormal3f(normal[0], normal[1], normal[2]);
                     glVertex3f(vert[0], vert[1], vert[2]);
                 }

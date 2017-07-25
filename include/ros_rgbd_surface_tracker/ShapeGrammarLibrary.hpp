@@ -172,11 +172,29 @@ namespace sg {
                 surfaces[1] = planeA;
             }
             surfaces[0]->intersect(*surfaces[1], *this);
-            if (this->v.z < 0) {
-                this->v = -this->v;
+            if (v.z < 0) {
+                v = -v;
             }
-            this->start = std::numeric_limits<float>::infinity();
-            this->end = -std::numeric_limits<float>::infinity();
+            //float normf = 1.0f/std::sqrt(v.dot(v));
+            //v *= normf;
+            float lambda;
+            float tstart[2], tend[2];
+            tstart[0] = tstart[1] = -std::numeric_limits<float>::infinity();
+            tend[0] = tend[1] = std::numeric_limits<float>::infinity();
+            for (int surfIdx = 0; surfIdx < 2; ++surfIdx) {
+                std::vector<cv::Vec3f> pts = surfaces[surfIdx]->generateCoords();
+                for (cv::Vec3f pt : pts) {
+                    lambda = xyzToLambda(pt);
+                    if (lambda > tstart[surfIdx]) {
+                        tstart[surfIdx] = lambda;
+                    }
+                    if (lambda < tend[surfIdx]) {
+                        tend[surfIdx] = lambda;
+                    }
+                }
+            }
+            start = std::min(tstart[0], tstart[1]);
+            end = std::min(tend[0], tend[1]);
         }
 
         virtual ~Edge() {

@@ -63,7 +63,7 @@ namespace cv {
                                 sg::Plane::Ptr planeB = boost::static_pointer_cast<sg::Plane>(surfPatchB->getShape());
 
                                 if (//planeB->avgError() < plane_error_thresh && //plane3 has no error
-                                        planeA->epsilonPerpendicular(*planeB, 2 * cv::Plane3f::PERPENDICULAR_SIN_ANGLE_THRESHOLD)) {
+                                        planeA->epsilonPerpendicular(*planeB, 1 * cv::Plane3f::PERPENDICULAR_SIN_ANGLE_THRESHOLD)) {
                                     //std::cout << "surfABEdge = " << surfABEdge.toString() << std::endl;
                                     sg::Edge::Ptr edge = boost::make_shared<sg::Edge>(planeA, planeB);
                                     ObjectGeometry edgeGeom;

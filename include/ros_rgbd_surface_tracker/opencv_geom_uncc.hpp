@@ -100,11 +100,9 @@ namespace cv {
         }
 
         _Tpl xyzToLambda(const Point3_<_Tpl>& pt) {
-            _Tpl vDotPt = v.dot(pt);
-            Point3_<_Tpl> perp_proj((1.0 - vDotPt) * pt.x - p0.x,
-                    (1.0 - vDotPt) * pt.y - p0.y,
-                    (1.0 - vDotPt) * pt.z - p0.z);
-            return std::sqrt( perp_proj.dot(perp_proj));
+            Point3_<_Tpl> vecToPt = pt - p0;            
+            _Tpl lambda = v.dot(vecToPt)/std::sqrt(v.dot(v));
+            return lambda;
         }
 
         friend std::ostream& operator<<(std::ostream& os, const Line3_<_Tpl>& l) {
@@ -303,7 +301,7 @@ namespace cv {
         }
 
         cv::Point3_<_Tpl> uvToXYZ(const cv::Point_<_Tpl>& uv) {
-            _Tpl threshold = 0.6;
+            _Tpl threshold = 0.6; // > 1/sqrt(3)
             static cv::Point3_<_Tpl> uVec;
             static cv::Point3_<_Tpl> vVec;
             if (std::abs<_Tpl>(this->x) <= threshold) {
@@ -325,7 +323,7 @@ namespace cv {
         }
 
         cv::Point_<_Tpl> xyzToUV(const Point3_<_Tpl>& p) {
-            _Tpl threshold = 0.6;
+            _Tpl threshold = 0.6; // > 1/sqrt(3)
             cv::Point_<_Tpl> uv;
             static cv::Point3_<_Tpl> uVec;
             static cv::Point3_<_Tpl> vVec;

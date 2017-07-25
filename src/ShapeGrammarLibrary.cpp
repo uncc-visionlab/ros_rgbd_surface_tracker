@@ -16,66 +16,39 @@
 namespace sg {
 
     std::vector<cv::Vec3f> Edge::generateCoords() {
-        std::vector<cv::Vec3f> pts;
-        std::vector<cv::Vec3f> ptsA = surfaces[0]->generateCoords();
-        float lambda;
-        for (cv::Vec3f pt : ptsA) {
-            lambda = xyzToLambda(pt);
-            if (lambda < start) {
-                start = lambda;
-            }
-            if (lambda > end) {
-                end = lambda;
-            }
-        }
-        cv::Point3f startPtA = this->getPoint(start);
-        cv::Point3f endPtA = this->getPoint(end);
-        //cv::Point2f uvStartPtA = surfaces[0]->xyzToUV(startPtA);
-        //cv::Point2f uvEndPtA = surfaces[0]->xyzToUV(endPtA);
-        
-       std::vector<cv::Vec3f> ptsB = surfaces[1]->generateCoords();
-        for (cv::Vec3f pt : ptsB) {
-            lambda = xyzToLambda(pt);
-            if (lambda < start) {
-                start = lambda;
-            }
-            if (lambda > end) {
-                end = lambda;
-            }
-        }
-        cv::Point3f startPtB = this->getPoint(start);
-        cv::Point3f endPtB = this->getPoint(end);
-        //cv::Point2f uvStartPtB = surfaces[0]->xyzToUV(startPtA);
-        //cv::Point2f uvEndPtB = surfaces[0]->xyzToUV(endPtA);
-        pts.push_back(startPtA);
-        pts.push_back(endPtA);
-        pts.push_back(startPtB);
-        pts.push_back(endPtA);
+        std::vector<cv::Vec3f> pts = {
+            getPoint(start),
+            getPoint(end),
+            //getPoint(tstart[0]),
+            //getPoint(tend[0]),
+            //getPoint(tstart[1]),
+            //getPoint(tend[1])
+        };
         return pts;
     }
 
     std::vector<int> Edge::generateCoordIndices() {
-        std::vector<int> ptIdxs = { 1, 2, 3, 4};
+        std::vector<int> ptIdxs = {0, 1};//, 2, 3};
         return ptIdxs;
     }
 
     std::vector<cv::Vec3f> Edge::generateNormals() {
-        std::vector<cv::Vec3f> norms = { cv::Vec3f(0,0,-1) };        
+        std::vector<cv::Vec3f> norms = {cv::Vec3f(0, 0, -1)};
         return norms;
     }
 
     std::vector<int> Edge::generateNormalCoordIndices() {
-        std::vector<int> normIdxs = { 0, 0, 0, 0};
+        std::vector<int> normIdxs = {0, 0};//, 0, 0};
         return normIdxs;
     }
 
     std::vector<cv::Vec3f> Edge::generateColorCoords() {
-        std::vector<cv::Vec3f> colors = { cv::Vec3f(1,0,0) };
+        std::vector<cv::Vec3f> colors = {cv::Vec3f(1, 0, 0)};//, cv::Vec3f(0, 1, 0)};
         return colors;
     }
 
     std::vector<int> Edge::generateColorCoordIndices() {
-        std::vector<int> colorIdxs = { 0, 0, 0, 0};
+        std::vector<int> colorIdxs = {0, 0};//, 1, 1};
         return colorIdxs;
     }
 
@@ -107,8 +80,7 @@ namespace sg {
     }
 
     std::vector<cv::Vec3f> Plane::generateNormals() {
-        std::vector<cv::Vec3f> norms(1);
-        norms[0] = cv::Vec3f(x, y, z);
+        std::vector<cv::Vec3f> norms = {cv::Vec3f(x, y, z)};
         for (int idx = 0; idx < norms.size(); ++idx) {
             pose.rotateInPlace(norms[idx]);
         }
@@ -145,15 +117,16 @@ namespace sg {
     // compute vertices
 
     std::vector<cv::Vec3f> Box::generateCoords() {
-        std::vector<cv::Vec3f> pts(8);
-        pts[0] = cv::Vec3f(-dims.x / 2, -dims.y / 2, -dims.z / 2);
-        pts[1] = cv::Vec3f(dims.x / 2, -dims.y / 2, -dims.z / 2);
-        pts[2] = cv::Vec3f(dims.x / 2, dims.y / 2, -dims.z / 2);
-        pts[3] = cv::Vec3f(-dims.x / 2, dims.y / 2, -dims.z / 2);
-        pts[4] = cv::Vec3f(-dims.x / 2, -dims.y / 2, dims.z / 2);
-        pts[5] = cv::Vec3f(dims.x / 2, -dims.y / 2, dims.z / 2);
-        pts[6] = cv::Vec3f(dims.x / 2, dims.y / 2, dims.z / 2);
-        pts[7] = cv::Vec3f(-dims.x / 2, dims.y / 2, dims.z / 2);
+        std::vector<cv::Vec3f> pts = {
+            cv::Vec3f(-dims.x / 2, -dims.y / 2, -dims.z / 2),
+            cv::Vec3f(dims.x / 2, -dims.y / 2, -dims.z / 2),
+            cv::Vec3f(dims.x / 2, dims.y / 2, -dims.z / 2),
+            cv::Vec3f(-dims.x / 2, dims.y / 2, -dims.z / 2),
+            cv::Vec3f(-dims.x / 2, -dims.y / 2, dims.z / 2),
+            cv::Vec3f(dims.x / 2, -dims.y / 2, dims.z / 2),
+            cv::Vec3f(dims.x / 2, dims.y / 2, dims.z / 2),
+            cv::Vec3f(-dims.x / 2, dims.y / 2, dims.z / 2)
+        };
         for (int idx = 0; idx < pts.size(); ++idx) {
             pose.transformInPlace(pts[idx]);
         }
@@ -181,13 +154,14 @@ namespace sg {
     }
 
     std::vector<cv::Vec3f> Box::generateNormals() {
-        std::vector<cv::Vec3f> norms(6);
-        norms[0] = cv::Vec3f(0, -1, 0);
-        norms[1] = cv::Vec3f(1, 0, 0);
-        norms[2] = cv::Vec3f(0, 1, 0);
-        norms[3] = cv::Vec3f(-1, 0, 0);
-        norms[4] = cv::Vec3f(0, 0, 1);
-        norms[5] = cv::Vec3f(0, 0, -1);
+        std::vector<cv::Vec3f> norms = {
+            cv::Vec3f(0, -1, 0),
+            cv::Vec3f(1, 0, 0),
+            cv::Vec3f(0, 1, 0),
+            cv::Vec3f(-1, 0, 0),
+            cv::Vec3f(0, 0, 1),
+            cv::Vec3f(0, 0, -1)
+        };
         for (int idx = 0; idx < norms.size(); ++idx) {
             pose.rotateInPlace(norms[idx]);
         }
@@ -213,13 +187,14 @@ namespace sg {
     }
 
     std::vector<cv::Vec3f> Box::generateColorCoords() {
-        std::vector<cv::Vec3f> colors(6);
-        colors[0] = cv::Point3f(1.0, 0.0, 0.0);
-        colors[1] = cv::Point3f(0.0, 1.0, 0.0);
-        colors[2] = cv::Point3f(0.0, 0.0, 1.0);
-        colors[3] = cv::Point3f(1.0, 0.3, 0.0);
-        colors[4] = cv::Point3f(0.0, 1.0, 0.3);
-        colors[5] = cv::Point3f(0.3, 0.0, 1.0);
+        std::vector<cv::Vec3f> colors = {
+            cv::Point3f(1.0, 0.0, 0.0),
+            cv::Point3f(0.0, 1.0, 0.0),
+            cv::Point3f(0.0, 0.0, 1.0),
+            cv::Point3f(1.0, 0.3, 0.0),
+            cv::Point3f(0.0, 1.0, 0.3),
+            cv::Point3f(0.3, 0.0, 1.0)
+        };
         return colors;
     }
 
@@ -410,10 +385,11 @@ namespace sg {
 
     std::vector<cv::Vec3f> Cylinder::generateColorCoords() {
         static int N = DEFAULT_RESOLUTION;
-        std::vector<cv::Vec3f> colors(N * 2 + 2);
-        colors[0] = cv::Vec3f(1, 0, 0);
-        colors[1] = cv::Vec3f(0, 1, 0);
-        colors[2] = cv::Vec3f(0, 0, 1);
+        std::vector<cv::Vec3f> colors = {
+            cv::Vec3f(1, 0, 0),
+            cv::Vec3f(0, 1, 0),
+            cv::Vec3f(0, 0, 1)
+        };
         return colors;
     }
 
