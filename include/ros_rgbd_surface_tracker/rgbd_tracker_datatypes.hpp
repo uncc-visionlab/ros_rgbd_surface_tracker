@@ -25,6 +25,22 @@
 //    typedef boost::shared_ptr<Shape> PlanePtr;
 //}
 
+namespace sg {
+//        enum CornerType {
+//            UNKNOWN = -1,
+//            BACK_BOTTOM_RIGHT,
+//            BACK_BOTTOM_LEFT,
+//            BACK_TOP_RIGHT,
+//            BACK_TOP_LEFT,
+//            FRONT_BOTTOM_RIGHT,
+//            FRONT_BOTTOM_LEFT,
+//            FRONT_TOP_RIGHT,
+//            FRONT_TOP_LEFT
+//        };
+//        
+//        extern std::map<CornerType, const char*> cornerTypeToString;    
+} /* namespace sg */
+
 namespace cv {
     namespace rgbd {
 
@@ -35,10 +51,11 @@ namespace cv {
             CORNER,
             BOX
         };
+
         extern std::map<SurfaceType, const char*> surfaceTypeToString;
 
         class AlgebraicSurfacePatch {
-            sg::Plane::Ptr plane_ptr;
+            sg::Plane<float>::Ptr plane_ptr;
             SurfaceType surfaceType;
             float avgDepth;
             //sg::Plane::Ptr shapePtr;
@@ -46,13 +63,13 @@ namespace cv {
             typedef boost::shared_ptr<AlgebraicSurfacePatch> Ptr;
 
             AlgebraicSurfacePatch(cv::Plane3f _plane) :
-            plane_ptr(new sg::Plane(_plane)),
+            plane_ptr(new sg::Plane<float>(_plane)),
             surfaceType(SurfaceType::PLANE) {
             }
 
             AlgebraicSurfacePatch(TesselatedPlane3f::Ptr _plane,
                     const cv::rgbd::RgbdImage& rgbdImg) :
-            plane_ptr(new sg::Plane(*_plane)),
+            plane_ptr(new sg::Plane<float>(*_plane)),
             surfaceType(SurfaceType::PLANE) {
                 //shapePtr.reset(&plane);
                 // create in-plane (u,v) coordinates for 3D points
@@ -166,7 +183,7 @@ namespace cv {
                     sg::Shape::Ptr shapePtr = patchPtr->getShape();
                     //std::cout << shapePtr->toString() << std::endl;
                     if (patchPtr->getSurfaceType() == SurfaceType::PLANE) {
-                        sg::Plane::Ptr planePtr = boost::static_pointer_cast<sg::Plane>(shapePtr);
+                        sg::Plane<float>::Ptr planePtr = boost::static_pointer_cast<sg::Plane<float>>(shapePtr);
                         //std::cout << planePtr->toString() << std::endl;
                         planeVec.push_back(planePtr);
                     }

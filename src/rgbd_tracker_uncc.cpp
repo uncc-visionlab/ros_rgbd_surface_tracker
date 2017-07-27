@@ -60,7 +60,7 @@ namespace cv {
 
             cv::Rect rectVal(290, 200, 640 - 2 * 290, 480 - 2 * 200);
             cv::rectangle(rgb_result, rectVal, cv::Scalar(0, 255, 0), 3);
-            //rgbd_img.computeNormals();
+            rgbd_img.computeNormals();
 
             std::vector<cv::rgbd::AlgebraicSurfacePatch::Ptr> surfletPtrList;
             surfdetector.detect(rgbd_img, surfletPtrList, rgb_result);

@@ -15,147 +15,18 @@
 
 namespace sg {
 
-    std::vector<cv::Vec3f> Plane::generateCoords() {
-        std::vector<cv::Vec2f> uv_poly_coords = uv_coords[0];
-        std::vector<cv::Vec3f> pts(uv_poly_coords.size() + 1);
-        cv::Vec3f ctr_pt(0, 0, 0);
-        for (int ptidx = 0; ptidx < uv_poly_coords.size(); ++ptidx) {
-            pts[ptidx] = uvToXYZ(uv_poly_coords[ptidx]);
-            ctr_pt += pts[ptidx];
-        }
-        ctr_pt *= 1.0f / uv_poly_coords.size();
-        pts[uv_poly_coords.size()] = ctr_pt;
-        for (int idx = 0; idx < pts.size(); ++idx) {
-            pose.transformInPlace(pts[idx]);
-        }
-        return pts;
-    }
-
-    std::vector<int> Plane::generateCoordIndices() {
-        std::vector<cv::Vec2f> uv_poly_coords = uv_coords[0];
-        std::vector<int> ptidxs; // reserve(uv_poly_coords.size()*3)
-        int ctr_pt_idx = uv_poly_coords.size();
-        for (int triIdx = 0; triIdx < uv_poly_coords.size() - 1; ++triIdx) {
-            ptidxs.insert(ptidxs.end(),{ctr_pt_idx, triIdx, triIdx + 1});
-        }
-        ptidxs.insert(ptidxs.end(),{ctr_pt_idx, (int) uv_poly_coords.size() - 1, 0});
-        return ptidxs;
-    }
-
-    std::vector<cv::Vec3f> Plane::generateNormals() {
-        std::vector<cv::Vec3f> norms = {cv::Vec3f(x, y, z)};
-        for (int idx = 0; idx < norms.size(); ++idx) {
-            pose.rotateInPlace(norms[idx]);
-        }
-        return norms;
-    }
-
-    std::vector<int> Plane::generateNormalCoordIndices() {
-        std::vector<cv::Vec2f> uv_poly_coords = uv_coords[0];
-        std::vector<int> normidxs; // reserve(uv_poly_coords.size()*3);
-        for (int triIdx = 0; triIdx < uv_poly_coords.size(); ++triIdx) {
-            normidxs.insert(normidxs.end(),{0, 0, 0});
-        }
-        return normidxs;
-    }
-
-    std::vector<cv::Vec3f> Plane::generateColorCoords() {
-        std::vector<cv::Vec3f> colors(1);
-        cv::Mat hsv(1, 1, CV_32FC3, cv::Scalar(x, y, 0.7));
-        cv::Mat rgb(1, 1, CV_32FC3);
-        cv::cvtColor(hsv, rgb, CV_HSV2BGR);
-        //colors[0] = cv::Vec3f(1.0f, 0.0f, 0.0f);
-        colors[0] = hsv.at<cv::Vec3f>(0, 0);
-        return colors;
-    }
-
-    std::vector<int> Plane::generateColorCoordIndices() {
-        std::vector<cv::Vec2f> uv_poly_coords = uv_coords[0];
-        std::vector<int> coloridxs; // reserve(uv_poly_coords.size()*3);
-        for (int triIdx = 0; triIdx < uv_poly_coords.size(); ++triIdx) {
-            coloridxs.insert(coloridxs.end(),{0, 0, 0});
-        }
-        return coloridxs;
-    }
+    std::map<CornerType, const char*> cornerTypeToString = {
+        {CornerType::UNKNOWN, "UNKNOWN"},
+        {CornerType::BACK_BOTTOM_RIGHT, "BACK_BOTTOM_RIGHT"},
+        {CornerType::BACK_BOTTOM_LEFT, "BACK_BOTTOM_LEFT"},
+        {CornerType::BACK_TOP_RIGHT, "BACK_TOP_RIGHT"},
+        {CornerType::BACK_TOP_LEFT, "BACK_TOP_LEFT"},
+        {CornerType::FRONT_BOTTOM_RIGHT, "FRONT_BOTTOM_RIGHT"},
+        {CornerType::FRONT_BOTTOM_LEFT, "FRONT_BOTTOM_LEFT"},
+        {CornerType::FRONT_TOP_RIGHT, "FRONT_TOP_RIGHT"},
+        {CornerType::FRONT_TOP_LEFT, "FRONT_TOP_LEFT"}
+    };
     // compute vertices
-
-    std::vector<cv::Vec3f> Edge::generateCoords() {
-        std::vector<cv::Vec3f> pts = {
-            getPoint(start),
-            getPoint(end),
-            //getPoint(tstart[0]),
-            //getPoint(tend[0]),
-            //getPoint(tstart[1]),
-            //getPoint(tend[1])
-        };
-        return pts;
-    }
-
-    std::vector<int> Edge::generateCoordIndices() {
-        std::vector<int> ptIdxs = {0, 1}; //, 2, 3};
-        return ptIdxs;
-    }
-
-    std::vector<cv::Vec3f> Edge::generateNormals() {
-        std::vector<cv::Vec3f> norms = {cv::Vec3f(0, 0, -1)};
-        return norms;
-    }
-
-    std::vector<int> Edge::generateNormalCoordIndices() {
-        std::vector<int> normIdxs = {0, 0}; //, 0, 0};
-        return normIdxs;
-    }
-
-    std::vector<cv::Vec3f> Edge::generateColorCoords() {
-        std::vector<cv::Vec3f> colors = {cv::Vec3f(1, 0, 0)}; //, cv::Vec3f(0, 1, 0)};
-        return colors;
-    }
-
-    std::vector<int> Edge::generateColorCoordIndices() {
-        std::vector<int> colorIdxs = {0, 0}; //, 1, 1};
-        return colorIdxs;
-    }
-
-    std::vector<cv::Vec3f> Corner::generateCoords() {
-        std::vector<cv::Vec3f> pts = {
-            edges[0]->getPoint(edges[0]->end),
-            edges[0]->getPoint(eline_lambdas[0]),
-            edges[1]->getPoint(edges[1]->end),
-            edges[1]->getPoint(eline_lambdas[1]),
-            edges[2]->getPoint(edges[2]->end),
-            edges[2]->getPoint(eline_lambdas[2])
-        };
-        return pts;
-    }
-
-    std::vector<int> Corner::generateCoordIndices() {
-        std::vector<int> ptIdxs = {0, 1, 2, 3, 4, 5};
-        return ptIdxs;
-    }
-
-    std::vector<cv::Vec3f> Corner::generateNormals() {
-        std::vector<cv::Vec3f> norms = {cv::Vec3f(0, 0, -1)};
-        return norms;
-    }
-
-    std::vector<int> Corner::generateNormalCoordIndices() {
-        std::vector<int> normIdxs = {0, 0, 0, 0, 0, 0};
-        return normIdxs;
-    }
-
-    std::vector<cv::Vec3f> Corner::generateColorCoords() {
-        std::vector<cv::Vec3f> colors = {
-            cv::Vec3f(0, 1, 0),
-            cv::Vec3f(0, 1, 0),
-            cv::Vec3f(0, 1, 0)
-        };
-        return colors;
-    }
-
-    std::vector<int> Corner::generateColorCoordIndices() {
-        std::vector<int> colorIdxs = {0, 0, 1, 1, 2, 2};
-        return colorIdxs;
-    }
 
     std::vector<cv::Vec3f> Box::generateCoords() {
         std::vector<cv::Vec3f> pts = {
@@ -255,6 +126,18 @@ namespace sg {
             5, 5, 5 // face opposite blue
         };
         return tricolIdxs;
+    }
+
+    CornerType Box::getCameraFrameCornerType(sg::Corner<float>::Ptr corner_ptr) {
+        std::vector<cv::Vec3f> axes(3);
+        corner_ptr->getXYZAxes(axes);
+        //std::cout << "X-axis = " << axes[0] << std::endl;
+        //std::cout << "Y-axis = " << axes[1] << std::endl;
+        //std::cout << "Z-axis = " << axes[2] << std::endl;
+        int idVal = (axes[0][0] > 0) | ((axes[1][1] > 0) << 1) | ((axes[2][2] > 0) << 2);
+        //std::cout << "idVal = " << idVal << std::endl;
+        CornerType id = CornerType(idVal);
+        return id;
     }
 
     std::vector<cv::rgbd::ObjectGeometry::Ptr> Box::getCorners() {
