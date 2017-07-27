@@ -31,7 +31,7 @@ using namespace openni;
 
 
 cv::Mat ocv_rgbframe;
-//cv::Mat ocv_depthframe_uint16;
+cv::Mat ocv_depthframe_uint16;
 cv::Mat ocv_depthframe_float;
 cv::Mat ocv_depth_vis;
 
@@ -158,8 +158,15 @@ int main(int argc, char** argv) {
         }
 
         if (oniDepthStream.readFrame(&oniDepthImg) == STATUS_OK) {
-            Mat ocv_depthframe_uint16(oniDepthImg.getHeight(), oniDepthImg.getWidth(),
-                    CV_16UC1, (void*) oniDepthImg.getData());
+            const openni::DepthPixel* depthImageBuffer;
+            depthImageBuffer = (const openni::DepthPixel*)oniDepthImg.getData();
+            if (ocv_depthframe_uint16.cols != oniDepthImg.getWidth() ||
+                    ocv_depthframe_uint16.rows != oniDepthImg.getHeight()) {
+                ocv_depthframe_uint16.create(oniDepthImg.getHeight(), oniDepthImg.getWidth(), CV_16UC1);
+                ocv_depthframe_float.create(oniDepthImg.getHeight(), oniDepthImg.getWidth(), CV_32FC1);
+            }
+            memcpy(ocv_depthframe_uint16.data, depthImageBuffer, oniDepthImg.getHeight() * oniDepthImg.getWidth() * sizeof (uint16_t));
+
             // convert to floats 
             format = oniDepthStream.getVideoMode().getPixelFormat();
             scalef = getDepthUnitInMeters(format);
