@@ -11,7 +11,7 @@
     <arg name="play_bagfile" default="false" />
     
     <arg name="record_cameras" default="false" />
-    <arg name="run_rviz" default="true" />
+    <arg name="run_rviz" default="false" />
     <arg name="run_surface_tracker" default="true" />
     
     <arg name="run_profiler" value="false" />
