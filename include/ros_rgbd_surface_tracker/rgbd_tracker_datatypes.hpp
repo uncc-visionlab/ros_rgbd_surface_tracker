@@ -61,13 +61,13 @@ namespace cv {
             //sg::Plane::Ptr shapePtr;
         public:
             typedef boost::shared_ptr<AlgebraicSurfacePatch> Ptr;
-
-            AlgebraicSurfacePatch(cv::Plane3f _plane) :
+            
+            AlgebraicSurfacePatch(cv::TesselatedPlane3f _plane) :
             plane_ptr(new sg::Plane<float>(_plane)),
             surfaceType(SurfaceType::PLANE) {
             }
 
-            AlgebraicSurfacePatch(TesselatedPlane3f::Ptr _plane,
+            AlgebraicSurfacePatch(cv::TesselatedPlane3f::Ptr _plane,
                     const cv::rgbd::RgbdImage& rgbdImg) :
             plane_ptr(new sg::Plane<float>(*_plane)),
             surfaceType(SurfaceType::PLANE) {
@@ -120,12 +120,12 @@ namespace cv {
             sg::Shape::Ptr getShape() {
                 return plane_ptr;
             }
-
+            
             float getAverageDepth() {
                 return avgDepth;
             }
 
-            static AlgebraicSurfacePatch::Ptr create(cv::Plane3f _plane) {
+            static AlgebraicSurfacePatch::Ptr create(TesselatedPlane3f _plane) {
                 return AlgebraicSurfacePatch::Ptr(boost::make_shared<AlgebraicSurfacePatch>(_plane));
             }
 

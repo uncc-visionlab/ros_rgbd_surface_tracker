@@ -130,10 +130,13 @@ namespace sg {
 
         Plane() : sg::Shape(), cv::TesselatedPlane3_<_Tpl>() {
         }
-
-        Plane(cv::Plane3_<_Tpl>& _p) : sg::Shape(), cv::TesselatedPlane3_<_Tpl>(_p.x, _p.y, _p.z, _p.d) {
+        
+//        Plane(cv::Plane3_<_Tpl>& _p) : sg::Shape(), cv::TesselatedPlane3_<_Tpl>(_p.x, _p.y, _p.z, _p.d) {
+//        }
+        
+        Plane(cv::TesselatedPlane3_<_Tpl>& _p) : sg::Shape(), cv::TesselatedPlane3_<_Tpl>(_p) {
         }
-
+        
         //Plane(cv::Vec3f ctr, cv::Vec2f dims, cv::Plane3f& _p) : cv::Plane3f(_p.x, _p.y, _p.z, _p.d) {
         //    // TODO construct uv coords   
         //}

@@ -15,7 +15,7 @@ namespace cv {
     namespace rgbd {
 
         void SurfaceDetector::detect(const cv::rgbd::RgbdImage& rgbd_img,
-                cv::QuadPyramid<cv::TesselatedPlane3f::Ptr>& quadTree,
+                cv::QuadPyramid<sg::Plane<float>::Ptr>& quadTree,
                 cv::Rect roi,
                 std::vector<AlgebraicSurfacePatch::Ptr>& geometries,
                 cv::Mat& rgb_result, cv::Mat mask) const {
@@ -29,11 +29,11 @@ namespace cv {
             //            //std::cout << "(xBlocks, yBlocks) = (" << xBlocks << ", " << yBlocks << ")" << std::endl;
             //            cv::QuadPyramid<cv::TesselatedPlane3f::Ptr> quadTree(xBlocks, yBlocks, blockSize);
             cv::ErrorSortedRectQueue quadQueue;
-            std::vector<cv::TesselatedPlane3f::Ptr> planeList;
+            std::vector<sg::Plane<float>::Ptr> planeList;
             cv::Mat img_L;
             findPlanes(roi, quadQueue, planeList, rgbd_img, quadTree, img_L, numLabels);
             for (int indexA = 0; indexA < planeList.size(); indexA++) {
-                TesselatedPlane3f::Ptr& planeA = planeList[indexA];
+                sg::Plane<float>::Ptr& planeA = planeList[indexA];
                 AlgebraicSurfacePatch::Ptr surfPatch = AlgebraicSurfacePatch::create(planeA, rgbd_img);
                 if (planeA->avgError() < 0.0025 * surfPatch->getAverageDepth()) {
                     //std::cout << "areaA " << planeA->area() << " errorA = " << planeA->avgError() << " planeA = " << *planeA << std::endl;
@@ -44,14 +44,14 @@ namespace cv {
 
         void SurfaceDetector::findPlanes(const cv::Rect& roi,
                 ErrorSortedRectQueue& quadQueue,
-                std::vector<TesselatedPlane3f::Ptr>& planeList,
+                std::vector<sg::Plane<float>::Ptr>& planeList,
                 const RgbdImage& rgbd_proc,
-                QuadPyramid<TesselatedPlane3f::Ptr>& quadTree,
+                QuadPyramid<sg::Plane<float>::Ptr>& quadTree,
                 Mat& img_labels, int& numLabels) const {
             // block analyzed must lie on quadtree grid and inside the ROI
-            TesselatedPlane3f::Ptr topBlock, leftBlock;
+            sg::Plane<float>::Ptr topBlock, leftBlock;
             Plane3f plane3;
-            std::vector<TesselatedPlane3f::Ptr>& planeArray = quadTree.getObjects();
+            std::vector<sg::Plane<float>::Ptr>& planeArray = quadTree.getObjects();
             int blockSize = quadTree.blockSize;
             int numPoints = (blockSize * blockSize) >> 2;
 
@@ -82,14 +82,17 @@ namespace cv {
                     if (tile_data.size() > numSamples >> 2) {
                         rgbd_proc.fitImplicitPlaneLeastSquares(tile_data, plane3, quad.error,
                                 quad.noise, quad.inliers, quad.outliers, quad.invalid);
-                        TesselatedPlane3f::Ptr& cBlock = planeArray[yBlock * xBlocks + xBlock];
-                        cBlock = TesselatedPlane3f::Ptr(
-                                new TesselatedPlane3f(plane3, numLabels++));
-                        planeList.push_back(cBlock);
+                        cv::TesselatedPlane3f tplane(plane3,numLabels++);
+                        tplane.addQuad(quad);                        
+                        sg::Plane<float>::Ptr& cBlock = planeArray[yBlock * xBlocks + xBlock];
+                        cBlock = sg::Plane<float>::Ptr(
+                                new sg::Plane<float>(tplane));
+                        
                         RectWithError newQuad = quad.clone();
                         quad.clearStatistics();
                         cBlock->addQuad(newQuad); // error and support already known
                         quadQueue.push(newQuad);
+                        planeList.push_back(cBlock);
                     } else {
 
                     }

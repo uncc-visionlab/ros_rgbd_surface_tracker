@@ -618,14 +618,18 @@ namespace cv {
         TesselatedPlane3_() : LabeledPlane3_<_Tpl>() {
 
         }
-
+        
         TesselatedPlane3_(_Tpl _x, _Tpl _y, _Tpl _z, _Tpl _d) :
         LabeledPlane3_<_Tpl>(_x, _y, _z, _d) {
         }
-
+        
+        TesselatedPlane3_(Plane3_<_Tpl> _p) :
+        LabeledPlane3_<_Tpl>(_p, 0) {
+        }
+        
         TesselatedPlane3_(Plane3_<_Tpl> _p, int _label) :
         LabeledPlane3_<_Tpl>(_p, _label) {
-        };
+        }
 
         void addQuad(const RectWithError& re) {
             imgQuadArr.push_back(re);

@@ -465,7 +465,7 @@ bool leastSquaresSurfaceFitLM(AlgebraicSurfaceProduct<ScalarType>& surface,
     
     transform = optimizer.transform;
     
-    return ((optimizer.status > 0) ? true : false);
+    return (optimizer.status > 0);
 }
 
 #endif /* __cplusplus */

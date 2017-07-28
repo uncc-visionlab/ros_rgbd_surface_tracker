@@ -45,16 +45,16 @@ namespace cv {
         class SurfaceDetector {
         public:
             void detect(const cv::rgbd::RgbdImage& rgbd_img,
-                    cv::QuadPyramid<cv::TesselatedPlane3f::Ptr>& quadTree,
+                    cv::QuadPyramid<sg::Plane<float>::Ptr>& quadTree,
                     cv::Rect roi,
                     std::vector<AlgebraicSurfacePatch::Ptr>& surflets,
                     cv::Mat& rgb_result, const cv::Mat mask = cv::Mat()) const;
 
             void findPlanes(const Rect& roi,
                     ErrorSortedRectQueue& quadQueue,
-                    std::vector<TesselatedPlane3f::Ptr>& planeList,
+                    std::vector<sg::Plane<float>::Ptr>& planeList,
                     const RgbdImage& rgbd_img,
-                    QuadPyramid<TesselatedPlane3f::Ptr>& quadTree,
+                    QuadPyramid<sg::Plane<float>::Ptr>& quadTree,
                     Mat& img_labels, int& numLabels) const;
 
 
