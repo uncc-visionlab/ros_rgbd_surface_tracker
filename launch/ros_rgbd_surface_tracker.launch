@@ -8,8 +8,9 @@
          value="$(find ros_rgbd_surface_tracker)/cfg/rosconsole.conf"/> 
     
     <arg name="live_sensor" default="true" />
+    <arg name="ARM_HOST" default="false" />
     <arg name="play_bagfile" default="false" />
-    
+       
     <arg name="record_cameras" default="false" />
     <arg name="run_rviz" default="false" />
     <arg name="run_surface_tracker" default="true" />
@@ -119,6 +120,8 @@
               output="screen" if="$(arg run_surface_tracker)">
             <remap from="rgb/input_image" to="rgb/image_raw"/>
             <remap from="depth_registered/input_image" to="depth_registered/image_raw"/>
+            <param name="use_rgb_stream" value = "false" if="$(arg ARM_HOST)"/>
+            <param name="use_rgb_stream" value = "true" unless="$(arg ARM_HOST)"/>
             <param name="map_frame" value = "$(arg map_frame)"/>
             <param name="optical_parent" value = "$(arg rgb_optical_frame)"/>
             <param name="optical_frame" value = "$(arg rgbd_frame)"/>

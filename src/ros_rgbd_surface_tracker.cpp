@@ -84,7 +84,7 @@ void ROS_RgbdSurfaceTracker::depthImageCallback(const sensor_msgs::ImageConstPtr
 
     cv::Mat _ocv_depthframe_float(cv_depthimg_ptr->image.size(), CV_32F);
     createDepthImageFloat(_ocv_depthframe_float);
-    cv::Mat _ocv_rgbframe = cv::Mat::zeros(_ocv_depthframe_float.size(), CV_8UC3);
+    static cv::Mat _ocv_rgbframe = cv::Mat(_ocv_depthframe_float.size(), CV_8UC3, cv::Scalar(127,127,127));
     float cx = cameraMatrix.at<float>(0, 2);
     float cy = cameraMatrix.at<float>(1, 2);
     float fx = cameraMatrix.at<float>(0, 0);
@@ -147,7 +147,7 @@ void ROS_RgbdSurfaceTracker::rgbdImageCallback(const sensor_msgs::ImageConstPtr&
     PlaneVisualizationData* vis_data = rgbdSurfTracker.getPlaneVisualizationData();
     plane_vis.clearMarkerList();
     plane_vis.publishTriangleMesh(*vis_data, depth_msg->header.stamp);
-    
+
     if (image_pub.getNumSubscribers() > 0) {
         //show input with augmented information
         cv_bridge::CvImage out_msg;
@@ -224,37 +224,48 @@ void ROS_RgbdSurfaceTracker::initializeSubscribersAndPublishers() {
     //image_transport::SubscriberFilter sub_depthImage;
     sub_depthImage.subscribe(it_depth, "depth_registered/input_image", 1, depth_hints);
 
-    //message_filters::Subscriber<sensor_msgs::CameraInfo>
-    //        sub_rgbImage(*nodeptr, "rgb/image_raw", 1);
-    image_transport::ImageTransport it_rgb(*nodeptr);
-    // rgb uses normal ros transport hints.
-    image_transport::TransportHints hints("raw", ros::TransportHints(), *nodeptr);
-    //image_transport::SubscriberFilter sub_rgbImage;
-    sub_rgbImage.subscribe(it_rgb, "rgb/input_image", 1, hints);
+    if (useRGBStream) {
+        //message_filters::Subscriber<sensor_msgs::CameraInfo>
+        //        sub_rgbImage(*nodeptr, "rgb/image_raw", 1);
+        image_transport::ImageTransport it_rgb(*nodeptr);
+        // rgb uses normal ros transport hints.
+        image_transport::TransportHints hints("raw", ros::TransportHints(), *nodeptr);
+        //image_transport::SubscriberFilter sub_rgbImage;
+        sub_rgbImage.subscribe(it_rgb, "rgb/input_image", 1, hints);
 
-    //    message_filters::Subscriber<sensor_msgs::CameraInfo>
-    //            sub_rgbCameraInfo;
-    sub_rgbCameraInfo.subscribe(*nodeptr, "rgb/camera_info", 1);
+        //    message_filters::Subscriber<sensor_msgs::CameraInfo>
+        //            sub_rgbCameraInfo;
+        sub_rgbCameraInfo.subscribe(*nodeptr, "rgb/camera_info", 1);
 
-    // option 1
-    //    message_filters::TimeSynchronizer
-    //            <sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo>
-    //            syncTime(sub_depthImage, sub_rgbImage, sub_rgbCameraInfo, queue_size);
-    //    syncTime.registerCallback(boost::bind(&Feature3DEngine::rgbdImageCallback,
-    //            engineptr, _1, _2, _3));
-    // option 2
-    //    typedef message_filters::sync_policies::ExactTime
-    //            <sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo> MyExactSyncPolicy;
-    // ExactTime takes a queue size as its constructor argument, hence MySyncPolicy(queue_size)
-    //    message_filters::Synchronizer<MyExactSyncPolicy> syncExact(MyExactSyncPolicy(queue_size),
-    //            sub_depthImage, sub_rgbImage, sub_rgbCameraInfo);
-    // option 3
-    typedef message_filters::sync_policies::ApproximateTime
-            <sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo> MyApproximateSyncPolicy;
-    static message_filters::Synchronizer<MyApproximateSyncPolicy> syncApprox(MyApproximateSyncPolicy(queue_size),
-            sub_depthImage, sub_rgbImage, sub_rgbCameraInfo);
-    syncApprox.registerCallback(boost::bind(&ROS_RgbdSurfaceTracker::rgbdImageCallback,
-            this, _1, _2, _3));
+        // option 1
+        //    message_filters::TimeSynchronizer
+        //            <sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo>
+        //            syncTime(sub_depthImage, sub_rgbImage, sub_rgbCameraInfo, queue_size);
+        //    syncTime.registerCallback(boost::bind(&Feature3DEngine::rgbdImageCallback,
+        //            engineptr, _1, _2, _3));
+        // option 2
+        //    typedef message_filters::sync_policies::ExactTime
+        //            <sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo> MyExactSyncPolicy;
+        // ExactTime takes a queue size as its constructor argument, hence MySyncPolicy(queue_size)
+        //    message_filters::Synchronizer<MyExactSyncPolicy> syncExact(MyExactSyncPolicy(queue_size),
+        //            sub_depthImage, sub_rgbImage, sub_rgbCameraInfo);
+        // option 3
+        typedef message_filters::sync_policies::ApproximateTime
+                <sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo> MyApproximateSyncPolicy;
+        static message_filters::Synchronizer<MyApproximateSyncPolicy> syncApprox(MyApproximateSyncPolicy(queue_size),
+                sub_depthImage, sub_rgbImage, sub_rgbCameraInfo);
+        syncApprox.registerCallback(boost::bind(&ROS_RgbdSurfaceTracker::rgbdImageCallback,
+                this, _1, _2, _3));
+    } else {
+        sub_depthCameraInfo.subscribe(*nodeptr, "depth/camera_info", 1);
+        //sub_depthCameraInfo.subscribe(*nodeptr, "ir/camera_info", 1);
+        typedef message_filters::sync_policies::ApproximateTime
+                <sensor_msgs::Image, sensor_msgs::CameraInfo> MyApproximateSyncPolicy;
+        static message_filters::Synchronizer<MyApproximateSyncPolicy> syncApprox(MyApproximateSyncPolicy(queue_size),
+                sub_depthImage, sub_depthCameraInfo);
+        syncApprox.registerCallback(boost::bind(&ROS_RgbdSurfaceTracker::depthImageCallback,
+                this, _1, _2));
+    }
 
     pubPoseWCovariance = nodeptr->advertise<geometry_msgs::PoseWithCovarianceStamped>("pose_w_cov", 1000);
 }

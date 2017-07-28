@@ -43,11 +43,11 @@ public:
     ROS_RgbdSurfaceTracker() :
     nodeptr(new ros::NodeHandle),
     nh("~"), it(nh), plane_vis(nodeptr) {
-
+        nh.param("use_rgb_stream", useRGBStream, true);
         nh.param<std::string>("map_frame", map_frame_id_str, "optitrack");
         nh.param<std::string>("optical_parent", parent_frame_id_str, "optitrack");
         nh.param<std::string>("optical_frame", rgbd_frame_id_str, "rgbd_frame");
-        
+
         plane_vis.setFrameID(parent_frame_id_str);
         plane_vis.setMaxPlanes(1);
         image_pub = it.advertise("result", 1);
@@ -94,6 +94,7 @@ private:
     std::string parent_frame_id_str; // frame id for parent of the RGBD sensor
     std::string rgbd_frame_id_str; // frame id for RGBD sensor      
 
+    bool useRGBStream;
     // subscribers to RGBD sensor data
     image_transport::SubscriberFilter sub_depthImage;
     image_transport::SubscriberFilter sub_rgbImage;
@@ -107,9 +108,9 @@ private:
     image_transport::Publisher image_pub;
 
     cv::rgbd::RgbdSurfaceTracker rgbdSurfTracker;
-    
+
     ros_plane_visualizer plane_vis;
-    
+
 };
 
 #endif /* __cplusplus */
