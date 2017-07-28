@@ -121,16 +121,17 @@ namespace sg {
     };
 
     template <typename _Tpl>
-    class Plane : public Shape, public cv::Plane3_<_Tpl> {
+    //class Plane : public Shape, public cv::Plane3_<_Tpl> {
+    class Plane : public Shape, public cv::TesselatedPlane3_<_Tpl> {
         std::vector< std::vector< cv::Vec<_Tpl, 2> > > uv_coords; // 2d parametric coords within the plane
         std::vector< std::vector< cv::Vec<_Tpl, 2> > > uv_texCoords; // 2d parametric coords within the RGB image
     public:
         typedef boost::shared_ptr<Plane> Ptr;
 
-        Plane() : sg::Shape(), cv::Plane3_<_Tpl>() {
+        Plane() : sg::Shape(), cv::TesselatedPlane3_<_Tpl>() {
         }
 
-        Plane(cv::Plane3_<_Tpl>& _p) : sg::Shape(), cv::Plane3_<_Tpl>(_p.x, _p.y, _p.z, _p.d) {
+        Plane(cv::Plane3_<_Tpl>& _p) : sg::Shape(), cv::TesselatedPlane3_<_Tpl>(_p.x, _p.y, _p.z, _p.d) {
         }
 
         //Plane(cv::Vec3f ctr, cv::Vec2f dims, cv::Plane3f& _p) : cv::Plane3f(_p.x, _p.y, _p.z, _p.d) {

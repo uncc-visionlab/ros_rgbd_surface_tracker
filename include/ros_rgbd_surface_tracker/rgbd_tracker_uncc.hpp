@@ -45,6 +45,8 @@ namespace cv {
         class SurfaceDetector {
         public:
             void detect(const cv::rgbd::RgbdImage& rgbd_img,
+                    cv::QuadPyramid<cv::TesselatedPlane3f::Ptr>& quadTree,
+                    cv::Rect roi,
                     std::vector<AlgebraicSurfacePatch::Ptr>& surflets,
                     cv::Mat& rgb_result, const cv::Mat mask = cv::Mat()) const;
 

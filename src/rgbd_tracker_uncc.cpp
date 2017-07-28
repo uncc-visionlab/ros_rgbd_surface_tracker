@@ -19,6 +19,10 @@
 extern int supermain(AlgebraicSurface<float>& surf, PlaneVisualizationData& vis_data,
         const Eigen::Matrix<float, 8, 3>& cube, float cubesize, float levelset);
 
+#define BLOCKSIZE 32
+#define MARGIN_X 50
+#define MARGIN_Y 30
+
 namespace cv {
     namespace rgbd {
 
@@ -62,8 +66,18 @@ namespace cv {
             cv::rectangle(rgb_result, rectVal, cv::Scalar(0, 255, 0), 3);
             rgbd_img.computeNormals();
 
+            int blockSize = BLOCKSIZE;
+            int numLabels = 1;
+            Rect roi(MARGIN_X, MARGIN_Y, rgbd_img.getWidth() - 2 * MARGIN_X, rgbd_img.getHeight() - 2 * MARGIN_Y);
+            int xBlocks = (int) cvFloor((float) roi.width / blockSize);
+            int yBlocks = (int) cvFloor((float) roi.height / blockSize);
+            //std::cout << "(xBlocks, yBlocks) = (" << xBlocks << ", " << yBlocks << ")" << std::endl;
+            cv::QuadPyramid<cv::TesselatedPlane3f::Ptr> quadTree(xBlocks, yBlocks, blockSize);
+            //cv::QuadPyramid<sg::Plane<float>::Ptr> quadTree(xBlocks, yBlocks, blockSize);
+            
+            
             std::vector<cv::rgbd::AlgebraicSurfacePatch::Ptr> surfletPtrList;
-            surfdetector.detect(rgbd_img, surfletPtrList, rgb_result);
+            surfdetector.detect(rgbd_img, quadTree, roi, surfletPtrList, rgb_result);
 
             std::vector<cv::rgbd::ObjectGeometry> geomList;
             surfdescriptor_extractor.compute(rgbd_img, surfletPtrList, geomList, rgb_result);

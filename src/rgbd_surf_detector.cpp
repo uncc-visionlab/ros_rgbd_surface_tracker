@@ -11,25 +11,23 @@
 #include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>
 
-#define BLOCKSIZE 32
-#define MARGIN_X 50
-#define MARGIN_Y 30
-
 namespace cv {
     namespace rgbd {
 
         void SurfaceDetector::detect(const cv::rgbd::RgbdImage& rgbd_img,
+                cv::QuadPyramid<cv::TesselatedPlane3f::Ptr>& quadTree,
+                cv::Rect roi,
                 std::vector<AlgebraicSurfacePatch::Ptr>& geometries,
                 cv::Mat& rgb_result, cv::Mat mask) const {
 
             cv::Size imSize(rgbd_img.getDepth().size());
-            int blockSize = BLOCKSIZE;
-            int numLabels = 1;
-            Rect roi(MARGIN_X, MARGIN_Y, imSize.width - 2 * MARGIN_X, imSize.height - 2 * MARGIN_Y);
-            int xBlocks = (int) cvFloor((float) roi.width / blockSize);
-            int yBlocks = (int) cvFloor((float) roi.height / blockSize);
-            //std::cout << "(xBlocks, yBlocks) = (" << xBlocks << ", " << yBlocks << ")" << std::endl;
-            cv::QuadPyramid<cv::TesselatedPlane3f::Ptr> quadTree(xBlocks, yBlocks, blockSize);
+            //            int blockSize = BLOCKSIZE;
+                        int numLabels = 1;
+            //            Rect roi(MARGIN_X, MARGIN_Y, imSize.width - 2 * MARGIN_X, imSize.height - 2 * MARGIN_Y);
+            //            int xBlocks = (int) cvFloor((float) roi.width / blockSize);
+            //            int yBlocks = (int) cvFloor((float) roi.height / blockSize);
+            //            //std::cout << "(xBlocks, yBlocks) = (" << xBlocks << ", " << yBlocks << ")" << std::endl;
+            //            cv::QuadPyramid<cv::TesselatedPlane3f::Ptr> quadTree(xBlocks, yBlocks, blockSize);
             cv::ErrorSortedRectQueue quadQueue;
             std::vector<cv::TesselatedPlane3f::Ptr> planeList;
             cv::Mat img_L;

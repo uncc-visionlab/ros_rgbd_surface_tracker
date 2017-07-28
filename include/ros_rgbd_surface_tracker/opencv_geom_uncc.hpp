@@ -105,7 +105,7 @@ namespace cv {
             return lambda;
         }
 
-        _Tpl intersect( Line3_<_Tpl>& line2, Point3_<_Tpl>& pt) {
+        _Tpl intersect(Line3_<_Tpl>& line2, Point3_<_Tpl>& pt) {
             _Tpl error = 0;
             cv::Vec<_Tpl, 3> line12_perp = v.cross(line2.v);
             cv::Vec<_Tpl, 3> p0_To_p1 = line2.p0 - p0;
@@ -118,8 +118,8 @@ namespace cv {
             Point3_<_Tpl> p_line1 = getPoint(v1p);
             Point3_<_Tpl> p_line2 = line2.getPoint(v2p);
             pt = 0.5 * (p_line1 + p_line2);
-            Point3_<_Tpl> errorVec = p_line1-p_line2;
-            error = std::sqrt(errorVec.dot(errorVec));        
+            Point3_<_Tpl> errorVec = p_line1 - p_line2;
+            error = std::sqrt(errorVec.dot(errorVec));
             return error;
         }
 
@@ -615,9 +615,16 @@ namespace cv {
         typedef boost::shared_ptr<TesselatedPlane3_<_Tpl> > Ptr;
         typedef boost::shared_ptr<const TesselatedPlane3_<_Tpl> > ConstPtr;
 
+        TesselatedPlane3_() : LabeledPlane3_<_Tpl>() {
+
+        }
+
+        TesselatedPlane3_(_Tpl _x, _Tpl _y, _Tpl _z, _Tpl _d) :
+        LabeledPlane3_<_Tpl>(_x, _y, _z, _d) {
+        }
+
         TesselatedPlane3_(Plane3_<_Tpl> _p, int _label) :
         LabeledPlane3_<_Tpl>(_p, _label) {
-
         };
 
         void addQuad(const RectWithError& re) {
