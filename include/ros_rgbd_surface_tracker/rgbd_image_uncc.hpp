@@ -199,8 +199,8 @@ namespace cv {
             img_I(_img_I), img_Z(_img_Z), // img_L(_img_L), 
             cx(_cx), cy(_cy), inv_f(1.f / _f),
             width(_img_I.cols), height(_img_I.rows) {
-                iptr = img_I.ptr<uchar>();
-                zptr = img_Z.ptr<float>();
+                iptr = img_I.ptr<uchar>(0, 0);
+                zptr = img_Z.ptr<float>(0, 0);
                 //lptr = img_L.ptr<uchar>();
                 istep = (int) (_img_I.step / _img_I.elemSize1());
                 zstep = (int) (_img_Z.step / _img_Z.elemSize1());
@@ -390,11 +390,11 @@ namespace cv {
             void setNormals(cv::Mat& _normals) {
                 img_N = _normals;
             }
-            
+
             cv::Mat getNormals() const {
                 return img_N;
             }
-            
+
             bool computeNormals();
 
             int getWidth() const {

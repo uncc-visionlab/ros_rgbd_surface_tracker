@@ -420,7 +420,7 @@ namespace cv {
 
             // sliding window on integral image 
             // the integral images have one more row and column than the source image
-            ImageWindow imWin(one_div_z.size(), winSize);
+            ImageWindow imWin(ntan_theta_x.size(), winSize);
             cv::Point2i *ibegin = imWin.begin(), *iend = imWin.end();
             for (int y = ibegin->y; y < iend->y - 1; ++y) {
                 imWin.centerOn(ibegin->x, y);
@@ -459,8 +459,8 @@ namespace cv {
             ntan_theta_x = cv::Mat::zeros(height, width, CV_32F);
             ntan_theta_y = cv::Mat::zeros(height, width, CV_32F);
             cv::Mat _tan_theta_xy(height, width, CV_32F);
-            cv::Mat _tan_theta_x_sq(height, width, CV_32F);
-            cv::Mat _tan_theta_y_sq(height, width, CV_32F);
+            //cv::Mat _tan_theta_x_sq(height, width, CV_32F);
+            //cv::Mat _tan_theta_y_sq(height, width, CV_32F);
             _tan_theta_x_div_z = cv::Mat::zeros(height, width, CV_32F);
             _tan_theta_y_div_z = cv::Mat::zeros(height, width, CV_32F);
             _one_div_z = cv::Mat::zeros(height, width, CV_32F);
@@ -472,7 +472,6 @@ namespace cv {
             tan_theta_y_div_z = cv::Mat::zeros(height + 1, width + 1, CV_64F);
             one_div_z = cv::Mat::zeros(height + 1, width + 1, CV_64F);
             one_div_z_sq = cv::Mat::zeros(height + 1, width + 1, CV_64F);
-
             double ttxval, ttyval;
             for (int r = 0; r < height; ++r) {
                 for (int c = 0; c < width; ++c) {

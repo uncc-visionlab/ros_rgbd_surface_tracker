@@ -183,9 +183,9 @@ target_link_libraries(${PROJECT_NAME}
    ${catkin_LIBRARIES}  
    ${Boost_LIBRARIES} 
    ${OpenCV_LIBRARIES}
-   ${Eigen3_LIBRARIES} marchingcubes GL GLU GLEW glut)
+   ${Eigen3_LIBRARIES} GL GLU GLEW glut)
 
-link_directories(/opt/ros/kinetic/lib) # needed to find 
+link_directories(/opt/ros/kinetic/lib) # needed to find OpenNI2Orbbec
 add_executable(main_opencv src/main_opencv.cpp
     src/rgbd_tracker_uncc.cpp
     src/rgbd_image_uncc.cpp
@@ -205,7 +205,7 @@ target_link_libraries(main_opencv
    ${Boost_LIBRARIES} 
    ${OpenCV_LIBRARIES}  
    ${Eigen3_LIBRARIES}  
-   OpenNI2Orbbec pthread marchingcubes GL GLU GLEW glut)
+   OpenNI2Orbbec pthread marchingcubes GL GLU glut)
 
 add_executable(main_opencv_arm
     src/main_opencv_arm.cpp
@@ -223,7 +223,7 @@ target_link_libraries(main_opencv_arm
    ${Boost_LIBRARIES}
    ${OpenCV_LIBRARIES}  
    ${Eigen3_LIBRARIES}  
-   OpenNI2Orbbec GL GLU GLEW glut)
+   OpenNI2Orbbec GL GLU glut)
 
 add_executable(opengl_iothread 
     src/opengl_iothread.cpp)
