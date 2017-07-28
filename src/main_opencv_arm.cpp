@@ -103,15 +103,19 @@ int main(int argc, char** argv) {
     VideoMode modeDepth;
     modeDepth.setResolution(640, 480);
     modeDepth.setFps(30);
-    modeDepth.setPixelFormat(PIXEL_FORMAT_DEPTH_1_MM);
+    modeDepth.setPixelFormat(PIXEL_FORMAT_DEPTH_100_UM);
+    //modeDepth.setPixelFormat(PIXEL_FORMAT_DEPTH_1_MM);
     oniDepthStream.setVideoMode(modeDepth);
-    //oniDepthStream.setMirroringEnabled(true);
+    oniDepthStream.setMirroringEnabled(false);
     device.setImageRegistrationMode(ImageRegistrationMode::IMAGE_REGISTRATION_DEPTH_TO_COLOR);
 
     VideoCapture cap;
+    //cap.open(cv::CAP_OPENNI_BGR_IMAGE);
     cap.open(0);
-    if (!cap.isOpened())
+    if (!cap.isOpened()) {
+        std::cout << "Cannot access RGB camera!" << std::endl;
         return false;
+    }
 
     cap.set(CV_CAP_PROP_FRAME_WIDTH, 640);
     cap.set(CV_CAP_PROP_FRAME_HEIGHT, 480);
@@ -145,6 +149,7 @@ int main(int argc, char** argv) {
         if (frame.empty())
             break;
         ocv_rgbframe = frame.clone();
+        //cv::cvtColor(ocv_rgbframe, ocv_rgbframe, CV_BGR2RGB);
 
         if (_frame_skip == 0 || !(count % (_frame_skip))) {
             rgbFrameReady = true;
