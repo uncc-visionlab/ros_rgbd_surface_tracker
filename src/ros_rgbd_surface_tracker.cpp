@@ -257,7 +257,7 @@ void ROS_RgbdSurfaceTracker::initializeSubscribersAndPublishers() {
         syncApprox.registerCallback(boost::bind(&ROS_RgbdSurfaceTracker::rgbdImageCallback,
                 this, _1, _2, _3));
     } else {
-        sub_depthCameraInfo.subscribe(*nodeptr, "depth/camera_info", 1);
+        sub_depthCameraInfo.subscribe(*nodeptr, "depth_registered/camera_info", 1);
         //sub_depthCameraInfo.subscribe(*nodeptr, "ir/camera_info", 1);
         typedef message_filters::sync_policies::ApproximateTime
                 <sensor_msgs::Image, sensor_msgs::CameraInfo> MyApproximateSyncPolicy;
