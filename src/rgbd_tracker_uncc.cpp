@@ -19,7 +19,7 @@
 extern int supermain(AlgebraicSurface<float>& surf, PlaneVisualizationData& vis_data,
         const Eigen::Matrix<float, 8, 3>& cube, float cubesize, float levelset);
 
-#define BLOCKSIZE 32
+#define BLOCKSIZE 48
 #define MARGIN_X 50
 #define MARGIN_Y 30
 

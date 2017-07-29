@@ -748,8 +748,7 @@ namespace cv {
     private:
         int level;
         std::unordered_map<int, T> data;
-        //QuadTreeLevel<T>::* parent;
-        QuadTreeLevel<T>::Ptr parent;
+        QuadTreeLevel<T>* parent;
         QuadTreeLevel<T>::Ptr child;
         cv::Size tileDims;
         cv::Size blockSize;
@@ -768,10 +767,11 @@ namespace cv {
             //            std::cout << "Creating " << levels << " quad tree levels." << std::endl;
             std::cout << "QuadPyramid (x,y) = " << tileDims.width << ", " << tileDims.height << " allocated "
                     << (tileDims.width * tileDims.height) << " elements. " << std::endl;
-            if (blockSize.width % 2 == 1 || blockSize.height % 2 == 1) {
-                std::cout << "THIS CODE HAS BUGS FOR QUADTREES WITH ODD BLOCKSIZE!" << std::endl;
-            }
-            assert(blockSize.width % 2 == 0 && blockSize.height % 2 == 0);
+            //            if (blockSize.width % 2 == 1 || blockSize.height % 2 == 1) {
+            //                std::cout << "blocksize = " << blockSize << std::endl;
+            //                std::cout << "THIS CODE HAS BUGS FOR QUADTREES WITH ODD BLOCKSIZE!" << std::endl;
+            //            }
+            //assert(blockSize.width % 2 == 0 && blockSize.height % 2 == 0);
         }
 
         virtual ~QuadTreeLevel() {
@@ -848,30 +848,33 @@ namespace cv {
             return level;
         }
 
-        QuadTreeLevel<T>& getQuadTreeLevel(int _level) {
+        QuadTreeLevel<T>* getQuadTreeLevel(int _level) {
             //std::cout << "_level = " << _level << " level = " << level << std::endl;
             if (_level == level) {
-                return *this;
+                return this;
             } else {
                 if (_level < level) {
                     int _width = tileDims.width >> 1;
                     int _height = tileDims.height >> 1;
-                    if (tileDims.width > 0 && tileDims.height > 0) {
+                    if (!parent) {
                         parent = new QuadTreeLevel<T>(_width, _height,
                                 cv::Size(blockSize.width << 1, blockSize.height << 1),
                                 level - 1, nullptr, this);
-                        return parent->getQuadTreeLevel(_level);
                     }
+                    return parent->getQuadTreeLevel(_level);
                 }
-                if (_level > level) {
+                if (_level > level && blockSize.width > 2 && blockSize.height > 2) {
                     int _width = tileDims.width << 1;
                     int _height = tileDims.height << 1;
-                    child = QuadTreeLevel<T>::Ptr(new QuadTreeLevel<T>(_width, _height,
-                            cv::Size(blockSize.width >> 1, blockSize.height >> 1),
-                            level + 1, this, nullptr));
+                    if (!child) {
+                        child = QuadTreeLevel<T>::Ptr(new QuadTreeLevel<T>(_width, _height,
+                                cv::Size(blockSize.width >> 1, blockSize.height >> 1),
+                                level + 1, this, nullptr));
+                    }
                     return child->getQuadTreeLevel(_level);
                 }
             }
+            return nullptr;
         }
 
         void getCorners(int pos_x, int pos_y, Point2i& tlc, Point2i& brc) {
@@ -892,7 +895,7 @@ namespace cv {
 
         QuadTree<T>* getQuadTree() {
             if (parent) {
-                parent->getQuadTree();
+                return parent->getQuadTree();
             }
             return dynamic_cast<QuadTree<T>*> (this);
         }

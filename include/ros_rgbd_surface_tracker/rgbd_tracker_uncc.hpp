@@ -43,11 +43,16 @@ namespace cv {
                     std::vector<AlgebraicSurfacePatch::Ptr>& surflets,
                     cv::Mat& rgb_result, const cv::Mat mask = cv::Mat()) const;
 
-            void findPlanes(ErrorSortedRectQueue& quadQueue,
+            std::vector<cv::Point2i> findPlanes(ErrorSortedRectQueue& quadQueue,
                     const RgbdImage& rgbd_img,
-                    QuadTreeLevel<sg::Plane<float>::Ptr>& quadTree,
+                    QuadTreeLevel<sg::Plane<float>::Ptr>* quadTree,
                     Mat& img_labels, int& numLabels) const;
-
+            
+            std::vector<cv::Point2i> recursiveSubdivision(ErrorSortedRectQueue& quadQueue,
+                    const RgbdImage& rgbd_img,
+                    QuadTreeLevel<sg::Plane<float>::Ptr>* quadTree,
+                    std::vector<cv::Point2i>& subdivideTileVec,
+                    Mat& img_labels, int& numLabels) const;
 
         }; /* class SurfaceDetector */
 
