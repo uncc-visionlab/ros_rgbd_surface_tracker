@@ -15,25 +15,17 @@ namespace cv {
     namespace rgbd {
 
         void SurfaceDetector::detect(const cv::rgbd::RgbdImage& rgbd_img,
-                cv::QuadPyramid<sg::Plane<float>::Ptr>& quadTree,
-                cv::Rect roi,
+                cv::QuadTree<sg::Plane<float>::Ptr>& quadTree,
                 std::vector<AlgebraicSurfacePatch::Ptr>& geometries,
                 cv::Mat& rgb_result, cv::Mat mask) const {
-
-            cv::Size imSize(rgbd_img.getDepth().size());
-            //            int blockSize = BLOCKSIZE;
-                        int numLabels = 1;
-            //            Rect roi(MARGIN_X, MARGIN_Y, imSize.width - 2 * MARGIN_X, imSize.height - 2 * MARGIN_Y);
-            //            int xBlocks = (int) cvFloor((float) roi.width / blockSize);
-            //            int yBlocks = (int) cvFloor((float) roi.height / blockSize);
-            //            //std::cout << "(xBlocks, yBlocks) = (" << xBlocks << ", " << yBlocks << ")" << std::endl;
-            //            cv::QuadPyramid<cv::TesselatedPlane3f::Ptr> quadTree(xBlocks, yBlocks, blockSize);
+            int numLabels = 1;
             cv::ErrorSortedRectQueue quadQueue;
             std::vector<sg::Plane<float>::Ptr> planeList;
             cv::Mat img_L;
-            findPlanes(roi, quadQueue, planeList, rgbd_img, quadTree, img_L, numLabels);
-            for (int indexA = 0; indexA < planeList.size(); indexA++) {
-                sg::Plane<float>::Ptr& planeA = planeList[indexA];
+            findPlanes(quadQueue, rgbd_img, quadTree, img_L, numLabels);
+            std::unordered_map<int, sg::Plane<float>::Ptr> data = quadTree.getData();
+            for (auto it = data.begin(); it != data.end(); ++it) {
+                sg::Plane<float>::Ptr& planeA = it->second;
                 AlgebraicSurfacePatch::Ptr surfPatch = AlgebraicSurfacePatch::create(planeA, rgbd_img);
                 if (planeA->avgError() < 0.0025 * surfPatch->getAverageDepth()) {
                     //std::cout << "areaA " << planeA->area() << " errorA = " << planeA->avgError() << " planeA = " << *planeA << std::endl;
@@ -42,57 +34,36 @@ namespace cv {
             }
         }
 
-        void SurfaceDetector::findPlanes(const cv::Rect& roi,
-                ErrorSortedRectQueue& quadQueue,
-                std::vector<sg::Plane<float>::Ptr>& planeList,
+        void SurfaceDetector::findPlanes(ErrorSortedRectQueue& quadQueue,
                 const RgbdImage& rgbd_proc,
-                QuadPyramid<sg::Plane<float>::Ptr>& quadTree,
+                QuadTree<sg::Plane<float>::Ptr>& quadTree,
                 Mat& img_labels, int& numLabels) const {
             // block analyzed must lie on quadtree grid and inside the ROI
-            sg::Plane<float>::Ptr topBlock, leftBlock;
             Plane3f plane3;
-            std::vector<sg::Plane<float>::Ptr>& planeArray = quadTree.getObjects();
-            int blockSize = quadTree.blockSize;
-            int numPoints = (blockSize * blockSize) >> 2;
 
-            //rgbd_proc.randPt.initializePatterns(blockSize);
-
-            int x0 = (roi.x / blockSize) * blockSize, y0 = (roi.y / blockSize) * blockSize;
-            int xBlock = x0 / blockSize, yBlock = y0 / blockSize;
-            int xBlocks = roi.width / blockSize, yBlocks = roi.height / blockSize;
             RectWithError quad;
-            quad.width = quad.height = blockSize;
-            for (; yBlock < yBlocks; y0 += blockSize, ++yBlock) {
-                for (x0 = (roi.x / blockSize) * blockSize, xBlock = x0 / blockSize;
-                        xBlock < xBlocks; x0 += blockSize, ++xBlock) {
-                    //std::cout << "processing tile " << Point2i(xBlock, yBlock) << " of " << Point2i(xBlocks, yBlocks) << std::endl;
-                    // if returns false  no fit is possible
-                    // if returns true, plane3, error and noise have analysis values
-                    //if (rgbd_proc.fitPlaneSimple(x0, y0, blockSize, plane3, error, noise)) {
-                    //RectWithError quad(x0, y0, blockSize, blockSize);
-                    quad.x = x0;
-                    quad.y = y0;
+            cv::Size tileDims = quadTree.getTileDims();
+            for (int y_tile = 0; y_tile < tileDims.height; ++y_tile) {
+                for (int x_tile = 0; x_tile < tileDims.width; ++x_tile) {
+                    quadTree.setRect(x_tile, y_tile, quad);
                     std::vector<cv::Point3f> tile_data; // data for each tile in array of vectors
                     int numSamples = (quad.width * quad.height) / 2;
                     tile_data.reserve(numSamples);
 
                     rgbd_proc.getTileData_Uniform(quad.x, quad.y,
-                            quad.width, quad.height,
-                            tile_data, numSamples);
+                            quad.width, quad.height, tile_data, numSamples);
                     if (tile_data.size() > numSamples >> 2) {
                         rgbd_proc.fitImplicitPlaneLeastSquares(tile_data, plane3, quad.error,
                                 quad.noise, quad.inliers, quad.outliers, quad.invalid);
-                        cv::TesselatedPlane3f tplane(plane3,numLabels++);
-                        tplane.addQuad(quad);                        
-                        sg::Plane<float>::Ptr& cBlock = planeArray[yBlock * xBlocks + xBlock];
-                        cBlock = sg::Plane<float>::Ptr(
-                                new sg::Plane<float>(tplane));
-                        
+                        cv::TesselatedPlane3f tplane(plane3, numLabels++);
+                        tplane.addQuad(quad);
+                        sg::Plane<float>::Ptr& cBlock = quadTree.get(x_tile, y_tile);
+                        cBlock = sg::Plane<float>::Ptr(new sg::Plane<float>(tplane));
+
                         RectWithError newQuad = quad.clone();
                         quad.clearStatistics();
                         cBlock->addQuad(newQuad); // error and support already known
                         quadQueue.push(newQuad);
-                        planeList.push_back(cBlock);
                     } else {
 
                     }

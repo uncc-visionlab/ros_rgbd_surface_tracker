@@ -1,9 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
-
 /* 
  * File:   rgbd_uncc_contrib.h
  * Author: arwillis
@@ -45,16 +39,13 @@ namespace cv {
         class SurfaceDetector {
         public:
             void detect(const cv::rgbd::RgbdImage& rgbd_img,
-                    cv::QuadPyramid<sg::Plane<float>::Ptr>& quadTree,
-                    cv::Rect roi,
+                    cv::QuadTree<sg::Plane<float>::Ptr>& quadTree,
                     std::vector<AlgebraicSurfacePatch::Ptr>& surflets,
                     cv::Mat& rgb_result, const cv::Mat mask = cv::Mat()) const;
 
-            void findPlanes(const Rect& roi,
-                    ErrorSortedRectQueue& quadQueue,
-                    std::vector<sg::Plane<float>::Ptr>& planeList,
+            void findPlanes(ErrorSortedRectQueue& quadQueue,
                     const RgbdImage& rgbd_img,
-                    QuadPyramid<sg::Plane<float>::Ptr>& quadTree,
+                    QuadTree<sg::Plane<float>::Ptr>& quadTree,
                     Mat& img_labels, int& numLabels) const;
 
 

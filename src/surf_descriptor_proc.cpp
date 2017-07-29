@@ -132,15 +132,15 @@ foundEdge:
                 } /* loop over candidate surface elements */
             } // check for second and third surface availability 
 foundCorner:
+            std::cout << "Made " << numTripletTests << " tests for corners." << std::endl;
             if (geometries.size() > 6) {
                 for (int idx = 5; idx > 0; --idx) {
-                    std::cout << "Made " << numTripletTests << " tests for corners." << std::endl;
                     sg::Corner<float>::Ptr cornerPtr = boost::dynamic_pointer_cast<sg::Corner<float>>(geometries[geometries.size() - idx].getShape());
                     if (cornerPtr) {
                         std::string shapeStr = cornerPtr->isConvex() ? "convex" : "concave";
                         std::cout << "Corner is " << shapeStr << std::endl;
                         sg::CornerType id = sg::Box::getCameraFrameCornerType(cornerPtr);
-                        std::cout << "CornerType = " << sg::cornerTypeToString[id] << std::endl;
+                        std::cout << "CornerType = " << sg::cornerTypeToString[id] << std::endl;                        
                     }
                 }
             }

@@ -50,49 +50,22 @@ namespace cv {
             cv::imshow("RGB Result", rgb_result);
             cv::waitKey(3);
         }
-        
-        cv::Point2i getBlockOfPoint(cv::Point2f pt, 
-                cv::QuadPyramid<sg::Plane<float>::Ptr>& quadtree, 
-                cv::Rect2i& roi) {
-            
-            //testing
-            pt.x = 303;
-            pt.y = 199;
-            
-            cv::Point2f roi_tl = roi.tl();
-            
-            cv::Point2f pt_in_roi = roi_tl - pt;
-            
-            
-            
-            
-            
-        }
-        
-        void testHypotheses(cv::rgbd::RgbdImage& rgbd_img, 
-                cv::QuadPyramid<sg::Plane<float>::Ptr>& quadtree,
+
+        void testHypotheses(cv::rgbd::RgbdImage& rgbd_img,
+                cv::QuadTree<sg::Plane<float>::Ptr>& quadtree,
                 cv::Rect2i& roi, std::vector<cv::rgbd::ObjectGeometry>& geometry_list) {
-            
+
             for (cv::rgbd::ObjectGeometry& geometry : geometry_list) {
-                
-                if (geometry.getSurfaceType() == SurfaceType::EDGE) {
-                    
-                    sg::Edge<float>::Ptr edge = boost::static_pointer_cast<sg::Edge<float>>(geometry.getShape());
-                    
-                    cv::Point3f midpoint_edge = 0.5*(edge->getPoint(edge->start) + edge->getPoint(edge->end));
-                    
-                    cv::Point2f img_midpoint_edge = rgbd_img.project(midpoint_edge);
-                    
-                    std::cout << "img_midpoint: " << img_midpoint_edge << std::endl;
-                    
-                    getBlockOfPoint(img_midpoint_edge, quadtree, roi);
-                    
-                    
-                                        
+                switch (geometry.getSurfaceType()) {
+                    case SurfaceType::EDGE:
+                        sg::Edge<float>::Ptr edge = boost::static_pointer_cast<sg::Edge<float>>(geometry.getShape());
+                        cv::Point3f midpoint_edge = 0.5 * (edge->getPoint(edge->start) + edge->getPoint(edge->end));
+                        cv::Point2f img_midpoint_edge = rgbd_img.project(midpoint_edge);
+                        std::cout << "img_midpoint: " << img_midpoint_edge << std::endl;
+                        //getBlockOfPoint(img_midpoint_edge, quadtree, roi);
+                        break;
                 }
-                
             }
-            
         }
 
         void RgbdSurfaceTracker::segmentDepth(cv::rgbd::RgbdImage& rgbd_img, cv::Mat& rgb_result) {
@@ -110,22 +83,17 @@ namespace cv {
             cv::rectangle(rgb_result, rectVal, cv::Scalar(0, 255, 0), 3);
             rgbd_img.computeNormals();
 
-            int blockSize = BLOCKSIZE;
-            int numLabels = 1;
-            Rect roi(MARGIN_X, MARGIN_Y, rgbd_img.getWidth() - 2 * MARGIN_X, rgbd_img.getHeight() - 2 * MARGIN_Y);
-            int xBlocks = (int) cvFloor((float) roi.width / blockSize);
-            int yBlocks = (int) cvFloor((float) roi.height / blockSize);
-            //std::cout << "(xBlocks, yBlocks) = (" << xBlocks << ", " << yBlocks << ")" << std::endl;
-            cv::QuadPyramid<sg::Plane<float>::Ptr> quadTree(xBlocks, yBlocks, blockSize);
-            //cv::QuadPyramid<sg::Plane<float>::Ptr> quadTree(xBlocks, yBlocks, blockSize);
-            
-            
+            cv::Rect roi(MARGIN_X, MARGIN_Y, rgbd_img.getWidth() - 2 * MARGIN_X, rgbd_img.getHeight() - 2 * MARGIN_Y);
+            cv::Size imgSize(rgbd_img.getWidth(), rgbd_img.getHeight());
+            cv::Size tileSize(BLOCKSIZE, BLOCKSIZE);
+            cv::QuadTree<sg::Plane<float>::Ptr> quadTree( imgSize, tileSize, roi);
+
             std::vector<cv::rgbd::AlgebraicSurfacePatch::Ptr> surfletPtrList;
-            surfdetector.detect(rgbd_img, quadTree, roi, surfletPtrList, rgb_result);
-            
+            surfdetector.detect(rgbd_img, quadTree, surfletPtrList, rgb_result);
+
             std::vector<cv::rgbd::ObjectGeometry> geomList;
             surfdescriptor_extractor.compute(rgbd_img, surfletPtrList, geomList, rgb_result);
-            
+
             testHypotheses(rgbd_img, quadTree, roi, geomList);
 
             // OpenGL rendering
@@ -143,7 +111,7 @@ namespace cv {
                     glDraw.renderPointCloudNormals(points, rgbd_img.getNormals());
                 }
             }
-            if (glDraw.attrs.showDetections) {             
+            if (glDraw.attrs.showDetections) {
                 glDraw.renderGeometries(geomList);
             }
 

@@ -18,29 +18,6 @@
 #include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
 #include <ros_rgbd_surface_tracker/ShapeGrammarLibrary.hpp>
 
-//namespace sg {
-//    class Shape;
-//    class Plane;
-//    typedef boost::shared_ptr<Shape> ShapePtr;
-//    typedef boost::shared_ptr<Shape> PlanePtr;
-//}
-
-namespace sg {
-//        enum CornerType {
-//            UNKNOWN = -1,
-//            BACK_BOTTOM_RIGHT,
-//            BACK_BOTTOM_LEFT,
-//            BACK_TOP_RIGHT,
-//            BACK_TOP_LEFT,
-//            FRONT_BOTTOM_RIGHT,
-//            FRONT_BOTTOM_LEFT,
-//            FRONT_TOP_RIGHT,
-//            FRONT_TOP_LEFT
-//        };
-//        
-//        extern std::map<CornerType, const char*> cornerTypeToString;    
-} /* namespace sg */
-
 namespace cv {
     namespace rgbd {
 
@@ -58,7 +35,7 @@ namespace cv {
             sg::Plane<float>::Ptr plane_ptr;
             SurfaceType surfaceType;
             float avgDepth;
-            //sg::Plane::Ptr shapePtr;
+
         public:
             typedef boost::shared_ptr<AlgebraicSurfacePatch> Ptr;
             
