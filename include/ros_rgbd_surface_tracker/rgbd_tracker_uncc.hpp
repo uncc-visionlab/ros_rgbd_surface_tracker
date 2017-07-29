@@ -45,7 +45,7 @@ namespace cv {
 
             void findPlanes(ErrorSortedRectQueue& quadQueue,
                     const RgbdImage& rgbd_img,
-                    QuadTree<sg::Plane<float>::Ptr>& quadTree,
+                    QuadTreeLevel<sg::Plane<float>::Ptr>& quadTree,
                     Mat& img_labels, int& numLabels) const;
 
 

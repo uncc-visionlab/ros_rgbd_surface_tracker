@@ -102,7 +102,7 @@ namespace cv {
 
                     for (std::size_t i = 0; i != 4; i++) {
 
-                        if (!std::isnan(rgbd_img.getDepth().at<float>(corners[i].y, corners[i].x))) {
+                        if (!std::isnan(rgbd_img.getDepthImage().at<float>(corners[i].y, corners[i].x))) {
 
                             cv::Point3f point = rgbd_img.backproject(corners[i]);
 

@@ -28,14 +28,14 @@ namespace cv {
         }
 
         void RgbdImage::getPointCloud(cv::Mat& pts, cv::Mat& colors) {
-            pts.create(getDepth().size(), CV_32FC3);
-            colors.create(getDepth().size(), CV_8UC3);
-            for (int r = 0; r < getDepth().rows; ++r) {
-                const float *depth_ptr = getDepth().ptr<float>(r, 0);
+            pts.create(getDepthImage().size(), CV_32FC3);
+            colors.create(getDepthImage().size(), CV_8UC3);
+            for (int r = 0; r < getDepthImage().rows; ++r) {
+                const float *depth_ptr = getDepthImage().ptr<float>(r, 0);
                 cv::Vec3f *pts_ptr = pts.ptr<cv::Vec3f>(r, 0);
                 const uchar *rgb_ptr = getRGB().ptr<uchar>(r, 0);
                 uchar *colors_ptr = colors.ptr<uchar>(r, 0);
-                for (int c = 0; c < getDepth().cols; ++c) {
+                for (int c = 0; c < getDepthImage().cols; ++c) {
                     (*pts_ptr)[0] = (c - cx) * inv_f * (*depth_ptr);
                     (*pts_ptr)[1] = (r - cy) * inv_f * (*depth_ptr);
                     (*pts_ptr)[2] = *depth_ptr;
@@ -63,9 +63,9 @@ namespace cv {
             //                setNormalsComputer(normalsComputer);
             //
             //cv::Mat normals(getDepth().size(), CV_32FC3);
-            cv::Mat points(getDepth().size(), CV_32FC3);
-            for (int r = 0; r < getDepth().rows; ++r) {
-                for (int c = 0; c < getDepth().cols; ++c) {
+            cv::Mat points(getDepthImage().size(), CV_32FC3);
+            for (int r = 0; r < getDepthImage().rows; ++r) {
+                for (int c = 0; c < getDepthImage().cols; ++c) {
                     const float& depth = zptr[r * zstep + c];
                     points.at<cv::Point3f>(r, c).x = (c - cx) * inv_f*depth;
                     points.at<cv::Point3f>(r, c).y = (r - cy) * inv_f*depth;
@@ -76,8 +76,8 @@ namespace cv {
 
             //                                cv::Mat normals2(getDepth().size(), CV_32FC3);
             //                                iImgs.computeImplicit_Impl(getDepth(), normals2);
-            cv::Mat normals3(getDepth().size(), CV_32FC3);
-            iImgs.computeExplicit_Impl(getDepth(), normals3);
+            cv::Mat normals3(getDepthImage().size(), CV_32FC3);
+            iImgs.computeExplicit_Impl(getDepthImage(), normals3);
             setNormals(normals3);
             //iImgs.computeCurvatureFiniteDiff_Impl(getDepth(), normals3);
             cv::Mat axisVecs(1, 3, CV_32F);
@@ -112,7 +112,7 @@ namespace cv {
 
         bool RgbdImage::fitPlane(RectWithError& r, Plane3f& plane3) const {
             cv::Vec3f normal;
-            return iImgs.computeNormalExplicit(r, getDepth(), normal);
+            return iImgs.computeNormalExplicit(r, getDepthImage(), normal);
 
             //return fitTileExplicitPlaneLeastSquares(r.x, r.y, r.width, plane3, r.error,
             //        r.noise, r.inliers, r.outliers, r.invalid);

@@ -371,7 +371,7 @@ namespace cv {
             void fitImplicitPlaneLeastSquares(std::vector<Point3f>& data3, Plane3f& plane3, float& error,
                     float& noise, int& inliers, int& outliers, int& invalid) const;
 
-            const cv::Mat getDepth() const {
+            const cv::Mat getDepthImage() const {
                 return img_Z;
             }
 
@@ -397,6 +397,10 @@ namespace cv {
 
             bool computeNormals();
 
+            const float& getDepth(int x, int y) const {
+                return zptr[y * zstep + x];
+            }
+            
             int getWidth() const {
                 return width;
             }

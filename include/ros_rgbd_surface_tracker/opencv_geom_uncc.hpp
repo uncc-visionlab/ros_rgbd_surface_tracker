@@ -717,9 +717,27 @@ namespace cv {
     std::vector<TesselatedPlane3f>,
     TesselatedPlane3f::ErrorComparator> ErrorSortedPlaneQueue;
 
-    template<typename T> class QuadTree;
-    class TreeKey;
+    template<typename T> class QuadTreeLevel;
 
+    template<typename T>
+    class QuadTree : public QuadTreeLevel<T> {
+        friend class QuadTreeLevel<T>;
+        cv::Size srcDims;
+        cv::Rect roi;
+    public:
+        typedef boost::shared_ptr<QuadTree> Ptr;
+        typedef boost::shared_ptr<QuadTree> ConstPtr;
+
+        QuadTree(cv::Size _srcSize, cv::Size _blockSize, cv::Rect _roi) :
+        srcDims(_srcSize), roi(_roi),
+        QuadTreeLevel<T>(cvFloor((float) _roi.width / _blockSize.width),
+        cvFloor((float) _roi.height / _blockSize.height),
+        _blockSize, 0) {
+        }
+
+        virtual ~QuadTree() {
+        }
+    };
 
     template<typename T>
     class QuadTreeLevel {
@@ -730,7 +748,8 @@ namespace cv {
     private:
         int level;
         std::unordered_map<int, T> data;
-        QuadTreeLevel<T>* parent;
+        //QuadTreeLevel<T>::* parent;
+        QuadTreeLevel<T>::Ptr parent;
         QuadTreeLevel<T>::Ptr child;
         cv::Size tileDims;
         cv::Size blockSize;
@@ -774,7 +793,7 @@ namespace cv {
 
         void setRect(int x, int y, cv::Rect& r) {
             r.y = y * blockSize.height;
-            r.x = x*  blockSize.width;
+            r.x = x * blockSize.width;
             r.width = blockSize.width;
             r.height = blockSize.height;
             cv::Rect bounds = getBoundary();
@@ -786,10 +805,17 @@ namespace cv {
             return tileDims;
         }
 
-        bool inTree(int pos_x, int pos_y) {
-            int xBlock = pos_x / blockSize.width;
-            int yBlock = pos_y / blockSize.height;
-            return xBlock < tileDims.width && yBlock < tileDims.height;
+        bool getTile(int pos_x, int pos_y, int& tile_x, int& tile_y) {
+            cv::Rect bounds = getBoundary();
+            float tile_xf = (pos_x - bounds.x) / blockSize.width;
+            float tile_yf = (pos_y - bounds.y) / blockSize.height;
+            tile_x = cvFloor(tile_xf);
+            tile_y = cvFloor(tile_yf);
+            if (tile_xf < 0 || tile_xf > tileDims.width ||
+                    tile_yf < 0 || tile_yf > tileDims.height) {
+                return false;
+            }
+            return true;
         }
 
         T& getObjectFromAncestors(int pos_x, int pos_y) {
@@ -807,12 +833,22 @@ namespace cv {
             return data[KEY(pos_x, pos_y)];
         }
 
-        void set(int pos_x, int pos_y, T& data) {
-            // BUG HERE WHEN CREATE TREE WITH ODD BLOCKSIZE
-            data[KEY(pos_x, pos_y)] = data;
+        std::pair <typename std::unordered_map<int, T>::iterator, bool>
+        insert_or_assign(const int& pos_x, const int& pos_y, const T& datum) {
+            //return insert_or_assign(KEY(pos_x, pos_y), datum);
+            auto p = data.insert({KEY(pos_x, pos_y), datum});
+            if (!p.second) {
+                // overwrite previous value
+                p.first->second = datum;
+            }
+            return p;
         }
 
-        QuadTreeLevel<T> getPyramidLevel(int _level) {
+        int getLevel() const {
+            return level;
+        }
+
+        QuadTreeLevel<T>& getQuadTreeLevel(int _level) {
             //std::cout << "_level = " << _level << " level = " << level << std::endl;
             if (_level == level) {
                 return *this;
@@ -823,8 +859,8 @@ namespace cv {
                     if (tileDims.width > 0 && tileDims.height > 0) {
                         parent = new QuadTreeLevel<T>(_width, _height,
                                 cv::Size(blockSize.width << 1, blockSize.height << 1),
-                                level - 1, NULL, this);
-                        return parent->getPyramidLevel(_level);
+                                level - 1, nullptr, this);
+                        return parent->getQuadTreeLevel(_level);
                     }
                 }
                 if (_level > level) {
@@ -832,8 +868,8 @@ namespace cv {
                     int _height = tileDims.height << 1;
                     child = QuadTreeLevel<T>::Ptr(new QuadTreeLevel<T>(_width, _height,
                             cv::Size(blockSize.width >> 1, blockSize.height >> 1),
-                            level + 1, this, NULL));
-                    return child->getPyramidLevel(_level);
+                            level + 1, this, nullptr));
+                    return child->getQuadTreeLevel(_level);
                 }
             }
         }
@@ -849,7 +885,7 @@ namespace cv {
             QuadTree<T>* qt = getQuadTree();
             return qt->roi;
         }
-        
+
         const std::unordered_map<int, T>& getData() {
             return data;
         }
@@ -865,27 +901,7 @@ namespace cv {
             y = key / tileDims.width;
             x = key - y * tileDims.width;
         }
-
     };
-
-    template<typename T>
-    class QuadTree : public QuadTreeLevel<T> {
-        friend class QuadTreeLevel<T>;
-        cv::Size srcDims;
-        cv::Rect roi;
-    public:
-
-        QuadTree(cv::Size _srcSize, cv::Size _blockSize, cv::Rect _roi) :
-        srcDims(_srcSize), roi(_roi),
-        QuadTreeLevel<T>(cvFloor((float) _roi.width / _blockSize.width),
-        cvFloor((float) _roi.height / _blockSize.height),
-        _blockSize, 0) {
-        }
-
-        virtual ~QuadTree() {
-        }
-    };
-
 }
 #endif /* __cplusplus */
 #endif /* OPENCV_FUNCTION_DEV_H */

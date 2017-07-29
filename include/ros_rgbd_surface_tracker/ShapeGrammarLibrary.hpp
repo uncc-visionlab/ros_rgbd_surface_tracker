@@ -141,7 +141,7 @@ namespace sg {
         //    // TODO construct uv coords   
         //}
 
-        Plane(_Tpl a, _Tpl b, _Tpl c, _Tpl d) : sg::Shape(), cv::Plane3_<_Tpl>(a, b, c, d) {
+        Plane(_Tpl a, _Tpl b, _Tpl c, _Tpl d) : sg::Shape(), cv::TesselatedPlane3_<_Tpl>(a, b, c, d) {
         }
 
         virtual ~Plane() {
