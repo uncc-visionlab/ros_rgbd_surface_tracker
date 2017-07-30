@@ -829,8 +829,13 @@ namespace cv {
             return data;
         }
 
-        T& get(int pos_x, int pos_y) {
-            return data[KEY(pos_x, pos_y)];
+        T* get(int pos_x, int pos_y) {
+            //static T* no_value = nullptr;
+            int key = KEY(pos_x, pos_y);
+            if (data.count(key)) {
+                return &data[key];
+            }
+            return nullptr;
         }
 
         std::pair <typename std::unordered_map<int, T>::iterator, bool>
@@ -889,7 +894,7 @@ namespace cv {
             return qt->roi;
         }
 
-        const std::unordered_map<int, T>& getData() {
+        const std::unordered_map<int, T>& getData() const {
             return data;
         }
 
@@ -900,7 +905,7 @@ namespace cv {
             return dynamic_cast<QuadTree<T>*> (this);
         }
 
-        void keyToXY(int key, int &x, int &y) {
+        void keyToXY(int key, int &x, int &y) const {
             y = key / tileDims.width;
             x = key - y * tileDims.width;
         }

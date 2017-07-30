@@ -154,20 +154,6 @@ namespace cv {
                 return parentShape;
             }
 
-            std::vector<cv::Plane3f::Ptr> getPlanes() {
-                std::vector<cv::Plane3f::Ptr> planeVec;
-                for (AlgebraicSurfacePatch::Ptr patchPtr : patchVec) {
-                    sg::Shape::Ptr shapePtr = patchPtr->getShape();
-                    //std::cout << shapePtr->toString() << std::endl;
-                    if (patchPtr->getSurfaceType() == SurfaceType::PLANE) {
-                        sg::Plane<float>::Ptr planePtr = boost::static_pointer_cast<sg::Plane<float>>(shapePtr);
-                        //std::cout << planePtr->toString() << std::endl;
-                        planeVec.push_back(planePtr);
-                    }
-                }
-                return planeVec;
-            }
-
             static ObjectGeometry::Ptr create() {
                 return ObjectGeometry::Ptr(boost::make_shared<ObjectGeometry>());
             }

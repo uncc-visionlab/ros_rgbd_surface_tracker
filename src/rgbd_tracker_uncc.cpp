@@ -81,20 +81,22 @@ namespace cv {
 
             cv::Rect rectVal(290, 200, 640 - 2 * 290, 480 - 2 * 200);
             cv::rectangle(rgb_result, rectVal, cv::Scalar(0, 255, 0), 3);
-            rgbd_img.computeNormals();
+            //rgbd_img.computeNormals();
 
             cv::Rect roi(MARGIN_X, MARGIN_Y, rgbd_img.getWidth() - 2 * MARGIN_X, rgbd_img.getHeight() - 2 * MARGIN_Y);
             cv::Size imgSize(rgbd_img.getWidth(), rgbd_img.getHeight());
             cv::Size tileSize(BLOCKSIZE, BLOCKSIZE);
             cv::QuadTree<sg::Plane<float>::Ptr> quadTree( imgSize, tileSize, roi);
 
-            std::vector<cv::rgbd::AlgebraicSurfacePatch::Ptr> surfletPtrList;
-            surfdetector.detect(rgbd_img, quadTree, surfletPtrList, rgb_result);
+            int detector_timeBudget_ms = 5;
+            surfdetector.detect(rgbd_img, quadTree, detector_timeBudget_ms, rgb_result);
 
+            int descriptor_timeBudget_ms = 10;
             std::vector<cv::rgbd::ObjectGeometry> geomList;
-            surfdescriptor_extractor.compute(rgbd_img, surfletPtrList, geomList, rgb_result);
+            surfdescriptor_extractor.compute(rgbd_img, &quadTree, geomList, 
+                    descriptor_timeBudget_ms, rgb_result);
 
-            testHypotheses(rgbd_img, quadTree, roi, geomList);
+//            testHypotheses(rgbd_img, quadTree, roi, geomList);
 
             // OpenGL rendering
             glDraw.setImage(rgbd_img.getRGB());

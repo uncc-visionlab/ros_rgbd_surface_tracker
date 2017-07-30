@@ -40,18 +40,18 @@ namespace cv {
         public:
             void detect(const cv::rgbd::RgbdImage& rgbd_img,
                     cv::QuadTree<sg::Plane<float>::Ptr>& quadTree,
-                    std::vector<AlgebraicSurfacePatch::Ptr>& surflets,
-                    cv::Mat& rgb_result, const cv::Mat mask = cv::Mat()) const;
+                    int timeBudget_ms, cv::Mat& rgb_result,
+                    const cv::Mat mask = cv::Mat()) const;
 
             std::vector<cv::Point2i> findPlanes(ErrorSortedRectQueue& quadQueue,
                     const RgbdImage& rgbd_img,
                     QuadTreeLevel<sg::Plane<float>::Ptr>* quadTree,
                     Mat& img_labels, int& numLabels) const;
-            
+
             std::vector<cv::Point2i> recursiveSubdivision(ErrorSortedRectQueue& quadQueue,
                     const RgbdImage& rgbd_img,
                     QuadTreeLevel<sg::Plane<float>::Ptr>* quadTree,
-                    std::vector<cv::Point2i>& subdivideTileVec,
+                    const std::vector<cv::Point2i>& subdivideTileVec,
                     Mat& img_labels, int& numLabels) const;
 
         }; /* class SurfaceDetector */
@@ -59,8 +59,9 @@ namespace cv {
         class SurfaceDescriptorExtractor {
         public:
             void compute(const cv::rgbd::RgbdImage& rgbd_img,
-                    std::vector<AlgebraicSurfacePatch::Ptr>& surflets,
-                    std::vector<ObjectGeometry>& geometries, cv::Mat& rgb_result) const;
+                    cv::QuadTree<sg::Plane<float>::Ptr>* quadTree,
+                    std::vector<ObjectGeometry>& geometries,
+                    int timeBudget_ms, cv::Mat& rgb_result) const;
         }; /* class SurfaceDescriptorExtractor */
 
         class SurfaceDescriptorMatcher {
@@ -73,7 +74,6 @@ namespace cv {
         class RgbdSurfaceTracker {
         public:
             static OpenGLRenderer glDraw;
-            //static OpenGLRenderAttributes glAttr;
             typedef boost::shared_ptr<RgbdSurfaceTracker> Ptr;
 
             RgbdSurfaceTracker() {

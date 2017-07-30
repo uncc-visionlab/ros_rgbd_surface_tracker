@@ -14,42 +14,39 @@
 namespace cv {
     namespace rgbd {
 
-        void populateGeometries(const cv::rgbd::RgbdImage& rgbd_img,
-                QuadTreeLevel<sg::Plane<float>::Ptr>* quadTree,
-                std::vector<AlgebraicSurfacePatch::Ptr>& geometries) {
-            std::unordered_map<int, sg::Plane<float>::Ptr> data = quadTree->getData();
-            for (auto it = data.begin(); it != data.end(); ++it) {
-                //int key = it->first;
-                //int qX, qY;
-                //quadTree->keyToXY(key, qX, qY);
-                //std::cout << "Quad(" << qX << ", " << qY << ") = " << ((!planeA) ? "null" : (*planeA).toString()) << std::endl;
-                sg::Plane<float>::Ptr& planeA = it->second;
-                if (planeA) {
-                    AlgebraicSurfacePatch::Ptr surfPatch = AlgebraicSurfacePatch::create(planeA, rgbd_img);
-                    if (planeA->avgError() < 0.0025 * surfPatch->getAverageDepth()) {
-                        //std::cout << "areaA " << planeA->area() << " errorA = " << planeA->avgError() << " planeA = " << *planeA << std::endl;
-                        geometries.push_back(surfPatch);
-                    }
-                }
-            }
-        }
+//        void populateGeometries(const cv::rgbd::RgbdImage& rgbd_img,
+//                QuadTreeLevel<sg::Plane<float>::Ptr>* quadTree,
+//                std::vector<AlgebraicSurfacePatch::Ptr>& geometries) {
+//            std::unordered_map<int, sg::Plane<float>::Ptr> data = quadTree->getData();
+//            for (auto it = data.begin(); it != data.end(); ++it) {
+//                //int key = it->first;
+//                //int qX, qY;
+//                //quadTree->keyToXY(key, qX, qY);
+//                //std::cout << "Quad(" << qX << ", " << qY << ") = " << ((!planeA) ? "null" : (*planeA).toString()) << std::endl;
+//                sg::Plane<float>::Ptr& planeA = it->second;
+//                if (planeA) {
+//                    AlgebraicSurfacePatch::Ptr surfPatch = AlgebraicSurfacePatch::create(planeA, rgbd_img);
+//                    if (planeA->avgError() < 0.0025 * surfPatch->getAverageDepth()) {
+//                        //std::cout << "areaA " << planeA->area() << " errorA = " << planeA->avgError() << " planeA = " << *planeA << std::endl;
+//                        geometries.push_back(surfPatch);
+//                    }
+//                }
+//            }
+//        }
 
         void SurfaceDetector::detect(const cv::rgbd::RgbdImage& rgbd_img,
                 cv::QuadTree<sg::Plane<float>::Ptr>& quadTree,
-                std::vector<AlgebraicSurfacePatch::Ptr>& geometries,
-                cv::Mat& rgb_result, cv::Mat mask) const {
-            int numLabels = 1;
+                int timeBudget_ms, cv::Mat& rgb_result, cv::Mat mask) const {
             cv::ErrorSortedRectQueue quadQueue;
-            std::vector<sg::Plane<float>::Ptr> planeList;
             cv::Mat img_L;
+            int numLabels = 1;
 
             bool timeBudgetExpired = false;
-            int timeBudget_ms = 10;
             int64 timeBudgetTicks = timeBudget_ms * cv::getTickFrequency() / 1000;
             int64 ticksNow, ticksStart = cv::getTickCount();
 
             std::vector<Point2i> recurseTileVec = findPlanes(quadQueue, rgbd_img, &quadTree, img_L, numLabels);
-            populateGeometries(rgbd_img, &quadTree, geometries);
+            //populateGeometries(rgbd_img, &quadTree, geometries);
 
             ticksNow = cv::getTickCount();
             timeBudgetExpired = (ticksNow - ticksStart) > timeBudgetTicks;
@@ -61,13 +58,43 @@ namespace cv {
                     break;
                 }
                 recurseTileVec = recursiveSubdivision(quadQueue, rgbd_img, nextLevel_ptr, recurseTileVec, img_L, numLabels);
-                populateGeometries(rgbd_img, nextLevel_ptr, geometries);
+                //populateGeometries(rgbd_img, nextLevel_ptr, geometries);
 
                 ticksNow = cv::getTickCount();
                 timeBudgetExpired = (ticksNow - ticksStart) > timeBudgetTicks;
             }
-            std::cout << "quadtree time used" << ((double) (ticksNow - ticksStart) / cv::getTickFrequency())
-                    << " allocated time " << ((double) timeBudgetTicks / cv::getTickFrequency()) << std::endl;
+            std::cout << "Detector time used = " << ((double) (ticksNow - ticksStart) / cv::getTickFrequency())
+                    << " sec time allocated = " << ((double) timeBudgetTicks / cv::getTickFrequency()) << " sec" << std::endl;
+        }
+
+        void setPlaneUVCoords(sg::Plane<float>::Ptr plane_ptr, const RgbdImage& rgbdImg, cv::Rect& imgTile) {
+            cv::Point3f pts[4];
+            rgbdImg.getPoint3f(imgTile.x, imgTile.y, pts[0]);
+            rgbdImg.getPoint3f(imgTile.x + imgTile.width, imgTile.y, pts[1]);
+            rgbdImg.getPoint3f(imgTile.x + imgTile.width, imgTile.y + imgTile.height, pts[2]);
+            rgbdImg.getPoint3f(imgTile.x, imgTile.y + imgTile.height, pts[3]);
+            std::vector<cv::Vec2f> plane_uv_coords;
+            //float avgDepth = 0.25 * (pts[0].z + pts[1].z + pts[2].z + pts[3].z);
+            for (cv::Point3f pt : pts) {
+                cv::Point2f uv_coord = plane_ptr->xyzToUV(pt);
+                //std::cout << "xyz = " << pt << "-> uv = " << uv_coord << std::endl;
+                plane_uv_coords.push_back(uv_coord);
+                cv::Point3f xyz3 = plane_ptr->uvToXYZ(uv_coord);
+                //std::cout << "uv = " << uv_coord << "-> xyz = " << xyz3 << std::endl;
+            }
+            plane_ptr->addCoords(plane_uv_coords);
+            
+            // create texture coordinates
+            std::vector<cv::Vec2f> plane_uv_texcoords(4);
+            plane_uv_texcoords[0] = cv::Vec2f(((float) imgTile.x) / rgbdImg.getWidth(),
+                    1.0f - ((float) imgTile.y / (float) rgbdImg.getHeight()));
+            plane_uv_texcoords[1] = cv::Vec2f(((float) imgTile.x + imgTile.width) / rgbdImg.getWidth(),
+                    1.0f - ((float) imgTile.y / (float) rgbdImg.getHeight()));
+            plane_uv_texcoords[2] = cv::Vec2f(((float) imgTile.x + imgTile.width) / rgbdImg.getWidth(),
+                    1.0f - ((float) imgTile.y + imgTile.height) / (float) rgbdImg.getHeight());
+            plane_uv_texcoords[3] = cv::Vec2f(((float) imgTile.x) / rgbdImg.getWidth(),
+                    1.0f - ((float) imgTile.y + imgTile.height) / (float) rgbdImg.getHeight());
+            plane_ptr->addTexCoords(plane_uv_texcoords);
         }
 
         std::vector<cv::Point2i> SurfaceDetector::findPlanes(ErrorSortedRectQueue& quadQueue,
@@ -94,12 +121,12 @@ namespace cv {
                     if (tile_data.size() > (numSamples >> 2)) {
                         rgbd_img.fitImplicitPlaneLeastSquares(tile_data, plane3, quad.error,
                                 quad.noise, quad.inliers, quad.outliers, quad.invalid);
-                        //sg::Plane<float>::Ptr& cBlock = quadTree.get(x_tile, y_tile);
                         if (quad.error / (quad.inliers + quad.outliers) < 0.0025 * avgDepth) {
                             //std::cout << "areaA " << planeA->area() << " errorA = " << planeA->avgError() << " planeA = " << *planeA << std::endl;
                             cv::TesselatedPlane3f tplane(plane3, numLabels++);
                             tplane.addQuad(quad);
                             sg::Plane<float>::Ptr planePtr(new sg::Plane<float>(tplane));
+                            setPlaneUVCoords(planePtr, rgbd_img, quad);
                             quadTree->insert_or_assign(x_tile, y_tile, planePtr);
                             RectWithError newQuad = quad.clone();
                             quad.clearStatistics();
@@ -123,7 +150,7 @@ namespace cv {
         std::vector<cv::Point2i> SurfaceDetector::recursiveSubdivision(ErrorSortedRectQueue& quadQueue,
                 const RgbdImage& rgbd_img,
                 QuadTreeLevel<sg::Plane<float>::Ptr>* quadTree,
-                std::vector<cv::Point2i>& subdivideTileVec,
+                const std::vector<cv::Point2i>& subdivideTileVec,
                 Mat& img_labels, int& numLabels) const {
             std::vector<cv::Point2i> recurseTileVec;
             cv::Plane3f plane3;
@@ -148,6 +175,7 @@ namespace cv {
                         cv::TesselatedPlane3f tplane(plane3, numLabels++);
                         tplane.addQuad(quad);
                         sg::Plane<float>::Ptr planePtr(new sg::Plane<float>(tplane));
+                        setPlaneUVCoords(planePtr, rgbd_img, quad);
                         quadTree->insert_or_assign(tileIdx.x, tileIdx.y, planePtr);
                         RectWithError newQuad = quad.clone();
                         quad.clearStatistics();
