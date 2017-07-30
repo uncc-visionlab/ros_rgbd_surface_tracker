@@ -19,131 +19,105 @@ namespace cv {
     namespace rgbd {
 
         void SurfaceDescriptorExtractor::compute(const cv::rgbd::RgbdImage& rgbd_img,
-                std::vector<AlgebraicSurfacePatch::Ptr>& surflets,
-                std::vector<ObjectGeometry>& geometries, cv::Mat& rgb_result) const {
+                cv::QuadTree<sg::Plane<float>::Ptr>* quadTree,
+                //std::vector<AlgebraicSurfacePatch::Ptr>& surflets,
+                std::vector<ObjectGeometry>& geometries,
+                int timeBudget_ms, cv::Mat& rgb_result) const {
 
-            std::vector<sg::Shape::Ptr> shapePtrVec;
+            bool timeBudgetExpired = false;
+            int64 timeBudgetTicks = timeBudget_ms * cv::getTickFrequency() / 1000;
+            int64 ticksNow, ticksStart = cv::getTickCount();
 
-            for (AlgebraicSurfacePatch::Ptr surfPatchPtr : surflets) {
+            std::vector<ObjectGeometry> edgeVec;
+
+            std::pair<int, int> compareLevels(0, 0);
+
+            cv::Rect rootCompareWindow(-2, -2, 5, 5);
+            std::pair<cv::Rect, cv::Rect> compareWindows; // scale the rootCompareWindow
+            int qX, qY, key;
+            int level = quadTree->getLevel();
+            std::unordered_map<int, sg::Plane<float>::Ptr> data = quadTree->getData();
+            for (auto it = data.begin(); it != data.end(); ++it) {
+                key = it->first;
+                quadTree->keyToXY(key, qX, qY);
+                //std::cout << "Quad(" << qX << ", " << qY << ") = " << ((!planeA) ? "null" : (*planeA).toString()) << std::endl;
+                sg::Plane<float>::Ptr planeA = it->second;
+
+                // add all plane geometries to rendered scene
                 ObjectGeometry planeGeom;
-                if (surfPatchPtr->getSurfaceType() == SurfaceType::PLANE) {
-                    planeGeom.addPart(surfPatchPtr);
-                    geometries.push_back(planeGeom);
-                    shapePtrVec.push_back(planeGeom.getShape());
+                planeGeom.setShape(planeA);
+                planeGeom.setSurfaceType(cv::rgbd::PLANE);
+                geometries.push_back(planeGeom);
+
+                for (int dX = rootCompareWindow.x; dX < rootCompareWindow.x + rootCompareWindow.width; ++dX) {
+                    for (int dY = rootCompareWindow.y; dY < rootCompareWindow.y + rootCompareWindow.height; ++dY) {
+                        sg::Plane<float>::Ptr* planeB_ptr = quadTree->get(qX + dX, qY + dY);
+                        if (planeB_ptr) {
+                            if (planeA->epsilonPerpendicular(**planeB_ptr, 2 * cv::Plane3f::PERPENDICULAR_SIN_ANGLE_THRESHOLD)) {
+                                sg::Edge<float>::Ptr edge = boost::make_shared<sg::Edge<float>>(planeA, *planeB_ptr);
+                                ObjectGeometry edgeGeom;
+                                edgeGeom.setShape(edge);
+                                edgeGeom.setSurfaceType(cv::rgbd::EDGE);
+                                edgeVec.push_back(edgeGeom);
+                                geometries.push_back(edgeGeom);
+                            } /* restrict pair matches to be approximately perpendicular */
+                        } /* restrict surface pairwise comparisons to planes */
+                    } /* loop over candidate second match surface elements (surface pairs) */
                 }
-            }
-            //for (sg::Shape::Ptr shape_ptr : shapePtrVec) {
-            //sg::Shape& shape = *shape_ptr;
-            //std::cout << "shape " << shape_ptr->toString() << std::endl;
-            //}
-            std::cout << "geometries.size() = " << geometries.size() << std::endl;
-
-            bool corner_found = false;
-            static bool have_box;
-            static sg::Box::Ptr initial_box;
-            ObjectGeometry corner_geometry;
-
-            for (auto surfPatchA_iter = surflets.begin();
-                    surfPatchA_iter != surflets.end(); ++surfPatchA_iter) {
-                AlgebraicSurfacePatch::Ptr surfPatchA = (*surfPatchA_iter);
-                if (surfPatchA->getSurfaceType() == SurfaceType::PLANE) {
-                    sg::Plane<float>::Ptr planeA = boost::static_pointer_cast<sg::Plane<float>>(surfPatchA->getShape());
-                    if (surfPatchA_iter + 1 != surflets.end()) {
-                        for (auto surfPatchB_iter = surfPatchA_iter + 1;
-                                surfPatchB_iter != surflets.end(); ++surfPatchB_iter) {
-                            AlgebraicSurfacePatch::Ptr surfPatchB = (*surfPatchB_iter);
-                            if (surfPatchB->getSurfaceType() == SurfaceType::PLANE) {
-                                sg::Plane<float>::Ptr planeB = boost::static_pointer_cast<sg::Plane<float>>(surfPatchB->getShape());
-
-                                if (//planeB->avgError() < plane_error_thresh && //plane3 has no error
-                                        planeA->epsilonPerpendicular(*planeB, 0.5 * cv::Plane3f::PERPENDICULAR_SIN_ANGLE_THRESHOLD)) {
-                                    //std::cout << "surfABEdge = " << surfABEdge.toString() << std::endl;
-                                    sg::Edge<float>::Ptr edge = boost::make_shared<sg::Edge<float>>(planeA, planeB);
-                                    ObjectGeometry edgeGeom;
-                                    edgeGeom.addPart(surfPatchA);
-                                    edgeGeom.addPart(surfPatchB);
-                                    edgeGeom.setShape(edge);
-                                    edgeGeom.setSurfaceType(cv::rgbd::EDGE);
-                                    geometries.push_back(edgeGeom);
-                                    //goto foundEdge;
-                                } /* restrict pair matches to be approximately perpendicular */
-                            } /* restrict surface pairwise comparisons to planes */
-                        } /* loop over candidate second match surface elements (surface pairs) */
-                    } // check for second surface availability (not really necessary)
-                } /* restrict surface comparisons to plane pairs */
             } /* loop over candidate surface elements */
-foundEdge:
-            int numCorners = 0;
-            std::cout << "geometries.size() = " << geometries.size() << std::endl;
-            int numTripletTests = 0;
-            if (geometries.size() > 2) {
-                for (std::vector<ObjectGeometry>::iterator geoA_iter = geometries.begin();
-                        geoA_iter != geometries.end() - 2; ++geoA_iter) {
-                    ObjectGeometry& geometryA = *geoA_iter;
 
-                    if (geometryA.getSurfaceType() == cv::rgbd::EDGE) {
-                        sg::Edge<float>::Ptr edgeA = boost::static_pointer_cast<sg::Edge<float>>(geometryA.getShape());
-                        if (geoA_iter + 1 != geometries.end()) {
-                            for (std::vector<ObjectGeometry>::iterator geoB_iter = geoA_iter + 1;
-                                    geoB_iter != geometries.end() - 1; ++geoB_iter) {
-                                ObjectGeometry& geometryB = *geoB_iter;
+            std::vector<ObjectGeometry> cornerVec;
 
-                                if (geometryB.getSurfaceType() == cv::rgbd::EDGE) {
-                                    sg::Edge<float>::Ptr edgeB = boost::static_pointer_cast<sg::Edge<float>>(geometryB.getShape());
-                                    if (std::abs(edgeA->v.dot(edgeB->v)) < .05) {
-                                        //std::cout << "Approx. perpendicular edge found\n";
-                                        cv::Point3f perp_vector = edgeA->v.cross(edgeB->v);
-                                        if (geoB_iter + 1 != geometries.end()) {
-                                            for (std::vector<ObjectGeometry>::iterator geoC_iter = geoB_iter + 1;
-                                                    geoC_iter != geometries.end(); ++geoC_iter) {
-                                                ObjectGeometry& geometryC = *geoC_iter;
+            for (auto itA = edgeVec.begin(); itA != edgeVec.end(); ++itA) {
+                sg::Edge<float>::Ptr edgeA = boost::static_pointer_cast<sg::Edge<float>>((*itA).getShape());
+                if (itA + 1 == edgeVec.end())
+                    goto corner_search_done;
+                for (auto itB = itA + 1; itB != edgeVec.end(); ++itB) {
+                    if (itB + 1 == edgeVec.end())
+                        goto corner_search_done;
+                    sg::Edge<float>::Ptr edgeB = boost::static_pointer_cast<sg::Edge<float>>((*itB).getShape());
+                    if (std::abs(edgeA->v.dot(edgeB->v)) < .05) {
+                        cv::Point3f perp_vector = edgeA->v.cross(edgeB->v);
+                        for (auto itC = itB + 1; itC != edgeVec.end(); ++itC) {
+                            sg::Edge<float>::Ptr edgeC = boost::static_pointer_cast<sg::Edge<float>>((*itC).getShape());
+                            float piped_volume = std::abs(edgeC->v.dot(perp_vector));
+                            if (piped_volume > .95) {
+                                //std::cout << "Found corner, parallelpiped volume = " << piped_volume << std::endl;
+                                sg::Corner<float>::Ptr corner_ptr = sg::Corner<float>::create(edgeA, edgeB, edgeC);
 
-                                                if (geometryC.getSurfaceType() == cv::rgbd::EDGE) {
-                                                    sg::Edge<float>::Ptr edgeC = boost::static_pointer_cast<sg::Edge<float>>(geometryC.getShape());
+                                Point2f corner_proj = rgbd_img.project(*corner_ptr);
+                                cv::circle(rgb_result, corner_proj, 5, cv::Scalar(255, 255, 0), 3);
 
-                                                    float piped_volume = std::abs(edgeC->v.dot(perp_vector));
-                                                    numTripletTests++;
-                                                    if (piped_volume > .95) {
-                                                        std::cout << "Found corner, parallelpiped volume = " << piped_volume << std::endl;
-                                                        sg::Corner<float>::Ptr corner_ptr = sg::Corner<float>::create(edgeA, edgeB, edgeC);
+                                ObjectGeometry cornerGeom;
+                                cornerGeom.setShape(corner_ptr);
+                                cornerGeom.setSurfaceType(cv::rgbd::CORNER);
+                                geometries.push_back(cornerGeom);
+                            } /* restrict triplet matches to be approximately perpendicular */
+                        } /* loop over candidate third surface elements (triplets of Edges) */
+                    } /* restrict pair matches to be approximately perpendicular */
+                } /* loop over candidate second match surface elements (pairs of Edges) */
+            } /* loop over candidate surface elements */
+corner_search_done:
 
-                                                        Point2f corner_proj = rgbd_img.project(*corner_ptr);
-                                                        cv::circle(rgb_result, corner_proj, 5, cv::Scalar(255, 255, 0), 3);
+            ticksNow = cv::getTickCount();
+            timeBudgetExpired = (ticksNow - ticksStart) > timeBudgetTicks;
+            std::cout << "Descriptor extractor time used = " << ((double) (ticksNow - ticksStart) / cv::getTickFrequency())
+                    << " sec time allocated = " << ((double) timeBudgetTicks / cv::getTickFrequency()) << " sec" << std::endl;
 
-                                                        ObjectGeometry cornerGeom;
-                                                        //cornerGeom.addPart(surfPatchA);
-                                                        //cornerGeom.addPart(surfPatchB);
-                                                        cornerGeom.setShape(corner_ptr);
-                                                        cornerGeom.setSurfaceType(cv::rgbd::CORNER);
-                                                        geometries.push_back(cornerGeom);
-                                                        numCorners++;
-                                                        if (numCorners > 5) {
-                                                            goto foundCorner;
-                                                        }
-                                                    } /* restrict triplet matches to be approximately perpendicular */
-                                                } /* restrict triplet matches comparisons to Edges */
-                                            } /* loop over candidate third surface elements (triplets of Edges) */
-                                        } // check for third surface availability
-                                    } /* restrict pair matches to be approximately perpendicular */
-                                } /* restrict surface comparisons to plane pairs (Edges) */
-                            } /* loop over candidate second match surface elements (pairs of Edges) */
-                        } // check for second surface availability 
-                    } /* restrict surface comparisons to plane pairs (Edges) */
-                } /* loop over candidate surface elements */
-            } // check for second and third surface availability 
-foundCorner:
-            std::cout << "Made " << numTripletTests << " tests for corners." << std::endl;
-            if (geometries.size() > 6) {
-                for (int idx = 5; idx > 0; --idx) {
-                    sg::Corner<float>::Ptr cornerPtr = boost::dynamic_pointer_cast<sg::Corner<float>>(geometries[geometries.size() - idx].getShape());
-                    if (cornerPtr) {
-                        std::string shapeStr = cornerPtr->isConvex() ? "convex" : "concave";
-                        std::cout << "Corner is " << shapeStr << std::endl;
-                        sg::CornerType id = sg::Box::getCameraFrameCornerType(cornerPtr);
-                        std::cout << "CornerType = " << sg::cornerTypeToString[id] << std::endl;                        
-                    }
-                }
-            }
+            std::cout << "Found " << geometries.size() << " geometries." << std::endl;
+
+            //            std::cout << "Made " << numTripletTests << " tests for corners." << std::endl;
+            //            if (geometries.size() > 6) {
+            //                for (int idx = 5; idx > 0; --idx) {
+            //                    sg::Corner<float>::Ptr cornerPtr = boost::dynamic_pointer_cast<sg::Corner<float>>(geometries[geometries.size() - idx].getShape());
+            //                    if (cornerPtr) {
+            //                        std::string shapeStr = cornerPtr->isConvex() ? "convex" : "concave";
+            //                        std::cout << "Corner is " << shapeStr << std::endl;
+            //                        sg::CornerType id = sg::Box::getCameraFrameCornerType(cornerPtr);
+            //                        std::cout << "CornerType = " << sg::cornerTypeToString[id] << std::endl;
+            //                    }
+            //                }
+            //            }
             //            cv::Mat cvTransform(4, 4, CV_32FC1);
             //            //directly use the buffer allocated by OpenCV
             //            Eigen::Map<Eigen::Matrix4f> eigenTransformMap(cvTransform.ptr<float>(0, 0));
@@ -235,7 +209,6 @@ foundCorner:
                 for (int triColorIdxs : triColorIdxList) {
                     geom.colors.push_back(colors[triColorIdxs]);
                 }
-                //geometries.push_back(geom);
             }
         }
 
