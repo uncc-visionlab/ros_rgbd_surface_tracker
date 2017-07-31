@@ -41,14 +41,9 @@ namespace std {
     struct hash<cv::rgbd::SurfaceType> {
 
         std::size_t operator()(const cv::rgbd::SurfaceType& t) const {
-            //using std::size_t;
-            //using std::hash;
-            //using std::string;
-
             // Compute individual hash values for first,
             // second and third and combine them using XOR
             // and bit shifting:
-
             return std::hash<int>()((int) t);
             //         ^ (hash<string>()(k.second) << 1)) >> 1)
             //         ^ (hash<int>()(k.third) << 1);
@@ -59,16 +54,6 @@ namespace std {
 
 namespace cv {
     namespace rgbd {
-//        enum SurfaceType {
-//            UNKNOWN = 0,
-//            PLANE,
-//            EDGE,
-//            CORNER,
-//            BOX
-//        };
-//
-//        extern std::map<SurfaceType, const char*> surfaceTypeToString;
-//        extern std::map<SurfaceType, std::vector<sg::Shape::Ptr>> shapeMap;
 //        class AlgebraicSurfacePatch {
 //            sg::Plane<float>::Ptr plane_ptr;
 //            SurfaceType surfaceType;

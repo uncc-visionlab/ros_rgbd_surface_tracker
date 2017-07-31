@@ -765,18 +765,8 @@ namespace cv {
                 QuadTreeLevel<T>* _parent = nullptr, QuadTreeLevel<T>* _child = nullptr) :
         tileDims(_width, _height), blockSize(_blockSize), level(_level),
         parent(_parent), child(_child) {
-            //            int minDim = std::min(_width, _height);
-            //            int maxPossibleLevels = 0;
-            //            while (minDim >>= 1) ++maxPossibleLevels;
-            //            int lastLevel = std::min(levels, maxPossibleLevels);
-            //            std::cout << "Creating " << levels << " quad tree levels." << std::endl;
-            std::cout << "QuadPyramid (x,y) = " << tileDims.width << ", " << tileDims.height << " allocated "
-                    << (tileDims.width * tileDims.height) << " elements. " << std::endl;
-            //            if (blockSize.width % 2 == 1 || blockSize.height % 2 == 1) {
-            //                std::cout << "blocksize = " << blockSize << std::endl;
-            //                std::cout << "THIS CODE HAS BUGS FOR QUADTREES WITH ODD BLOCKSIZE!" << std::endl;
-            //            }
-            //assert(blockSize.width % 2 == 0 && blockSize.height % 2 == 0);
+            //std::cout << "QuadPyramid (x,y) = " << tileDims.width << ", " << tileDims.height << " allocated "
+            //        << (tileDims.width * tileDims.height) << " elements. " << std::endl;
             QuadTree<T>* qt = getQuadTree();
             if (qt && qt->numLevels() < level) {
                 qt->_numLevels = level;

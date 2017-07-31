@@ -20,7 +20,7 @@ namespace cv {
 
         void SurfaceDescriptorExtractor::compute(const cv::rgbd::RgbdImage& rgbd_img,
                 cv::QuadTree<sg::Plane<float>::Ptr>* quadTree,
-                std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>& query_shapeMap,
+                std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
                 int timeBudget_ms, cv::Mat& rgb_result) const {
 
             bool timeBudgetExpired = false;
@@ -49,13 +49,8 @@ namespace cv {
                             quadTree->keyToXY(key, qX, qY);
                             //std::cout << "Quad(" << qX << ", " << qY << ") = " 
                             //<< ((!planeA) ? "null" : (*planeA).toString()) << std::endl;
-                            sg::Plane<float>::Ptr plane = it->second; // plane from first quadTree
-                            // add all plane geometries from quad tree level pair being 
-                            // processed to rendered scene
-                            //ObjectGeometry planeGeom;
-                            //planeGeom.setShape(planeA);
-                            //planeGeom.setSurfaceType(cv::rgbd::PLANE);
-                            //geometries.push_back(planeGeom);
+                            sg::Plane<float>::Ptr plane = it->second; // plane from quadTree
+                            // add all planes detected in the pair of quad tree levels being analyzed 
                             std::vector<sg::Shape::Ptr>& shapes = query_shapeMap[cv::rgbd::SurfaceType::PLANE];
                             shapes.push_back(plane);
                         }
@@ -76,10 +71,6 @@ namespace cv {
                             if (planeB_ptr) {
                                 if (planeA->epsilonPerpendicular(**planeB_ptr, 2 * cv::Plane3f::PERPENDICULAR_SIN_ANGLE_THRESHOLD)) {
                                     sg::Edge<float>::Ptr edge = boost::make_shared<sg::Edge<float>>(planeA, *planeB_ptr);
-                                    //ObjectGeometry edgeGeom;
-                                    //edgeGeom.setShape(edge);
-                                    //edgeGeom.setSurfaceType(cv::rgbd::EDGE);
-                                    //geometries.push_back(edgeGeom);
                                     edgeVec.push_back(edge);
                                     std::vector<sg::Shape::Ptr>& shapes = query_shapeMap[cv::rgbd::SurfaceType::EDGE];
                                     shapes.push_back(edge);
@@ -105,14 +96,10 @@ namespace cv {
                                 if (piped_volume > .95) {
                                     //std::cout << "Found corner, parallelpiped volume = " << piped_volume << std::endl;
                                     sg::Corner<float>::Ptr corner = sg::Corner<float>::create(edgeA, edgeB, edgeC);
-
+                                    
                                     Point2f corner_proj = rgbd_img.project(*corner);
                                     cv::circle(rgb_result, corner_proj, 5, cv::Scalar(255, 255, 0), 3);
 
-                                    //ObjectGeometry cornerGeom;
-                                    //cornerGeom.setShape(corner_ptr);
-                                    //cornerGeom.setSurfaceType(cv::rgbd::CORNER);
-                                    //geometries.push_back(cornerGeom);
                                     std::vector<sg::Shape::Ptr>& shapes = query_shapeMap[cv::rgbd::SurfaceType::CORNER];
                                     shapes.push_back(corner);
                                 } /* restrict triplet matches to be approximately perpendicular */
@@ -128,11 +115,14 @@ corner_search_done:
             }
             std::cout << "Descriptor extractor time used = " << ((double) (ticksNow - ticksStart) / cv::getTickFrequency())
                     << " sec time allocated = " << ((double) timeBudgetTicks / cv::getTickFrequency()) << " sec" << std::endl;
-            for (auto it = query_shapeMap.begin(); it != query_shapeMap.end(); ++it) {
-                std::cout << "Found " << (*it).second.size() << " " <<
-                        cv::rgbd::surfaceTypeToString[(*it).first] << " geometries." << std::endl;
-            }
 
+            static bool verbose = false;
+            if (verbose) {
+                for (auto it = query_shapeMap.begin(); it != query_shapeMap.end(); ++it) {
+                    std::cout << "Found " << (*it).second.size() << " " <<
+                            cv::rgbd::surfaceTypeToString[(*it).first] << " geometries." << std::endl;
+                }
+            }
             //            std::cout << "Made " << numTripletTests << " tests for corners." << std::endl;
             //            if (geometries.size() > 6) {
             //                for (int idx = 5; idx > 0; --idx) {
@@ -221,14 +211,15 @@ corner_search_done:
             //    sg::Shape& shape = *shape_ptr;
         }
 
-        void SurfaceDescriptorMatcher::match(std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>& query_shapeMap,
-                std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>& train_shapeMap,
+        void SurfaceDescriptorMatcher::match(std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
+                std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&train_shapeMap,
                 std::vector<cv::DMatch>& matches, int timeBudget_ms,
-                cv::Mat& rgb_result, cv::Mat mask) {
+                cv::Mat& rgb_result, Pose camPose, cv::Mat mask) {
             cv::Vec3f position;
             sg::Corner<float>::Ptr cornerPtr;
             sg::Edge<float>::Ptr edgePtr;
             sg::Plane<float>::Ptr planePtr;
+
             for (auto shapeType_iter = train_shapeMap.begin();
                     shapeType_iter != train_shapeMap.end(); ++shapeType_iter) {
                 for (auto shape_iter = (*shapeType_iter).second.begin();

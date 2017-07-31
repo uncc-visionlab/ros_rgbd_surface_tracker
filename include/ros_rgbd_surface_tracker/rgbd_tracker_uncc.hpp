@@ -69,7 +69,7 @@ namespace cv {
             void match(std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>& query_shapeMap,
                     std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>& train_shapeMap,
                     std::vector<cv::DMatch>& matches, int timeBudget_ms,
-                    cv::Mat& rgb_result, cv::Mat mask = cv::Mat());
+                    cv::Mat& rgb_result, Pose camPose = Pose(),cv::Mat mask = cv::Mat());
         }; /* class SurfaceDescriptorMatcher */
 
         class RgbdSurfaceTracker {

@@ -98,10 +98,12 @@ namespace cv {
             surfdescriptor_extractor.compute(rgbd_img, &quadTree, query_shapeMap,
                     descriptor_timeBudget_ms, rgb_result);
 
+            // RENDER DETECTED SHAPE GRAMMAR GEOMETRIES
             std::vector<ObjectGeometry> detected_geometries;
             glDraw.constructGeometries(query_shapeMap, detected_geometries);
             // OpenGL rendering
-            glDraw.setImage(rgbd_img.getRGB());
+            //glDraw.setImage(rgbd_img.getRGB());
+            glDraw.setImage(rgb_result);
             glDraw.initFrame();
             if (glDraw.attrs.showPointcloud || glDraw.attrs.showPointcloudNormals) {
                 cv::Mat points, colors;
@@ -118,6 +120,38 @@ namespace cv {
             if (glDraw.attrs.showDetections) {
                 glDraw.renderGeometries(detected_geometries);
             }
+            glDraw.clearObjects();
+
+            // cluster
+            std::vector<sg::Corner<float>> clusteredPlanes;
+            std::vector<sg::Corner<float>> clusteredEdges;
+            std::vector<sg::Corner<float>> clusteredCorners;
+            std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>> clustered_query_shapeMap;
+            sg::Corner<float>::Ptr cornerPtr;
+            sg::Edge<float>::Ptr edgePtr;
+            sg::Plane<float>::Ptr planePtr;
+            cv::Vec3f position;            
+            for (auto shapeType_iter = query_shapeMap.begin();
+                    shapeType_iter != query_shapeMap.end(); ++shapeType_iter) {
+                for (auto shape_iter = (*shapeType_iter).second.begin();
+                        shape_iter != (*shapeType_iter).second.end(); ++shape_iter) {
+                    switch ((*shapeType_iter).first) {
+                        case SurfaceType::CORNER:
+                            cornerPtr = boost::static_pointer_cast<sg::Corner<float>>(*shape_iter);
+                            cornerPtr->getPose().getTranslation(position);
+                            break;
+                        case SurfaceType::EDGE:
+                            edgePtr = boost::static_pointer_cast<sg::Edge<float>>(*shape_iter);
+                            edgePtr->getPose().getTranslation(position);
+                            break;
+                        case SurfaceType::PLANE:
+                        default:
+                            planePtr = boost::static_pointer_cast<sg::Plane<float>>(*shape_iter);
+                            planePtr->getPose().getTranslation(position);
+                            break;
+                    }
+                }
+            }
 
             int descriptor_matching_timeBudget_ms = 20;
             std::vector<cv::DMatch> geometricMatches;
@@ -126,7 +160,6 @@ namespace cv {
 
             //iterativeAlignment(rgbd_img, rgb_result);
 
-            glDraw.clearObjects();
 #ifdef PROFILE_CALLGRIND
             CALLGRIND_TOGGLE_COLLECT;
 #endif      

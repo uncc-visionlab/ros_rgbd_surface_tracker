@@ -96,7 +96,7 @@ namespace cv {
             plane_uv_texcoords[3] = cv::Vec2f(((float) imgTile.x) / rgbdImg.getWidth(),
                     1.0f - ((float) imgTile.y + imgTile.height) / (float) rgbdImg.getHeight());
             plane_ptr->addTexCoords(plane_uv_texcoords);
-            //plane_ptr->setPose(Pose(meanPos, cv::Vec3f(0, 0, 0)));
+            plane_ptr->setPose(Pose(meanPos, cv::Vec3f(plane_ptr->x, plane_ptr->y, plane_ptr->z)));
         }
 
         std::vector<cv::Point2i> SurfaceDetector::findPlanes(ErrorSortedRectQueue& quadQueue,

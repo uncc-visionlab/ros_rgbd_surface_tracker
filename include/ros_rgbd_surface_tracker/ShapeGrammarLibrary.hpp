@@ -138,15 +138,8 @@ namespace sg {
         Plane() : sg::Shape(), cv::TesselatedPlane3_<_Tpl>() {
         }
 
-        //        Plane(cv::Plane3_<_Tpl>& _p) : sg::Shape(), cv::TesselatedPlane3_<_Tpl>(_p.x, _p.y, _p.z, _p.d) {
-        //        }
-
         Plane(cv::TesselatedPlane3_<_Tpl>& _p) : sg::Shape(), cv::TesselatedPlane3_<_Tpl>(_p) {
         }
-
-        //Plane(cv::Vec3f ctr, cv::Vec2f dims, cv::Plane3f& _p) : cv::Plane3f(_p.x, _p.y, _p.z, _p.d) {
-        //    // TODO construct uv coords   
-        //}
 
         Plane(_Tpl a, _Tpl b, _Tpl c, _Tpl d) : sg::Shape(), cv::TesselatedPlane3_<_Tpl>(a, b, c, d) {
         }
@@ -172,9 +165,9 @@ namespace sg {
             }
             ctr_pt *= 1.0f / uv_poly_coords.size();
             pts[uv_poly_coords.size()] = ctr_pt;
-            for (int idx = 0; idx < pts.size(); ++idx) {
-                pose.transformInPlace(pts[idx]);
-            }
+            //for (int idx = 0; idx < pts.size(); ++idx) {
+            //    pose.transformInPlace(pts[idx]);
+            //}
             return pts;
         }
 
@@ -191,9 +184,9 @@ namespace sg {
 
         std::vector<cv::Vec3f> generateNormals() {
             std::vector<cv::Vec3f> norms = {cv::Vec3f(this->x, this->y, this->z)};
-            for (int idx = 0; idx < norms.size(); ++idx) {
-                pose.rotateInPlace(norms[idx]);
-            }
+            //for (int idx = 0; idx < norms.size(); ++idx) {
+            //    pose.rotateInPlace(norms[idx]);
+            //}
             return norms;
         }
 
@@ -238,7 +231,6 @@ namespace sg {
 
     template <typename _Tpl>
     class Edge : public Shape, public cv::LineSegment3_<_Tpl> {
-        //class Edge : public Shape, public cv::LineSegment3_<float> {
         Plane<float>::Ptr surfaces[2]; // sorted by increasing z normal components
     public:
         typedef boost::shared_ptr<Edge> Ptr;
@@ -255,6 +247,10 @@ namespace sg {
             if (this->v.z < 0) {
                 this->v = -this->v;
             }
+            // Note: the intersect method uses the cross product of plane normals
+            // and these two vectors should be unit vectors making v, the edge direction, 
+            // a unit vector hence, no normalization is needed unless planes are not in 
+            // Hessian normals form.
             //float normf = 1.0f/std::sqrt(v.dot(v));
             //v *= normf;
             float lambda;
@@ -276,6 +272,8 @@ namespace sg {
             }
             this->start = std::min(tstart[0], tstart[1]);
             this->end = std::min(tend[0], tend[1]);
+            cv::Vec3f midpt = 0.5 * (this->getPoint(this->start) + this->getPoint(this->end));
+            this->setPose(Pose(midpt, this->v));
         }
 
         virtual ~Edge() {
@@ -290,6 +288,9 @@ namespace sg {
                 //getPoint(tstart[1]),
                 //getPoint(tend[1])
             };
+            //for (int idx = 0; idx < pts.size(); ++idx) {
+            //    pose.transformInPlace(pts[idx]);
+            //}            
             return pts;
         }
 
@@ -300,6 +301,9 @@ namespace sg {
 
         std::vector<cv::Vec3f> generateNormals() {
             std::vector<cv::Vec3f> norms = {cv::Vec3f(0, 0, -1)};
+            //for (int idx = 0; idx < norms.size(); ++idx) {
+            //    pose.rotateInPlace(norms[idx]);
+            //}            
             return norms;
         }
 
@@ -346,13 +350,46 @@ namespace sg {
             edges[0] = edgeA;
             edges[1] = edgeB;
             edges[2] = edgeC;
+
+            // map the three corner axes to the closest camera frame axes
+            sg::CornerType id = getCameraFrameCornerType();
+            static bool verbose = false;
+            if (verbose) {
+                std::cout << "CornerType = " << sg::cornerTypeToString[id] << std::endl;
+            }
+
             // solve for corner location and set (cv::Point3f) this to the corner position
             edges[0]->intersect(*edges[1], *this);
-            this->setPose(Pose(*this, cv::Vec3f(0, 0, 0)));
-            // get lambda for plane  pair (0,2)
+            // get lambda for plane  pairs (0,1), (1,2), (0,2)
             eline_lambdas[0] = edges[0]->xyzToLambda(*this);
             eline_lambdas[1] = edges[1]->xyzToLambda(*this);
             eline_lambdas[2] = edges[2]->xyzToLambda(*this);
+            if (verbose) {
+                std::string shapeStr = isConvex() ? "convex" : "concave";
+                std::cout << "Corner is " << shapeStr << std::endl;
+            }
+            // set pose translation = corner point
+            // orientation = 
+            //            cv::Mat cvTransform(4, 4, CV_32FC1);
+            //            //directly use the buffer allocated by OpenCV
+            //            Eigen::Map<Eigen::Matrix4f> eigenTransformMap(cvTransform.ptr<float>(0, 0));
+            //            Eigen::Matrix4f eigenTransform = Eigen::Matrix4f::Zero(4, 4);
+            //            std::vector<cv::Plane3f::Ptr> moving_planes(3);
+            //            std::vector<cv::Plane3f::Ptr> fixed_planes(3);
+            //            //moving_planes[0] = boost::make_shared<cv::Plane3f>(0, 0, 1, -0.0);
+            //            //moving_planes[1] = boost::make_shared<cv::Plane3f>(-1, 0, 0, -0.0);
+            //            //moving_planes[2] = boost::make_shared<cv::Plane3f>(0, 1, 0, -0.0);
+            //            moving_planes[0] = boost::make_shared<cv::Plane3f>(1, 0, 0, -0.0);
+            //            moving_planes[1] = boost::make_shared<cv::Plane3f>(0, 1, 0, -0.0);
+            //            moving_planes[2] = boost::make_shared<cv::Plane3f>(0, 0, 1, -0.0);
+            //            fixed_planes[0] = planeA;
+            //            fixed_planes[1] = planeB;
+            //            fixed_planes[2] = planeC;
+            //            int alignment_result = planeListAlignmentCV(moving_planes,
+            //                    fixed_planes, eigenTransform);
+            //            //std::cout << "eigen mat = " << eigenTransform << std::endl;
+            //            eigenTransformMap = eigenTransform;            
+            this->setPose(Pose(*this, cv::Vec3f(0, 0, 0)));
         }
 
         virtual ~Corner() {
@@ -367,6 +404,9 @@ namespace sg {
                 edges[2]->getPoint(edges[2]->end),
                 edges[2]->getPoint(eline_lambdas[2])
             };
+            //for (int idx = 0; idx < pts.size(); ++idx) {
+            //    pose.transformInPlace(pts[idx]);
+            //}              
             return pts;
         }
 
@@ -377,6 +417,9 @@ namespace sg {
 
         std::vector<cv::Vec3f> generateNormals() {
             std::vector<cv::Vec3f> norms = {cv::Vec3f(0, 0, -1)};
+            //for (int idx = 0; idx < norms.size(); ++idx) {
+            //    pose.rotateInPlace(norms[idx]);
+            //}             
             return norms;
         }
 
@@ -408,6 +451,18 @@ namespace sg {
             return (meanOfNeighbors.z - cornerPt.z) > 0;
         }
 
+        CornerType getCameraFrameCornerType() {
+            std::vector<cv::Vec3f> axes(3);
+            getXYZAxes(axes);
+            //std::cout << "X-axis = " << axes[0] << std::endl;
+            //std::cout << "Y-axis = " << axes[1] << std::endl;
+            //std::cout << "Z-axis = " << axes[2] << std::endl;
+            int idVal = (axes[0][0] > 0) | ((axes[1][1] > 0) << 1) | ((axes[2][2] > 0) << 2);
+            //std::cout << "idVal = " << idVal << std::endl;
+            CornerType id = CornerType(idVal);
+            return id;
+        }
+
         void getXYZAxes(std::vector< cv::Vec<_Tpl, 3 >> &axes) {
             cv::Point3_<_Tpl> cornerPt = *this;
             for (int idx = 0; idx < 3; ++idx) {
@@ -437,16 +492,6 @@ namespace sg {
     public:
         typedef boost::shared_ptr<Box> Ptr;
 
-        //        enum Faces {
-        //            UNKNOWN = 0,
-        //            FRONT,
-        //            BACK,
-        //            LEFT,
-        //            RIGHT,
-        //            TOP,
-        //            BOTTOM
-        //        };
-
         Box() : sg::Shape() {
         }
 
@@ -467,8 +512,6 @@ namespace sg {
         std::vector<cv::Vec3f> generateColorCoords();
 
         std::vector<int> generateColorCoordIndices();
-
-        static sg::CornerType getCameraFrameCornerType(Corner<float>::Ptr corner);
 
         //std::vector<cv::rgbd::ObjectGeometryPtr> getCorners();
 
