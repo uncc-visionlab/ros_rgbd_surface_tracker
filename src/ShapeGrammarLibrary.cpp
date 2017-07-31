@@ -128,17 +128,17 @@ namespace sg {
         return tricolIdxs;
     }
 
-    CornerType Box::getCameraFrameCornerType(sg::Corner<float>::Ptr corner_ptr) {
-        std::vector<cv::Vec3f> axes(3);
-        corner_ptr->getXYZAxes(axes);
-        //std::cout << "X-axis = " << axes[0] << std::endl;
-        //std::cout << "Y-axis = " << axes[1] << std::endl;
-        //std::cout << "Z-axis = " << axes[2] << std::endl;
-        int idVal = (axes[0][0] > 0) | ((axes[1][1] > 0) << 1) | ((axes[2][2] > 0) << 2);
-        //std::cout << "idVal = " << idVal << std::endl;
-        CornerType id = CornerType(idVal);
-        return id;
-    }
+//    CornerType Box::getCameraFrameCornerType(sg::Corner<float>::Ptr corner_ptr) {
+//        std::vector<cv::Vec3f> axes(3);
+//        corner_ptr->getXYZAxes(axes);
+//        //std::cout << "X-axis = " << axes[0] << std::endl;
+//        //std::cout << "Y-axis = " << axes[1] << std::endl;
+//        //std::cout << "Z-axis = " << axes[2] << std::endl;
+//        int idVal = (axes[0][0] > 0) | ((axes[1][1] > 0) << 1) | ((axes[2][2] > 0) << 2);
+//        //std::cout << "idVal = " << idVal << std::endl;
+//        CornerType id = CornerType(idVal);
+//        return id;
+//    }
 
 //    std::vector<cv::rgbd::ObjectGeometry::Ptr> Box::getCorners() {
 //        std::vector<cv::rgbd::ObjectGeometry::Ptr> geomVec;
