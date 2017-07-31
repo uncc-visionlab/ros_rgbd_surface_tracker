@@ -64,8 +64,8 @@ public:
         pt[2] = mm[6] * pt[0] + mm[7] * pt[1] + mm[8] * pt[2] + position[2];
     }
 
-    cv::Vec3f getTranslation() {
-        return position;
+    void getTranslation(cv::Vec3f& _position) {
+        _position = position;
     }
 private:
     // -------------------------
@@ -116,6 +116,13 @@ namespace sg {
         virtual std::vector<int> generateColorCoordIndices() = 0;
         virtual std::string toString() = 0;
 
+        void setPose(Pose _pose) {
+            pose = _pose;
+        }
+
+        Pose getPose() {
+            return pose;
+        }
     protected:
         Pose pose;
     };
@@ -130,13 +137,13 @@ namespace sg {
 
         Plane() : sg::Shape(), cv::TesselatedPlane3_<_Tpl>() {
         }
-        
-//        Plane(cv::Plane3_<_Tpl>& _p) : sg::Shape(), cv::TesselatedPlane3_<_Tpl>(_p.x, _p.y, _p.z, _p.d) {
-//        }
-        
+
+        //        Plane(cv::Plane3_<_Tpl>& _p) : sg::Shape(), cv::TesselatedPlane3_<_Tpl>(_p.x, _p.y, _p.z, _p.d) {
+        //        }
+
         Plane(cv::TesselatedPlane3_<_Tpl>& _p) : sg::Shape(), cv::TesselatedPlane3_<_Tpl>(_p) {
         }
-        
+
         //Plane(cv::Vec3f ctr, cv::Vec2f dims, cv::Plane3f& _p) : cv::Plane3f(_p.x, _p.y, _p.z, _p.d) {
         //    // TODO construct uv coords   
         //}
@@ -341,6 +348,7 @@ namespace sg {
             edges[2] = edgeC;
             // solve for corner location and set (cv::Point3f) this to the corner position
             edges[0]->intersect(*edges[1], *this);
+            this->setPose(Pose(*this, cv::Vec3f(0, 0, 0)));
             // get lambda for plane  pair (0,2)
             eline_lambdas[0] = edges[0]->xyzToLambda(*this);
             eline_lambdas[1] = edges[1]->xyzToLambda(*this);
@@ -462,11 +470,11 @@ namespace sg {
 
         static sg::CornerType getCameraFrameCornerType(Corner<float>::Ptr corner);
 
-        std::vector<cv::rgbd::ObjectGeometryPtr> getCorners();
+        //std::vector<cv::rgbd::ObjectGeometryPtr> getCorners();
 
-        std::vector<cv::rgbd::ObjectGeometryPtr> getEdges();
+        //std::vector<cv::rgbd::ObjectGeometryPtr> getEdges();
 
-        std::vector<cv::rgbd::ObjectGeometryPtr> getPlanes();
+        //std::vector<cv::rgbd::ObjectGeometryPtr> getPlanes();
 
         std::string toString() {
             std::ostringstream stringStream;

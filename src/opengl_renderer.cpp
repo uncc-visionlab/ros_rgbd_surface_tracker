@@ -17,6 +17,7 @@
 
 #include <ros_rgbd_surface_tracker/rgbd_tracker_datatypes.hpp>
 #include <ros_rgbd_surface_tracker/opengl_renderer.hpp>
+#include <bits/stl_vector.h>
 
 #define OFFSCREEN_W 640
 #define OFFSCREEN_H 480
@@ -303,7 +304,7 @@ namespace cv {
 
         void OpenGLRenderer::renderGeometry(std::pair<std::string, ObjectGeometry> mapElement) {
             ObjectGeometry geom = mapElement.second;
-            if (geom.getSurfaceType() != cv::rgbd::EDGE && 
+            if (geom.getSurfaceType() != cv::rgbd::EDGE &&
                     geom.getSurfaceType() != cv::rgbd::CORNER) {
                 attrs.showWireframe ? glBegin(GL_LINE_LOOP) : glBegin(GL_TRIANGLES);
                 for (int idx = 0; idx < geom.verts.size(); ++idx) {
@@ -315,7 +316,7 @@ namespace cv {
                     glVertex3f(vert[0], vert[1], vert[2]);
                 }
                 glEnd();
-            } else {   // Render EDGE and CORNER Object Geometries
+            } else { // Render EDGE and CORNER Object Geometries
                 glBegin(GL_LINES);
                 for (int idx = 0; idx < geom.verts.size(); ++idx) {
                     cv::Vec3f vert = geom.verts[idx];
@@ -326,6 +327,38 @@ namespace cv {
                     glVertex3f(vert[0], vert[1], vert[2]);
                 }
                 glEnd();
+            }
+        }
+
+        void OpenGLRenderer::constructGeometries(
+                const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>& query_shapeMap,
+                std::vector<ObjectGeometry>& geomVec) const {
+            for (auto shapeType_it = query_shapeMap.begin();
+                    shapeType_it != query_shapeMap.end(); ++shapeType_it) {
+                for (auto shape_iter = (*shapeType_it).second.begin();
+                        shape_iter != (*shapeType_it).second.end(); ++shape_iter) {
+                    ObjectGeometry geom;
+                    geom.setSurfaceType((*shapeType_it).first);
+                    geom.setShape(*shape_iter);
+                    sg::Shape& shape = **shape_iter;
+                    //sg::Shape& shape = *geom.getShape();
+                    std::vector<cv::Vec3f> pts = shape.generateCoords();
+                    std::vector<int> triIdxList = shape.generateCoordIndices();
+                    for (int triIdxs : triIdxList) {
+                        geom.verts.push_back(pts[triIdxs]);
+                    }
+                    std::vector<cv::Vec3f> norms = shape.generateNormals();
+                    std::vector<int> triNormalIdxList = shape.generateNormalCoordIndices();
+                    for (int triNormalIdxs : triNormalIdxList) {
+                        geom.normals.push_back(norms[triNormalIdxs]);
+                    }
+                    std::vector<cv::Vec3f> colors = shape.generateColorCoords();
+                    std::vector<int> triColorIdxList = shape.generateColorCoordIndices();
+                    for (int triColorIdxs : triColorIdxList) {
+                        geom.colors.push_back(colors[triColorIdxs]);
+                    }
+                    geomVec.push_back(geom);
+                }
             }
         }
 

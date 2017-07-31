@@ -183,7 +183,7 @@ target_link_libraries(${PROJECT_NAME}
    ${catkin_LIBRARIES}  
    ${Boost_LIBRARIES} 
    ${OpenCV_LIBRARIES}
-   ${Eigen3_LIBRARIES} GL GLU GLEW glut)
+   ${Eigen3_LIBRARIES} GL GLU glut)
 
 link_directories(/opt/ros/kinetic/lib) # needed to find OpenNI2Orbbec
 add_executable(main_opencv src/main_opencv.cpp

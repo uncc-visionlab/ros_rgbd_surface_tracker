@@ -14,25 +14,25 @@
 namespace cv {
     namespace rgbd {
 
-//        void populateGeometries(const cv::rgbd::RgbdImage& rgbd_img,
-//                QuadTreeLevel<sg::Plane<float>::Ptr>* quadTree,
-//                std::vector<AlgebraicSurfacePatch::Ptr>& geometries) {
-//            std::unordered_map<int, sg::Plane<float>::Ptr> data = quadTree->getData();
-//            for (auto it = data.begin(); it != data.end(); ++it) {
-//                //int key = it->first;
-//                //int qX, qY;
-//                //quadTree->keyToXY(key, qX, qY);
-//                //std::cout << "Quad(" << qX << ", " << qY << ") = " << ((!planeA) ? "null" : (*planeA).toString()) << std::endl;
-//                sg::Plane<float>::Ptr& planeA = it->second;
-//                if (planeA) {
-//                    AlgebraicSurfacePatch::Ptr surfPatch = AlgebraicSurfacePatch::create(planeA, rgbd_img);
-//                    if (planeA->avgError() < 0.0025 * surfPatch->getAverageDepth()) {
-//                        //std::cout << "areaA " << planeA->area() << " errorA = " << planeA->avgError() << " planeA = " << *planeA << std::endl;
-//                        geometries.push_back(surfPatch);
-//                    }
-//                }
-//            }
-//        }
+        //        void populateGeometries(const cv::rgbd::RgbdImage& rgbd_img,
+        //                QuadTreeLevel<sg::Plane<float>::Ptr>* quadTree,
+        //                std::vector<AlgebraicSurfacePatch::Ptr>& geometries) {
+        //            std::unordered_map<int, sg::Plane<float>::Ptr> data = quadTree->getData();
+        //            for (auto it = data.begin(); it != data.end(); ++it) {
+        //                //int key = it->first;
+        //                //int qX, qY;
+        //                //quadTree->keyToXY(key, qX, qY);
+        //                //std::cout << "Quad(" << qX << ", " << qY << ") = " << ((!planeA) ? "null" : (*planeA).toString()) << std::endl;
+        //                sg::Plane<float>::Ptr& planeA = it->second;
+        //                if (planeA) {
+        //                    AlgebraicSurfacePatch::Ptr surfPatch = AlgebraicSurfacePatch::create(planeA, rgbd_img);
+        //                    if (planeA->avgError() < 0.0025 * surfPatch->getAverageDepth()) {
+        //                        //std::cout << "areaA " << planeA->area() << " errorA = " << planeA->avgError() << " planeA = " << *planeA << std::endl;
+        //                        geometries.push_back(surfPatch);
+        //                    }
+        //                }
+        //            }
+        //        }
 
         void SurfaceDetector::detect(const cv::rgbd::RgbdImage& rgbd_img,
                 cv::QuadTree<sg::Plane<float>::Ptr>& quadTree,
@@ -74,6 +74,7 @@ namespace cv {
             rgbdImg.getPoint3f(imgTile.x + imgTile.width, imgTile.y + imgTile.height, pts[2]);
             rgbdImg.getPoint3f(imgTile.x, imgTile.y + imgTile.height, pts[3]);
             std::vector<cv::Vec2f> plane_uv_coords;
+            cv::Vec3f meanPos = 0.25 * (pts[0] + pts[1] + pts[2] + pts[3]);
             //float avgDepth = 0.25 * (pts[0].z + pts[1].z + pts[2].z + pts[3].z);
             for (cv::Point3f pt : pts) {
                 cv::Point2f uv_coord = plane_ptr->xyzToUV(pt);
@@ -83,7 +84,7 @@ namespace cv {
                 //std::cout << "uv = " << uv_coord << "-> xyz = " << xyz3 << std::endl;
             }
             plane_ptr->addCoords(plane_uv_coords);
-            
+
             // create texture coordinates
             std::vector<cv::Vec2f> plane_uv_texcoords(4);
             plane_uv_texcoords[0] = cv::Vec2f(((float) imgTile.x) / rgbdImg.getWidth(),
@@ -95,6 +96,7 @@ namespace cv {
             plane_uv_texcoords[3] = cv::Vec2f(((float) imgTile.x) / rgbdImg.getWidth(),
                     1.0f - ((float) imgTile.y + imgTile.height) / (float) rgbdImg.getHeight());
             plane_ptr->addTexCoords(plane_uv_texcoords);
+            //plane_ptr->setPose(Pose(meanPos, cv::Vec3f(0, 0, 0)));
         }
 
         std::vector<cv::Point2i> SurfaceDetector::findPlanes(ErrorSortedRectQueue& quadQueue,

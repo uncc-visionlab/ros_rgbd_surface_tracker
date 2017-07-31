@@ -46,14 +46,14 @@ namespace cv {
 
             // list of geometries to render
             std::unordered_map<std::string, ObjectGeometry> geomList;
-            
+
             // buffer references for offscreen rendering
             GLuint color;
             GLuint depth;
             GLuint fbo;
         public:
             static OpenGLRenderAttributes attrs;
-            
+
             OpenGLRenderer() {
             }
 
@@ -67,11 +67,11 @@ namespace cv {
             int init(int width, int height, bool offscreen = false);
 
             void initFrame(void);
-            
+
             void setAttributes(OpenGLRenderAttributes& _attrs) {
                 attrs = _attrs;
             }
-            
+
             static void callbackIdle(void);
 
             static void callbackKeyboard(unsigned char key, int x, int y);
@@ -91,7 +91,11 @@ namespace cv {
             static void writeRawPNM(const char *fname, char *pixels, int w, int h);
 
             void reshape(GLsizei width, GLsizei height);
-
+            
+            void constructGeometries(
+                    const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
+                    std::vector<ObjectGeometry>& geomVec) const;
+            
             void renderGeometries(std::vector<ObjectGeometry> geomList);
 
             void renderGeometry(std::pair<std::string, ObjectGeometry> mapElement);

@@ -724,12 +724,13 @@ namespace cv {
         friend class QuadTreeLevel<T>;
         cv::Size srcDims;
         cv::Rect roi;
+        int _numLevels;
     public:
         typedef boost::shared_ptr<QuadTree> Ptr;
         typedef boost::shared_ptr<QuadTree> ConstPtr;
 
         QuadTree(cv::Size _srcSize, cv::Size _blockSize, cv::Rect _roi) :
-        srcDims(_srcSize), roi(_roi),
+        srcDims(_srcSize), roi(_roi), _numLevels(0),
         QuadTreeLevel<T>(cvFloor((float) _roi.width / _blockSize.width),
         cvFloor((float) _roi.height / _blockSize.height),
         _blockSize, 0) {
@@ -737,6 +738,10 @@ namespace cv {
 
         virtual ~QuadTree() {
         }
+        
+        int numLevels() {
+            return _numLevels;
+        }                
     };
 
     template<typename T>
@@ -772,6 +777,10 @@ namespace cv {
             //                std::cout << "THIS CODE HAS BUGS FOR QUADTREES WITH ODD BLOCKSIZE!" << std::endl;
             //            }
             //assert(blockSize.width % 2 == 0 && blockSize.height % 2 == 0);
+            QuadTree<T>* qt = getQuadTree();
+            if (qt && qt->numLevels() < level) {
+                qt->_numLevels = level;
+            }
         }
 
         virtual ~QuadTreeLevel() {

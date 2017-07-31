@@ -60,15 +60,16 @@ namespace cv {
         public:
             void compute(const cv::rgbd::RgbdImage& rgbd_img,
                     cv::QuadTree<sg::Plane<float>::Ptr>* quadTree,
-                    std::vector<ObjectGeometry>& geometries,
+                    std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>& query_shapeMap,
                     int timeBudget_ms, cv::Mat& rgb_result) const;
         }; /* class SurfaceDescriptorExtractor */
 
         class SurfaceDescriptorMatcher {
         public:
-            void match(std::vector<ObjectGeometry> queryDescriptors,
-                    std::vector<ObjectGeometry> trainDescriptors,
-                    std::vector<cv::DMatch>& matches, cv::Mat mask = cv::Mat());
+            void match(std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>& query_shapeMap,
+                    std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>& train_shapeMap,
+                    std::vector<cv::DMatch>& matches, int timeBudget_ms,
+                    cv::Mat& rgb_result, cv::Mat mask = cv::Mat());
         }; /* class SurfaceDescriptorMatcher */
 
         class RgbdSurfaceTracker {

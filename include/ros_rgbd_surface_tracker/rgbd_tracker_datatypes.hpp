@@ -30,90 +30,128 @@ namespace cv {
         };
 
         extern std::map<SurfaceType, const char*> surfaceTypeToString;
+        extern std::map<SurfaceType, std::vector<sg::Shape::Ptr>> shapeMap;
+    } /* namespace rgbd */
+} /* namespace cv */
 
-        class AlgebraicSurfacePatch {
-            sg::Plane<float>::Ptr plane_ptr;
-            SurfaceType surfaceType;
-            float avgDepth;
+// function to compute hash of the SurfaceType enum
+namespace std {
 
-        public:
-            typedef boost::shared_ptr<AlgebraicSurfacePatch> Ptr;
-            
-            AlgebraicSurfacePatch(cv::TesselatedPlane3f _plane) :
-            plane_ptr(new sg::Plane<float>(_plane)),
-            surfaceType(SurfaceType::PLANE) {
-            }
+    template <>
+    struct hash<cv::rgbd::SurfaceType> {
 
-            AlgebraicSurfacePatch(cv::TesselatedPlane3f::Ptr _plane,
-                    const cv::rgbd::RgbdImage& rgbdImg) :
-            plane_ptr(new sg::Plane<float>(*_plane)),
-            surfaceType(SurfaceType::PLANE) {
-                //shapePtr.reset(&plane);
-                // create in-plane (u,v) coordinates for 3D points
-                cv::Point3f pts[4];
-                std::vector<RectWithError> errRect = _plane->getQuads();
-                RectWithError& r0 = errRect[0];
-                rgbdImg.getPoint3f(r0.x, r0.y, pts[0]);
-                rgbdImg.getPoint3f(r0.x + r0.width, r0.y, pts[1]);
-                rgbdImg.getPoint3f(r0.x + r0.width, r0.y + r0.height, pts[2]);
-                rgbdImg.getPoint3f(r0.x, r0.y + r0.height, pts[3]);
-                std::vector<cv::Vec2f> plane_uv_coords;
-                avgDepth = 0.25 * (pts[0].z + pts[1].z + pts[2].z + pts[3].z);
-                for (cv::Point3f pt : pts) {
-                    cv::Point2f uv_coord = _plane->xyzToUV(pt);
-                    //std::cout << "xyz = " << pt << "-> uv = " << uv_coord << std::endl;
-                    plane_uv_coords.push_back(uv_coord);
-                    cv::Point3f xyz3 = _plane->uvToXYZ(uv_coord);
-                    //std::cout << "uv = " << uv_coord << "-> xyz = " << xyz3 << std::endl;
-                }
-                //sg::Plane& plane = *plane_ptr;
-                plane_ptr->addCoords(plane_uv_coords);
-                // create texture coordinates
-                std::vector<cv::Vec2f> plane_uv_texcoords(4);
-                plane_uv_texcoords[0] = cv::Vec2f(((float) r0.x) / rgbdImg.getWidth(),
-                        1.0f - ((float) r0.y / (float) rgbdImg.getHeight()));
-                plane_uv_texcoords[1] = cv::Vec2f(((float) r0.x + r0.width) / rgbdImg.getWidth(),
-                        1.0f - ((float) r0.y / (float) rgbdImg.getHeight()));
-                plane_uv_texcoords[2] = cv::Vec2f(((float) r0.x + r0.width) / rgbdImg.getWidth(),
-                        1.0f - ((float) r0.y + r0.height) / (float) rgbdImg.getHeight());
-                plane_uv_texcoords[3] = cv::Vec2f(((float) r0.x) / rgbdImg.getWidth(),
-                        1.0f - ((float) r0.y + r0.height) / (float) rgbdImg.getHeight());
-                plane_ptr->addTexCoords(plane_uv_texcoords);
-                //std::cout << "shape1 " << shapePtr->toString() << std::endl;
-                //std::cout << "shape2 " << getShape()->toString() << std::endl;
-            }
+        std::size_t operator()(const cv::rgbd::SurfaceType& t) const {
+            //using std::size_t;
+            //using std::hash;
+            //using std::string;
 
-            virtual ~AlgebraicSurfacePatch() {
-            }
+            // Compute individual hash values for first,
+            // second and third and combine them using XOR
+            // and bit shifting:
 
-            void setPlane(cv::Plane3f _plane) {
+            return std::hash<int>()((int) t);
+            //         ^ (hash<string>()(k.second) << 1)) >> 1)
+            //         ^ (hash<int>()(k.third) << 1);
+        }
+    };
 
-            }
+}
 
-            SurfaceType getSurfaceType() {
-                return surfaceType;
-            }
-
-            sg::Shape::Ptr getShape() {
-                return plane_ptr;
-            }
-            
-            float getAverageDepth() {
-                return avgDepth;
-            }
-
-            static AlgebraicSurfacePatch::Ptr create(TesselatedPlane3f _plane) {
-                return AlgebraicSurfacePatch::Ptr(boost::make_shared<AlgebraicSurfacePatch>(_plane));
-            }
-
-            static AlgebraicSurfacePatch::Ptr create(TesselatedPlane3f::Ptr _plane,
-                    const cv::rgbd::RgbdImage& rgbdImg) {
-                return AlgebraicSurfacePatch::Ptr(boost::make_shared<AlgebraicSurfacePatch>(_plane, rgbdImg));
-            }
-        }; /* class AlgebraicSurfacePatch */
+namespace cv {
+    namespace rgbd {
+//        enum SurfaceType {
+//            UNKNOWN = 0,
+//            PLANE,
+//            EDGE,
+//            CORNER,
+//            BOX
+//        };
+//
+//        extern std::map<SurfaceType, const char*> surfaceTypeToString;
+//        extern std::map<SurfaceType, std::vector<sg::Shape::Ptr>> shapeMap;
+//        class AlgebraicSurfacePatch {
+//            sg::Plane<float>::Ptr plane_ptr;
+//            SurfaceType surfaceType;
+//            float avgDepth;
+//
+//        public:
+//            typedef boost::shared_ptr<AlgebraicSurfacePatch> Ptr;
+//            
+//            AlgebraicSurfacePatch(cv::TesselatedPlane3f _plane) :
+//            plane_ptr(new sg::Plane<float>(_plane)),
+//            surfaceType(SurfaceType::PLANE) {
+//            }
+//
+//            AlgebraicSurfacePatch(cv::TesselatedPlane3f::Ptr _plane,
+//                    const cv::rgbd::RgbdImage& rgbdImg) :
+//            plane_ptr(new sg::Plane<float>(*_plane)),
+//            surfaceType(SurfaceType::PLANE) {
+//                //shapePtr.reset(&plane);
+//                // create in-plane (u,v) coordinates for 3D points
+//                cv::Point3f pts[4];
+//                std::vector<RectWithError> errRect = _plane->getQuads();
+//                RectWithError& r0 = errRect[0];
+//                rgbdImg.getPoint3f(r0.x, r0.y, pts[0]);
+//                rgbdImg.getPoint3f(r0.x + r0.width, r0.y, pts[1]);
+//                rgbdImg.getPoint3f(r0.x + r0.width, r0.y + r0.height, pts[2]);
+//                rgbdImg.getPoint3f(r0.x, r0.y + r0.height, pts[3]);
+//                std::vector<cv::Vec2f> plane_uv_coords;
+//                avgDepth = 0.25 * (pts[0].z + pts[1].z + pts[2].z + pts[3].z);
+//                for (cv::Point3f pt : pts) {
+//                    cv::Point2f uv_coord = _plane->xyzToUV(pt);
+//                    //std::cout << "xyz = " << pt << "-> uv = " << uv_coord << std::endl;
+//                    plane_uv_coords.push_back(uv_coord);
+//                    cv::Point3f xyz3 = _plane->uvToXYZ(uv_coord);
+//                    //std::cout << "uv = " << uv_coord << "-> xyz = " << xyz3 << std::endl;
+//                }
+//                //sg::Plane& plane = *plane_ptr;
+//                plane_ptr->addCoords(plane_uv_coords);
+//                // create texture coordinates
+//                std::vector<cv::Vec2f> plane_uv_texcoords(4);
+//                plane_uv_texcoords[0] = cv::Vec2f(((float) r0.x) / rgbdImg.getWidth(),
+//                        1.0f - ((float) r0.y / (float) rgbdImg.getHeight()));
+//                plane_uv_texcoords[1] = cv::Vec2f(((float) r0.x + r0.width) / rgbdImg.getWidth(),
+//                        1.0f - ((float) r0.y / (float) rgbdImg.getHeight()));
+//                plane_uv_texcoords[2] = cv::Vec2f(((float) r0.x + r0.width) / rgbdImg.getWidth(),
+//                        1.0f - ((float) r0.y + r0.height) / (float) rgbdImg.getHeight());
+//                plane_uv_texcoords[3] = cv::Vec2f(((float) r0.x) / rgbdImg.getWidth(),
+//                        1.0f - ((float) r0.y + r0.height) / (float) rgbdImg.getHeight());
+//                plane_ptr->addTexCoords(plane_uv_texcoords);
+//                //std::cout << "shape1 " << shapePtr->toString() << std::endl;
+//                //std::cout << "shape2 " << getShape()->toString() << std::endl;
+//            }
+//
+//            virtual ~AlgebraicSurfacePatch() {
+//            }
+//
+//            void setPlane(cv::Plane3f _plane) {
+//
+//            }
+//
+//            SurfaceType getSurfaceType() {
+//                return surfaceType;
+//            }
+//
+//            sg::Shape::Ptr getShape() {
+//                return plane_ptr;
+//            }
+//            
+//            float getAverageDepth() {
+//                return avgDepth;
+//            }
+//
+//            static AlgebraicSurfacePatch::Ptr create(TesselatedPlane3f _plane) {
+//                return AlgebraicSurfacePatch::Ptr(boost::make_shared<AlgebraicSurfacePatch>(_plane));
+//            }
+//
+//            static AlgebraicSurfacePatch::Ptr create(TesselatedPlane3f::Ptr _plane,
+//                    const cv::rgbd::RgbdImage& rgbdImg) {
+//                return AlgebraicSurfacePatch::Ptr(boost::make_shared<AlgebraicSurfacePatch>(_plane, rgbdImg));
+//            }
+//        }; /* class AlgebraicSurfacePatch */
 
         class ObjectGeometry {
-            std::vector<AlgebraicSurfacePatch::Ptr> patchVec;
+            //std::vector<AlgebraicSurfacePatch::Ptr> patchVec;
             sg::Shape::Ptr parentShape;
             SurfaceType surfaceType;
         public:
@@ -128,15 +166,15 @@ namespace cv {
             virtual ~ObjectGeometry() {
             }
 
-            void addPart(AlgebraicSurfacePatch::Ptr patch) {
-                patchVec.push_back(patch);
-                if (surfaceType != patch->getSurfaceType()) {
-                    surfaceType = patch->getSurfaceType();
-                }
-                parentShape = patch->getShape();
-                //std::cout << "patchShape " << patch.getShape()->toString() << std::endl;
-                //std::cout << "parentShape " << parentShape->toString() << std::endl;
-            }
+//            void addPart(AlgebraicSurfacePatch::Ptr patch) {
+//                patchVec.push_back(patch);
+//                if (surfaceType != patch->getSurfaceType()) {
+//                    surfaceType = patch->getSurfaceType();
+//                }
+//                parentShape = patch->getShape();
+//                //std::cout << "patchShape " << patch.getShape()->toString() << std::endl;
+//                //std::cout << "parentShape " << parentShape->toString() << std::endl;
+//            }
 
             void setShape(sg::Shape::Ptr _parentShape) {
                 parentShape = _parentShape;

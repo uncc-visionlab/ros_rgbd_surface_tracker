@@ -38,6 +38,8 @@ namespace cv {
             {SurfaceType::BOX, "Box"}
         };
 
+        std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>> train_shapeMap;
+
         void RgbdSurfaceTracker::callback(cv::Mat& _ocv_rgbframe, cv::Mat& _ocv_depthframe_float,
                 cv::Mat& _rgb_distortionCoeffs, cv::Mat& _rgb_cameraMatrix) {
             float cx = _rgb_cameraMatrix.at<float>(0, 2);
@@ -86,18 +88,18 @@ namespace cv {
             cv::Rect roi(MARGIN_X, MARGIN_Y, rgbd_img.getWidth() - 2 * MARGIN_X, rgbd_img.getHeight() - 2 * MARGIN_Y);
             cv::Size imgSize(rgbd_img.getWidth(), rgbd_img.getHeight());
             cv::Size tileSize(BLOCKSIZE, BLOCKSIZE);
-            cv::QuadTree<sg::Plane<float>::Ptr> quadTree( imgSize, tileSize, roi);
+            cv::QuadTree<sg::Plane<float>::Ptr> quadTree(imgSize, tileSize, roi);
 
-            int detector_timeBudget_ms = 5;
+            int detector_timeBudget_ms = 30;
             surfdetector.detect(rgbd_img, quadTree, detector_timeBudget_ms, rgb_result);
 
-            int descriptor_timeBudget_ms = 10;
-            std::vector<cv::rgbd::ObjectGeometry> geomList;
-            surfdescriptor_extractor.compute(rgbd_img, &quadTree, geomList, 
+            int descriptor_timeBudget_ms = 20;
+            std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>> query_shapeMap;
+            surfdescriptor_extractor.compute(rgbd_img, &quadTree, query_shapeMap,
                     descriptor_timeBudget_ms, rgb_result);
 
-//            testHypotheses(rgbd_img, quadTree, roi, geomList);
-
+            std::vector<ObjectGeometry> detected_geometries;
+            glDraw.constructGeometries(query_shapeMap, detected_geometries);
             // OpenGL rendering
             glDraw.setImage(rgbd_img.getRGB());
             glDraw.initFrame();
@@ -114,11 +116,13 @@ namespace cv {
                 }
             }
             if (glDraw.attrs.showDetections) {
-                glDraw.renderGeometries(geomList);
+                glDraw.renderGeometries(detected_geometries);
             }
 
+            int descriptor_matching_timeBudget_ms = 20;
             std::vector<cv::DMatch> geometricMatches;
-            surfmatcher.match(geomList, geomList, geometricMatches);
+            surfmatcher.match(query_shapeMap, train_shapeMap, geometricMatches,
+                    descriptor_matching_timeBudget_ms, rgb_result);
 
             //iterativeAlignment(rgbd_img, rgb_result);
 
