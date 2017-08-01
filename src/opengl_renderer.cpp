@@ -25,11 +25,13 @@
 namespace cv {
     namespace rgbd {
 
+        char fname[] = "output.pnm";
+        
         void OpenGLRenderer::initFrame(void) {
             //  Clear screen and Z-buffer
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             // get window input events
-            glutMainLoopEvent();
+            //glutMainLoopEvent();
         }
 
         void OpenGLRenderer::callbackDisplay(void) {
@@ -40,6 +42,14 @@ namespace cv {
             glPopMatrix();
             //glFlush();
             glutSwapBuffers();
+
+            // call on frame postRender()
+            frameIndex++;
+            // enable to view images when offscreen rendering is being used
+            if (false && offscreen && frameIndex % 10 == 0) {
+                saveWindow(fname);
+            }
+            glutMainLoopEvent();
         }
 
         void OpenGLRenderer::callbackIdle(void) {
@@ -47,9 +57,8 @@ namespace cv {
         }
 
         void OpenGLRenderer::callbackKeyboard(unsigned char key, int x, int y) {
-            int texture_updated = 1;
             glMatrixMode(GL_MODELVIEW);
-            char fname[] = "output.pnm";
+            
             switch (key) {
                 case 'a':
                     glTranslatef(-0.2f, 0.0f, 0.0f);
@@ -82,9 +91,7 @@ namespace cv {
                     break;
 
                 case 'S' - '@': /* ^S */
-                    std::cout << "Saving..." << std::endl;
                     saveWindow(fname);
-                    texture_updated = 0;
                     break;
 
                 case '\x08': /* backspace */
@@ -182,6 +189,7 @@ namespace cv {
         }
 
         void OpenGLRenderer::saveWindow(const char *file_name) {
+            std::cout << "Saving frame to file: " << std::string(file_name) << "." << std::endl;
             int width = glutGet(GLUT_WINDOW_WIDTH);
             int height = glutGet(GLUT_WINDOW_HEIGHT);
             char pixels[3 * width * height];
@@ -193,10 +201,11 @@ namespace cv {
             }
         }
 
-        int OpenGLRenderer::init(int width, int height, bool offscreen) {
+        int OpenGLRenderer::init(int width, int height, bool _offscreen) {
             int argc = 0;
             imgSeg.create(height, width, CV_8UC3);
             imgSeg = Scalar(0, 255, 0);
+            offscreen = _offscreen;
 
             glutInit(&argc, NULL);
             glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
@@ -331,7 +340,7 @@ namespace cv {
         }
 
         void OpenGLRenderer::constructGeometries(
-                const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>& query_shapeMap,
+                const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
                 std::vector<ObjectGeometry>& geomVec) const {
             for (auto shapeType_it = query_shapeMap.begin();
                     shapeType_it != query_shapeMap.end(); ++shapeType_it) {

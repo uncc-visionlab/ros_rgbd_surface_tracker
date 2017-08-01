@@ -10,6 +10,7 @@
 
 #include <vector>
 #include <map>
+#include <unordered_set>
 
 #include <boost/make_shared.hpp>
 #include <boost/shared_ptr.hpp>
@@ -23,11 +24,24 @@
 
 #ifdef __cplusplus
 
-namespace cv {
-    namespace rgbd {
-        class ObjectGeometry;
-        typedef boost::shared_ptr<ObjectGeometry> ObjectGeometryPtr;
-    }
+//namespace cv {
+//    namespace rgbd {
+//        class ObjectGeometry;
+//        typedef boost::shared_ptr<ObjectGeometry> ObjectGeometryPtr;
+//    }
+//}
+
+// needed to use boost::shared_ptr elements as keys for std::unordered_set, std::unordered_map
+namespace std {
+    template<class T>
+    struct hash<boost::shared_ptr<T>>
+    {
+        public:
+
+        size_t operator()(const boost::shared_ptr<T>& key) const {
+            return (size_t) key.get();
+        }
+    };
 }
 
 class Pose {
@@ -322,18 +336,47 @@ namespace sg {
             return colorIdxs;
         }
 
+        bool equal(Edge<_Tpl>::Ptr queryEdge) {
+            return (surfaces[0] == queryEdge->surfaces[0] && surfaces[1] == queryEdge->surfaces[1]) ||
+                    (surfaces[1] == queryEdge->surfaces[0] && surfaces[0] == queryEdge->surfaces[1]);
+        }        
+        
+        bool sharesPlane(Edge<_Tpl>::Ptr queryEdge) {
+            return (surfaces[0] == queryEdge->surfaces[0] || surfaces[1] == queryEdge->surfaces[1] ||
+                    surfaces[1] == queryEdge->surfaces[0] || surfaces[0] == queryEdge->surfaces[1]);
+        }
+        
+        bool contains(Plane<float>::Ptr queryPlane) {
+            return (surfaces[0] == queryPlane || surfaces[1] == queryPlane);
+        }
+        
+        void getPlanes(std::unordered_set<Plane<float>::Ptr>& planeSet) {
+            planeSet.insert(surfaces[0]);
+            planeSet.insert(surfaces[1]);
+        }
+
+        bool isConvex() {
+            cv::Vec<_Tpl, 3> meanOfNeighbors;
+            this->surfaces[0]->getPose().getTranslation(meanOfNeighbors);
+            cv::Vec<_Tpl, 3> planeBPt;
+            this->surfaces[1]->getPose().getTranslation(planeBPt);
+            meanOfNeighbors += planeBPt;
+            meanOfNeighbors *= 0.5;
+            cv::Vec<_Tpl, 3> edgePt;
+            this->getPose().getTranslation(edgePt);
+            return (meanOfNeighbors.z - edgePt.z) > 0;
+        }
+
         std::string toString() {
             std::ostringstream stringStream;
             stringStream << cv::LineSegment3_<_Tpl>::toString();
+            stringStream << " " << surfaces[0].get() << " " << surfaces[1].get();
             return stringStream.str();
         }
 
         static Edge<_Tpl>::Ptr create(Plane<float>::Ptr planeA, Plane<float>::Ptr planeB) {
             return Edge<_Tpl>::Ptr(boost::make_shared<Edge < _Tpl >> (planeA, planeB));
         }
-        //static Edge::Ptr create(Plane<float>::Ptr planeA, Plane<float>::Ptr planeB) {
-        //    return Edge::Ptr(boost::make_shared<Edge> (planeA, planeB));
-        //}
     };
 
     template <typename _Tpl>
@@ -440,6 +483,16 @@ namespace sg {
         std::vector<int> generateColorCoordIndices() {
             std::vector<int> colorIdxs = {0, 0, 1, 1, 2, 2};
             return colorIdxs;
+        }
+        
+        bool contains(Edge<float>::Ptr queryEdge) {
+            return (edges[0] == queryEdge || edges[1] == queryEdge || edges[2] == queryEdge);
+        }
+        
+        void getPlanes(std::unordered_set<Plane<float>::Ptr>& planeSet) {
+            edges[0]->getPlanes(planeSet);            
+            edges[1]->getPlanes(planeSet);
+            assert(planeSet.size() == 3);
         }
 
         bool isConvex() {

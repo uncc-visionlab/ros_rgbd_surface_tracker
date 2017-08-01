@@ -4,6 +4,7 @@
  * and open the template in the editor.
  */
 #include <iostream>      /* printf, scanf, puts, NULL */
+#include <unordered_set>
 
 #include <GL/gl.h>
 //#include <GL/glu.h>
@@ -70,7 +71,96 @@ namespace cv {
             }
         }
 
-        void RgbdSurfaceTracker::segmentDepth(cv::rgbd::RgbdImage& rgbd_img, cv::Mat& rgb_result) {
+        void RgbdSurfaceTracker::setRealorVirtualFlag(cv::rgbd::RgbdImage& rgbd_img,
+                cv::QuadTree<sg::Plane<float>::Ptr>& quadTree,
+                std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&query_shapeMap, cv::Mat& rgb_result) {
+            sg::Corner<float>::Ptr cornerPtr;
+            sg::Edge<float>::Ptr edgePtr;
+            cv::Vec3f position;
+
+            for (auto shapeType_iter = query_shapeMap.begin();
+                    shapeType_iter != query_shapeMap.end(); ++shapeType_iter) {
+                if ((*shapeType_iter).first == SurfaceType::EDGE ||
+                        (*shapeType_iter).first == SurfaceType::CORNER) {
+                    for (auto shape_iter = (*shapeType_iter).second.begin();
+                            shape_iter != (*shapeType_iter).second.end(); ++shape_iter) {
+                        std::unordered_set<sg::Plane<float>::Ptr> myPlanes;
+                        switch ((*shapeType_iter).first) {
+                            case SurfaceType::CORNER:
+                                cornerPtr = boost::static_pointer_cast<sg::Corner<float>>(*shape_iter);
+                                cornerPtr->getPose().getTranslation(position);
+                                cornerPtr->getPlanes(myPlanes);
+                                break;
+                            case SurfaceType::EDGE:
+                                edgePtr = boost::static_pointer_cast<sg::Edge<float>>(*shape_iter);
+                                edgePtr->getPose().getTranslation(position);
+                                edgePtr->getPlanes(myPlanes);
+                                break;
+                            default:
+                                break;
+                        }
+                        cv::Point2f projPt = rgbd_img.project(position);
+                        cv::Rect tile((int) projPt.x - (BLOCKSIZE >> 1),
+                                (int) projPt.y - (BLOCKSIZE >> 1),
+                                BLOCKSIZE >> 0, BLOCKSIZE >> 0);
+                        if (tile.x < 0 || tile.y < 0 ||
+                                tile.x + tile.width > rgbd_img.getWidth() ||
+                                tile.y + tile.height > rgbd_img.getHeight()) {
+                            // feature does not exist in the view -- remove it!
+                            //std::cout << "Feature is not visible in the measured image!" << std::endl;
+                            //std::cout << "tile = " << tile << std::endl;
+                            // TODO: delete the feature from the map!
+                            continue;
+                        }
+                        int numSamples = (tile.width * tile.height) / 2;
+                        std::vector<Point3f> tile_data;
+                        tile_data.reserve(numSamples);
+                        rgbd_img.getTileData_Uniform(tile.x, tile.y,
+                                tile.width, tile.height, tile_data, numSamples);
+                        if (tile_data.size() > (numSamples >> 2)) {
+                            //if (quad.error / (quad.inliers + quad.outliers) < 0.0025 * avgDepth) {
+                            //} /* for each detected structure (edge or corner) */
+                        } /* restrict search to EDGE and CORNER detections */
+                    } /* for every type of surface */
+                }
+            }
+        }
+
+        void RgbdSurfaceTracker::clusterDetections(std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&query_shapeMap,
+                cv::Mat & rgb_result) {
+            std::vector< std::vector < sg::Plane<float>::Ptr>> planeClusters;
+            std::vector< std::vector < sg::Edge<float>::Ptr>> edgeClusters;
+            std::vector< std::vector < sg::Corner<float>::Ptr>> cornerClusters;
+            std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>> clustered_query_shapeMap;
+            sg::Corner<float>::Ptr cornerPtr;
+            sg::Edge<float>::Ptr edgePtr;
+            sg::Plane<float>::Ptr planePtr;
+            cv::Vec3f position;
+            bool done = false;
+
+            for (auto shapeType_iter = query_shapeMap.begin();
+                    shapeType_iter != query_shapeMap.end(); ++shapeType_iter) {
+                for (auto shape_iter = (*shapeType_iter).second.begin();
+                        shape_iter != (*shapeType_iter).second.end(); ++shape_iter) {
+                    switch ((*shapeType_iter).first) {
+                        case SurfaceType::CORNER:
+                            cornerPtr = boost::static_pointer_cast<sg::Corner<float>>(*shape_iter);
+                            break;
+                        case SurfaceType::EDGE:
+                            edgePtr = boost::static_pointer_cast<sg::Edge<float>>(*shape_iter);
+                            edgePtr->getPose().getTranslation(position);
+                            break;
+                        case SurfaceType::PLANE:
+                        default:
+                            planePtr = boost::static_pointer_cast<sg::Plane<float>>(*shape_iter);
+                            planePtr->getPose().getTranslation(position);
+                            break;
+                    }
+                }
+            }
+        }
+
+        void RgbdSurfaceTracker::segmentDepth(cv::rgbd::RgbdImage& rgbd_img, cv::Mat & rgb_result) {
 
 #ifdef PROFILE_CALLGRIND
             CALLGRIND_TOGGLE_COLLECT;
@@ -122,41 +212,51 @@ namespace cv {
             }
             glDraw.clearObjects();
 
-            // cluster
-            std::vector<sg::Corner<float>> clusteredPlanes;
-            std::vector<sg::Corner<float>> clusteredEdges;
-            std::vector<sg::Corner<float>> clusteredCorners;
-            std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>> clustered_query_shapeMap;
-            sg::Corner<float>::Ptr cornerPtr;
-            sg::Edge<float>::Ptr edgePtr;
-            sg::Plane<float>::Ptr planePtr;
-            cv::Vec3f position;            
-            for (auto shapeType_iter = query_shapeMap.begin();
-                    shapeType_iter != query_shapeMap.end(); ++shapeType_iter) {
-                for (auto shape_iter = (*shapeType_iter).second.begin();
-                        shape_iter != (*shapeType_iter).second.end(); ++shape_iter) {
-                    switch ((*shapeType_iter).first) {
-                        case SurfaceType::CORNER:
-                            cornerPtr = boost::static_pointer_cast<sg::Corner<float>>(*shape_iter);
-                            cornerPtr->getPose().getTranslation(position);
-                            break;
-                        case SurfaceType::EDGE:
-                            edgePtr = boost::static_pointer_cast<sg::Edge<float>>(*shape_iter);
-                            edgePtr->getPose().getTranslation(position);
-                            break;
-                        case SurfaceType::PLANE:
-                        default:
-                            planePtr = boost::static_pointer_cast<sg::Plane<float>>(*shape_iter);
-                            planePtr->getPose().getTranslation(position);
-                            break;
-                    }
-                }
-            }
+            // Validate higher-order detections:
+            // We want to discriminate between virtual/real corner detections and virtual/real edge detections
+            // TODO: Implement setRealorVirtualFlag(quadTree, query_shapeMap)
+            // This function will visit edges and corners:
+            // For each edge:
+            // 1. Sample data from the depth image tile centered on the edge midpoint
+            // 2. Plug tile data into the quadric surface for the edge to estimate surface fit error
+            //    (plug into both surfaces and take min(abs(f1(pt)),abs(f2(pt))))
+            // 3. If points violate initial plane fitting criteria set the edge as virtual
+            // For each corner:
+            // 1. Sample data from the depth image tile centered on the edge midpoint
+            // 2. Plug tile data into the cubic surface for the corner to estimate surface fit error
+            //    (plug into the three surfaces and take min(abs(f1(pt)),abs(f2(pt),abs(f3(pt))))
+            // 3. If points violate initial plane fitting criteria set the the corner as virtual
+            //
+            // We may want to keep virtual corners as they may be useful for odometry / loop closure
+            setRealorVirtualFlag(rgbd_img, quadTree, query_shapeMap, rgb_result);
 
+            // Cluster detections:
+            // Merge multiple detections of the same structure
+            // TODO: Implement clusterDetections(query_shapeMap)
+            // This function visits all features for matching, e.g., planes, edges and corners,
+            // and clusters the detections into groups and produces a smaller collection of
+            // features for integration with the "map"
+            clusterDetections(query_shapeMap, rgb_result);
+
+            // Match structures detected in this image with structures of the map
+            // Compute the map between detected structures and existing structures
+            // TODO: Implement match(query_shapeMap)
+            // This function visits all features for matching, e.g., planes, edges and corners,
+            // and clusters the detections into groups and produces a smaller collection of
+            // features for integration with the "map"
             int descriptor_matching_timeBudget_ms = 20;
             std::vector<cv::DMatch> geometricMatches;
+            std::vector<int> noMatches;
             surfmatcher.match(query_shapeMap, train_shapeMap, geometricMatches,
                     descriptor_matching_timeBudget_ms, rgb_result);
+
+            // Structures without a match are inserted to the map
+            // addToMap(unmatched_
+            // Structures having a match are used to solve the following problems:
+            // 1. Localization -> (Range-based Odometry / Pose-change estimation)
+            // TODO: computePoseChange();
+            // 2. Mapping -> Structure estimation
+            // TODO: updateMap(query_shapeMap, train_shapeMap);
 
             //iterativeAlignment(rgbd_img, rgb_result);
 

@@ -75,7 +75,6 @@ namespace cv {
             rgbdImg.getPoint3f(imgTile.x, imgTile.y + imgTile.height, pts[3]);
             std::vector<cv::Vec2f> plane_uv_coords;
             cv::Vec3f meanPos = 0.25 * (pts[0] + pts[1] + pts[2] + pts[3]);
-            //float avgDepth = 0.25 * (pts[0].z + pts[1].z + pts[2].z + pts[3].z);
             for (cv::Point3f pt : pts) {
                 cv::Point2f uv_coord = plane_ptr->xyzToUV(pt);
                 //std::cout << "xyz = " << pt << "-> uv = " << uv_coord << std::endl;
@@ -173,7 +172,8 @@ namespace cv {
                     rgbd_img.fitImplicitPlaneLeastSquares(tile_data, plane3, quad.error,
                             quad.noise, quad.inliers, quad.outliers, quad.invalid);
                     if (quad.error / (quad.inliers + quad.outliers) < 0.0025 * avgDepth) {
-                        //std::cout << "areaA " << planeA->area() << " errorA = " << planeA->avgError() << " planeA = " << *planeA << std::endl;
+                        //std::cout << "areaA " << planeA->area() << " errorA = " 
+                        //<< planeA->avgError() << " planeA = " << *planeA << std::endl;
                         cv::TesselatedPlane3f tplane(plane3, numLabels++);
                         tplane.addQuad(quad);
                         sg::Plane<float>::Ptr planePtr(new sg::Plane<float>(tplane));

@@ -69,10 +69,16 @@ namespace cv {
                         for (int dY = rootCompareWindow.y; dY < rootCompareWindow.y + rootCompareWindow.height; ++dY) {
                             sg::Plane<float>::Ptr* planeB_ptr = qts[1]->get((qX << dLevel) + dX, (qY << dLevel) + dY);
                             if (planeB_ptr) {
-                                if (planeA->epsilonPerpendicular(**planeB_ptr, 2 * cv::Plane3f::PERPENDICULAR_SIN_ANGLE_THRESHOLD)) {
+                                if (planeA->epsilonPerpendicular(**planeB_ptr, 1 * cv::Plane3f::PERPENDICULAR_SIN_ANGLE_THRESHOLD)) {
                                     sg::Edge<float>::Ptr edge = boost::make_shared<sg::Edge<float>>(planeA, *planeB_ptr);
                                     edgeVec.push_back(edge);
                                     std::vector<sg::Shape::Ptr>& shapes = query_shapeMap[cv::rgbd::SurfaceType::EDGE];
+                                    //if (shapes.size() > 1) {
+                                    //    sg::Edge<float>::Ptr edgePtr = boost::static_pointer_cast<sg::Edge<float>>(*(shapes.end() - 1));
+                                    //    std::cout << "edgeA = " << edge->toString() << std::endl;
+                                    //    std::cout << "edgeB = " << edgePtr->toString() << std::endl;
+                                    //    std::cout << "test = " << edge->sharesPlane(edgePtr) << std::endl;
+                                    //}
                                     shapes.push_back(edge);
                                 } /* restrict pair matches to be approximately perpendicular */
                             } /* restrict surface pairwise comparisons to planes */
@@ -88,21 +94,26 @@ namespace cv {
                         if (itB + 1 == edgeVec.end())
                             goto corner_search_done;
                         sg::Edge<float>::Ptr edgeB = *itB;
-                        if (std::abs(edgeA->v.dot(edgeB->v)) < .05) {
+                        //if (std::abs(edgeA->v.dot(edgeB->v)) < .05) {
+                        // force edgeA and edgeB to come from a common plane detection
+                        if (edgeB->sharesPlane(edgeA) && std::abs(edgeA->v.dot(edgeB->v)) < .25) {
                             cv::Point3f perp_vector = edgeA->v.cross(edgeB->v);
                             for (auto itC = itB + 1; itC != edgeVec.end(); ++itC) {
                                 sg::Edge<float>::Ptr edgeC = *itC;
-                                float piped_volume = std::abs(edgeC->v.dot(perp_vector));
-                                if (piped_volume > .95) {
-                                    //std::cout << "Found corner, parallelpiped volume = " << piped_volume << std::endl;
-                                    sg::Corner<float>::Ptr corner = sg::Corner<float>::create(edgeA, edgeB, edgeC);
-                                    
-                                    Point2f corner_proj = rgbd_img.project(*corner);
-                                    cv::circle(rgb_result, corner_proj, 5, cv::Scalar(255, 255, 0), 3);
+                                // force edgeC to come from one of the planes detected in either edgeA or edgeB
+                                if (edgeC->sharesPlane(edgeA) || edgeC->sharesPlane(edgeB)) {
+                                    float piped_volume = std::abs(edgeC->v.dot(perp_vector));
+                                    if (piped_volume > .75) {
+                                        //std::cout << "Found corner, parallelpiped volume = " << piped_volume << std::endl;
+                                        sg::Corner<float>::Ptr corner = sg::Corner<float>::create(edgeA, edgeB, edgeC);
 
-                                    std::vector<sg::Shape::Ptr>& shapes = query_shapeMap[cv::rgbd::SurfaceType::CORNER];
-                                    shapes.push_back(corner);
-                                } /* restrict triplet matches to be approximately perpendicular */
+                                        Point2f corner_proj = rgbd_img.project(*corner);
+                                        cv::circle(rgb_result, corner_proj, 5, cv::Scalar(255, 255, 0), 3);
+
+                                        std::vector<sg::Shape::Ptr>& shapes = query_shapeMap[cv::rgbd::SurfaceType::CORNER];
+                                        shapes.push_back(corner);
+                                    } /* restrict triplet matches to be approximately perpendicular */
+                                }
                             } /* loop over candidate third surface elements (triplets of Edges) */
                         } /* restrict pair matches to be approximately perpendicular */
                     } /* loop over candidate second match surface elements (pairs of Edges) */
@@ -111,7 +122,12 @@ corner_search_done:
 
                 ticksNow = cv::getTickCount();
                 timeBudgetExpired = (ticksNow - ticksStart) > timeBudgetTicks;
-                compareLevels[1]++;
+                if (compareLevels[0] == compareLevels[1]) {
+                    compareLevels[1]++;
+                } else {
+                    //compareLevels[0]++;
+                    compareLevels[1]++;
+                }
             }
             std::cout << "Descriptor extractor time used = " << ((double) (ticksNow - ticksStart) / cv::getTickFrequency())
                     << " sec time allocated = " << ((double) timeBudgetTicks / cv::getTickFrequency()) << " sec" << std::endl;
@@ -211,8 +227,8 @@ corner_search_done:
             //    sg::Shape& shape = *shape_ptr;
         }
 
-        void SurfaceDescriptorMatcher::match(std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
-                std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&train_shapeMap,
+        void SurfaceDescriptorMatcher::match(std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&query_shapeMap,
+                std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&train_shapeMap,
                 std::vector<cv::DMatch>& matches, int timeBudget_ms,
                 cv::Mat& rgb_result, Pose camPose, cv::Mat mask) {
             cv::Vec3f position;

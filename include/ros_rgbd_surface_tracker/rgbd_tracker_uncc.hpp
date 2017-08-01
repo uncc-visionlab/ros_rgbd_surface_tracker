@@ -60,16 +60,16 @@ namespace cv {
         public:
             void compute(const cv::rgbd::RgbdImage& rgbd_img,
                     cv::QuadTree<sg::Plane<float>::Ptr>* quadTree,
-                    std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>& query_shapeMap,
+                    std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
                     int timeBudget_ms, cv::Mat& rgb_result) const;
         }; /* class SurfaceDescriptorExtractor */
 
         class SurfaceDescriptorMatcher {
         public:
-            void match(std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>& query_shapeMap,
-                    std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>& train_shapeMap,
+            void match(std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
+                    std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&train_shapeMap,
                     std::vector<cv::DMatch>& matches, int timeBudget_ms,
-                    cv::Mat& rgb_result, Pose camPose = Pose(),cv::Mat mask = cv::Mat());
+                    cv::Mat& rgb_result, Pose camPose = Pose(), cv::Mat mask = cv::Mat());
         }; /* class SurfaceDescriptorMatcher */
 
         class RgbdSurfaceTracker {
@@ -82,6 +82,14 @@ namespace cv {
 
             virtual ~RgbdSurfaceTracker() {
             };
+
+            void setRealorVirtualFlag(cv::rgbd::RgbdImage& rgbd_img,
+                    cv::QuadTree<sg::Plane<float>::Ptr>& quadTree,
+                    std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>& query_shapeMap,
+                    cv::Mat& rgb_result);
+
+            void clusterDetections(std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&query_shapeMap,
+                    cv::Mat& rgb_result);
 
             void segmentDepth(cv::rgbd::RgbdImage& rgbd_img, cv::Mat& result);
 
