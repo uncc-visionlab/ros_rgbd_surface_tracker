@@ -6,6 +6,8 @@
 #include <iostream>      /* printf, scanf, puts, NULL */
 #include <unordered_set>
 
+#include <boost/bind.hpp>
+
 #include <GL/gl.h>
 //#include <GL/glu.h>
 #include <GL/glut.h>
@@ -71,57 +73,103 @@ namespace cv {
             }
         }
 
+        bool RgbdSurfaceTracker::setIsRealFlag(const sg::Shape::Ptr shape,
+                const cv::rgbd::RgbdImage& rgbd_img, const cv::Size& tileDims,
+                const cv::rgbd::SurfaceType& shapeType) const {
+            cv::Vec3f position;
+            shape->getPose().getTranslation(position);
+            cv::Point2f projPt = rgbd_img.project(position);
+            cv::Rect tile((int) projPt.x - (tileDims.width >> 1),
+                    (int) projPt.y - (tileDims.height >> 1),
+                    tileDims.width, tileDims.height);
+            if (tile.x < 0 || tile.y < 0 ||
+                    tile.x + tile.width >= rgbd_img.getWidth() ||
+                    tile.y + tile.height >= rgbd_img.getHeight()) {
+                //std::cout << "Feature is too close to image boundary to analyze... deleting!" << std::endl;
+                //std::cout << "tile = " << tile << std::endl;
+                // delete -> feature position at the periphery of image 
+                // (tile data exceeds image dimensions)
+                return true;
+            }
+            int numSamples = (tile.width * tile.height) / 2;
+            std::vector<cv::Point3f> tile_data;
+            tile_data.reserve(numSamples);
+            rgbd_img.getTileData_Uniform(tile.x, tile.y,
+                    tile.width, tile.height, tile_data, numSamples);
+            if (tile_data.size() > (numSamples >> 2)) {
+                sg::Corner<float>::Ptr cornerPtr;
+                sg::Edge<float>::Ptr edgePtr;
+                switch (shapeType) {
+                    case SurfaceType::CORNER:
+                        cornerPtr = boost::static_pointer_cast<sg::Corner<float>>(shape);
+                        cornerPtr->setIsRealFlag(tile_data);
+                        break;
+                    case SurfaceType::EDGE:
+                        edgePtr = boost::static_pointer_cast<sg::Edge<float>>(shape);
+                        edgePtr->setIsRealFlag(tile_data);
+                        break;
+                    default:
+                        std::cout << "RgbdSurfaceTracker::setIsRealFlag() -> should never execute!" << std::endl;
+                        break;
+                }
+            } else {
+                // delete -> not enough data to confirm edge / corner structure
+                return true;
+            }
+            return false; // keep this shape and we have set it's isReal() flag
+        }
+
         void RgbdSurfaceTracker::setRealorVirtualFlag(cv::rgbd::RgbdImage& rgbd_img,
                 cv::QuadTree<sg::Plane<float>::Ptr>& quadTree,
-                std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&query_shapeMap, cv::Mat& rgb_result) {
-            sg::Corner<float>::Ptr cornerPtr;
-            sg::Edge<float>::Ptr edgePtr;
-            cv::Vec3f position;
+                std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&query_shapeMap, cv::Mat & rgb_result) {
+            //sg::Corner<float>::Ptr cornerPtr;
+            //sg::Edge<float>::Ptr edgePtr;
+            //cv::Vec3f position;
+
+            cv::Size tileDims(BLOCKSIZE, BLOCKSIZE);
 
             for (auto shapeType_iter = query_shapeMap.begin();
                     shapeType_iter != query_shapeMap.end(); ++shapeType_iter) {
                 if ((*shapeType_iter).first == SurfaceType::EDGE ||
                         (*shapeType_iter).first == SurfaceType::CORNER) {
-                    for (auto shape_iter = (*shapeType_iter).second.begin();
-                            shape_iter != (*shapeType_iter).second.end(); ++shape_iter) {
-                        std::unordered_set<sg::Plane<float>::Ptr> myPlanes;
-                        switch ((*shapeType_iter).first) {
-                            case SurfaceType::CORNER:
-                                cornerPtr = boost::static_pointer_cast<sg::Corner<float>>(*shape_iter);
-                                cornerPtr->getPose().getTranslation(position);
-                                cornerPtr->getPlanes(myPlanes);
-                                break;
-                            case SurfaceType::EDGE:
-                                edgePtr = boost::static_pointer_cast<sg::Edge<float>>(*shape_iter);
-                                edgePtr->getPose().getTranslation(position);
-                                edgePtr->getPlanes(myPlanes);
-                                break;
-                            default:
-                                break;
-                        }
-                        cv::Point2f projPt = rgbd_img.project(position);
-                        cv::Rect tile((int) projPt.x - (BLOCKSIZE >> 1),
-                                (int) projPt.y - (BLOCKSIZE >> 1),
-                                BLOCKSIZE >> 0, BLOCKSIZE >> 0);
-                        if (tile.x < 0 || tile.y < 0 ||
-                                tile.x + tile.width > rgbd_img.getWidth() ||
-                                tile.y + tile.height > rgbd_img.getHeight()) {
-                            // feature does not exist in the view -- remove it!
-                            //std::cout << "Feature is not visible in the measured image!" << std::endl;
-                            //std::cout << "tile = " << tile << std::endl;
-                            // TODO: delete the feature from the map!
-                            continue;
-                        }
-                        int numSamples = (tile.width * tile.height) / 2;
-                        std::vector<Point3f> tile_data;
-                        tile_data.reserve(numSamples);
-                        rgbd_img.getTileData_Uniform(tile.x, tile.y,
-                                tile.width, tile.height, tile_data, numSamples);
-                        if (tile_data.size() > (numSamples >> 2)) {
-                            //if (quad.error / (quad.inliers + quad.outliers) < 0.0025 * avgDepth) {
-                            //} /* for each detected structure (edge or corner) */
-                        } /* restrict search to EDGE and CORNER detections */
-                    } /* for every type of surface */
+                    std::vector<sg::Shape::Ptr>& shapeVec = (*shapeType_iter).second;
+                    cv::rgbd::SurfaceType shapeType = (*shapeType_iter).first;
+
+                    // erase features too close to image boundary for analysis
+                    shapeVec.erase(std::remove_if(shapeVec.begin(), shapeVec.end(),
+                            boost::bind(&RgbdSurfaceTracker::setIsRealFlag, this, _1,
+                            boost::ref(rgbd_img), boost::ref(tileDims), boost::ref(shapeType))),
+                            shapeVec.end());
+
+//                    for (auto shape_iter = shapeVec.begin();
+//                            shape_iter != shapeVec.end(); ++shape_iter) {
+//                        sg::Shape::Ptr& shape = (*shape_iter);
+//                        shape->getPose().getTranslation(position);
+//                        cv::Point2f projPt = rgbd_img.project(position);
+//                        cv::Rect tile((int) projPt.x - (tileDims.width >> 1),
+//                                (int) projPt.y - (tileDims.height >> 1),
+//                                tileDims.width, tileDims.height);
+//                        int numSamples = (tile.width * tile.height) / 2;
+//                        std::vector<Point3f> tile_data;
+//                        tile_data.reserve(numSamples);
+//                        rgbd_img.getTileData_Uniform(tile.x, tile.y,
+//                                tile.width, tile.height, tile_data, numSamples);
+//
+//                        if (tile_data.size() > (numSamples >> 2)) {
+//                            switch (shapeType) {
+//                                case SurfaceType::CORNER:
+//                                    cornerPtr = boost::static_pointer_cast<sg::Corner<float>>(*shape_iter);
+//                                    cornerPtr->setIsRealFlag(tile_data);
+//                                    break;
+//                                case SurfaceType::EDGE:
+//                                    edgePtr = boost::static_pointer_cast<sg::Edge<float>>(*shape_iter);
+//                                    edgePtr->setIsRealFlag(tile_data);
+//                                    break;
+//                                default:
+//                                    break;
+//                            }
+//                        }
+//                    }
                 }
             }
         }
@@ -180,7 +228,7 @@ namespace cv {
             cv::Size tileSize(BLOCKSIZE, BLOCKSIZE);
             cv::QuadTree<sg::Plane<float>::Ptr> quadTree(imgSize, tileSize, roi);
 
-            int detector_timeBudget_ms = 30;
+            int detector_timeBudget_ms = 15;
             surfdetector.detect(rgbd_img, quadTree, detector_timeBudget_ms, rgb_result);
 
             int descriptor_timeBudget_ms = 20;
@@ -188,6 +236,24 @@ namespace cv {
             surfdescriptor_extractor.compute(rgbd_img, &quadTree, query_shapeMap,
                     descriptor_timeBudget_ms, rgb_result);
 
+            // Validate higher-order detections:
+            // We want to discriminate between virtual/real corner detections and virtual/real edge detections
+            // TODO: Implement setRealorVirtualFlag(quadTree, query_shapeMap)
+            // This function will visit edges and corners:
+            // For each edge:
+            // 1. Sample data from the depth image tile centered on the edge midpoint
+            // 2. Plug tile data into the quadric surface for the edge to estimate surface fit error
+            //    (plug into both surfaces and take min(abs(f1(pt)),abs(f2(pt))))
+            // 3. If points violate initial plane fitting criteria set the edge as virtual
+            // For each corner:
+            // 1. Sample data from the depth image tile centered on the edge midpoint
+            // 2. Plug tile data into the cubic surface for the corner to estimate surface fit error
+            //    (plug into the three surfaces and take min(abs(f1(pt)),abs(f2(pt),abs(f3(pt))))
+            // 3. If points violate initial plane fitting criteria set the the corner as virtual
+            //
+            // We may want to keep virtual corners as they may be useful for odometry / loop closure
+            setRealorVirtualFlag(rgbd_img, quadTree, query_shapeMap, rgb_result);            
+            
             // RENDER DETECTED SHAPE GRAMMAR GEOMETRIES
             std::vector<ObjectGeometry> detected_geometries;
             glDraw.constructGeometries(query_shapeMap, detected_geometries);
@@ -211,24 +277,6 @@ namespace cv {
                 glDraw.renderGeometries(detected_geometries);
             }
             glDraw.clearObjects();
-
-            // Validate higher-order detections:
-            // We want to discriminate between virtual/real corner detections and virtual/real edge detections
-            // TODO: Implement setRealorVirtualFlag(quadTree, query_shapeMap)
-            // This function will visit edges and corners:
-            // For each edge:
-            // 1. Sample data from the depth image tile centered on the edge midpoint
-            // 2. Plug tile data into the quadric surface for the edge to estimate surface fit error
-            //    (plug into both surfaces and take min(abs(f1(pt)),abs(f2(pt))))
-            // 3. If points violate initial plane fitting criteria set the edge as virtual
-            // For each corner:
-            // 1. Sample data from the depth image tile centered on the edge midpoint
-            // 2. Plug tile data into the cubic surface for the corner to estimate surface fit error
-            //    (plug into the three surfaces and take min(abs(f1(pt)),abs(f2(pt),abs(f3(pt))))
-            // 3. If points violate initial plane fitting criteria set the the corner as virtual
-            //
-            // We may want to keep virtual corners as they may be useful for odometry / loop closure
-            setRealorVirtualFlag(rgbd_img, quadTree, query_shapeMap, rgb_result);
 
             // Cluster detections:
             // Merge multiple detections of the same structure

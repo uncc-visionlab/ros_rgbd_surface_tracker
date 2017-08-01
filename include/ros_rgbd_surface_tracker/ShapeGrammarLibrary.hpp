@@ -246,10 +246,13 @@ namespace sg {
     template <typename _Tpl>
     class Edge : public Shape, public cv::LineSegment3_<_Tpl> {
         Plane<float>::Ptr surfaces[2]; // sorted by increasing z normal components
+        bool _isReal;
+        bool _isConvex;
     public:
         typedef boost::shared_ptr<Edge> Ptr;
 
-        Edge(Plane<float>::Ptr planeA, Plane<float>::Ptr planeB) : sg::Shape(), cv::LineSegment3_<_Tpl>() {
+        Edge(Plane<float>::Ptr planeA, Plane<float>::Ptr planeB) : sg::Shape(),
+        cv::LineSegment3_<_Tpl>(), _isReal(false), _isConvex(false) {
             if (planeA->z < planeB->z) {
                 surfaces[0] = planeA;
                 surfaces[1] = planeB;
@@ -288,6 +291,7 @@ namespace sg {
             this->end = std::min(tend[0], tend[1]);
             cv::Vec3f midpt = 0.5 * (this->getPoint(this->start) + this->getPoint(this->end));
             this->setPose(Pose(midpt, this->v));
+            this->setIsConvexFlag();
         }
 
         virtual ~Edge() {
@@ -339,23 +343,27 @@ namespace sg {
         bool equal(Edge<_Tpl>::Ptr queryEdge) {
             return (surfaces[0] == queryEdge->surfaces[0] && surfaces[1] == queryEdge->surfaces[1]) ||
                     (surfaces[1] == queryEdge->surfaces[0] && surfaces[0] == queryEdge->surfaces[1]);
-        }        
-        
+        }
+
         bool sharesPlane(Edge<_Tpl>::Ptr queryEdge) {
             return (surfaces[0] == queryEdge->surfaces[0] || surfaces[1] == queryEdge->surfaces[1] ||
                     surfaces[1] == queryEdge->surfaces[0] || surfaces[0] == queryEdge->surfaces[1]);
         }
-        
+
         bool contains(Plane<float>::Ptr queryPlane) {
             return (surfaces[0] == queryPlane || surfaces[1] == queryPlane);
         }
-        
+
         void getPlanes(std::unordered_set<Plane<float>::Ptr>& planeSet) {
             planeSet.insert(surfaces[0]);
             planeSet.insert(surfaces[1]);
         }
 
         bool isConvex() {
+            return _isConvex;
+        }
+
+        bool setIsConvexFlag() {
             cv::Vec<_Tpl, 3> meanOfNeighbors;
             this->surfaces[0]->getPose().getTranslation(meanOfNeighbors);
             cv::Vec<_Tpl, 3> planeBPt;
@@ -364,7 +372,64 @@ namespace sg {
             meanOfNeighbors *= 0.5;
             cv::Vec<_Tpl, 3> edgePt;
             this->getPose().getTranslation(edgePt);
-            return (meanOfNeighbors.z - edgePt.z) > 0;
+            _isConvex = (meanOfNeighbors[2] - edgePt[2]) > 0;
+            return _isConvex;
+        }
+
+        bool isReal() const {
+            return _isReal;
+        }
+
+        bool setIsRealFlag(const std::vector<cv::Point3f>& pts) {
+            static _Tpl ISREAL_THRESHOLD = 0.005;
+
+            int numPts = pts.size();
+            int convexSignFlip = isConvex() ? 1 : -1;
+            _Tpl signed_distance;
+            _Tpl max_signed_distance;
+            _Tpl avg_max_signed_distance = 0;
+            for (cv::Vec<_Tpl, 3> pt : pts) {
+                max_signed_distance = -std::numeric_limits<_Tpl>::infinity();
+                for (int idx = 0; idx < 2; ++idx) {
+                    signed_distance = convexSignFlip * surfaces[idx]->evaluate(pt);
+                    if (signed_distance > max_signed_distance) {
+                        max_signed_distance = signed_distance;
+                    }
+                }
+                avg_max_signed_distance += max_signed_distance;
+            }
+            avg_max_signed_distance /= numPts;
+            if (avg_max_signed_distance > ISREAL_THRESHOLD) {
+                _isReal = false;
+            } else {
+                _isReal = true;
+            }
+            if (true) {
+                //std::cout << "avg_min_signed_distance = " << avg_max_signed_distance << std::endl;
+                //std::cout << "Detected a " << (_isReal ? "REAL" : "VIRTUAL") << " EDGE." << std::endl;
+            }
+            return _isReal;
+        }
+
+        cv::Matx<_Tpl, 3, 3> getNonOrthogonalCoordinateSystem() {
+            cv::Vec<_Tpl, 3> featureToPtVec;
+            cv::Vec<_Tpl, 3> featurePosition;
+            this->getPose().getTranslation(featurePosition);
+            cv::Matx<_Tpl, 3, 3> coordVecs = cv::Matx<_Tpl, 3, 3>::eye();
+            for (int idx = 0; idx < 2; ++idx) {
+                cv::Vec<_Tpl, 3> eVec;
+                surfaces[idx]->getPose().getTranslation(eVec);
+                featureToPtVec = eVec - featurePosition;
+                featureToPtVec *= 1.0 / std::sqrt(featureToPtVec.dot(featureToPtVec));
+                coordVecs(idx, 0) = featureToPtVec[0];
+                coordVecs(idx, 1) = featureToPtVec[1];
+                coordVecs(idx, 2) = featureToPtVec[2];
+            }
+            coordVecs(2, 0) = this->v[0];
+            coordVecs(2, 1) = this->v[1];
+            coordVecs(2, 2) = this->v[2];
+            std::cout << "coordVecs = " << coordVecs << std::endl;
+            return coordVecs;
         }
 
         std::string toString() {
@@ -385,11 +450,13 @@ namespace sg {
         //  parametric location of corner 
         // on each edge line pair, (0,1), (1,2), (0,2)
         _Tpl eline_lambdas[3];
+        bool _isReal;
+        bool _isConvex;
     public:
         typedef boost::shared_ptr<Corner> Ptr;
 
         Corner(Edge<float>::Ptr edgeA, Edge<float>::Ptr edgeB, Edge<float>::Ptr edgeC) :
-        sg::Shape(), cv::Point3_<_Tpl>() {
+        sg::Shape(), cv::Point3_<_Tpl>(), _isReal(false), _isConvex(false) {
             edges[0] = edgeA;
             edges[1] = edgeB;
             edges[2] = edgeC;
@@ -433,6 +500,7 @@ namespace sg {
             //            //std::cout << "eigen mat = " << eigenTransform << std::endl;
             //            eigenTransformMap = eigenTransform;            
             this->setPose(Pose(*this, cv::Vec3f(0, 0, 0)));
+            this->setIsConvexFlag();
         }
 
         virtual ~Corner() {
@@ -472,36 +540,122 @@ namespace sg {
         }
 
         std::vector<cv::Vec3f> generateColorCoords() {
-            std::vector<cv::Vec3f> colors = {
-                cv::Vec3f(0, 1, 0),
-                cv::Vec3f(0, 1, 0),
-                cv::Vec3f(0, 1, 0)
-            };
-            return colors;
+            static cv::Vec3f green(0.0f, 1.0f, 0.0f);
+            static cv::Vec3f orange(1.0f, 0.5f, 0.0f);
+            if (_isReal) {
+                return std::vector<cv::Vec3f>{green, green, green};
+            }
+            return std::vector<cv::Vec3f>{orange, orange, orange};
         }
 
         std::vector<int> generateColorCoordIndices() {
             std::vector<int> colorIdxs = {0, 0, 1, 1, 2, 2};
             return colorIdxs;
         }
-        
+
         bool contains(Edge<float>::Ptr queryEdge) {
             return (edges[0] == queryEdge || edges[1] == queryEdge || edges[2] == queryEdge);
         }
-        
+
         void getPlanes(std::unordered_set<Plane<float>::Ptr>& planeSet) {
-            edges[0]->getPlanes(planeSet);            
+            edges[0]->getPlanes(planeSet);
             edges[1]->getPlanes(planeSet);
             assert(planeSet.size() == 3);
         }
 
         bool isConvex() {
+            return _isConvex;
+        }
+
+        bool setIsConvexFlag() {
             cv::Point3_<_Tpl> cornerPt = *this;
             cv::Point3_<_Tpl> meanOfNeighbors = edges[0]->getPoint(edges[0]->end);
             meanOfNeighbors += edges[1]->getPoint(edges[1]->end);
             meanOfNeighbors += edges[2]->getPoint(edges[2]->end);
             meanOfNeighbors *= 1.0 / 3.0;
             return (meanOfNeighbors.z - cornerPt.z) > 0;
+        }
+
+        bool isReal() const {
+            return _isReal;
+        }
+
+        bool setIsRealFlag(const std::vector<cv::Point3_<_Tpl>>&pts) {
+            static _Tpl ISREAL_THRESHOLD = 0.005;
+            std::unordered_set<Plane<float>::Ptr> planeSet;
+            getPlanes(planeSet);
+
+            if (false) {
+                std::cout << "isReal() testing Corner found at " << *this << " from planes :";
+                for (auto plane_iter = planeSet.begin(); plane_iter != planeSet.end(); ++plane_iter) {
+                    cv::Vec<_Tpl, 3> position;
+                    (*plane_iter)->getPose().getTranslation(position);
+                    std::cout << "pos = " << position << " ";
+                }
+                std::cout << std::endl;
+                cv::Matx<_Tpl, 3, 3> coordVecs = getNonOrthogonalCoordinateSystem();
+                cv::Vec<_Tpl, 3> featurePosition;
+                this->getPose().getTranslation(featurePosition);
+                _Tpl errorVal;
+                cv::Vec<_Tpl, 3> pt_prime;
+                cv::Vec<_Tpl, 3> avg_pt_prime(0, 0, 0);
+                _Tpl avg_error;
+                int numPts = pts.size();
+                for (cv::Vec<_Tpl, 3> pt : pts) {
+                    pt_prime = coordVecs * (pt - featurePosition);
+                    avg_pt_prime += pt_prime;
+                    errorVal = std::abs<_Tpl>(std::min<_Tpl>(std::min<_Tpl>(pt_prime[0], pt_prime[1]), pt_prime[2]));
+                    avg_error += errorVal;
+                    //std::cout << "pt_prime = " << pt_prime << " error = " << errorVal << std::endl;                
+                }
+                avg_error /= numPts;
+                avg_pt_prime /= numPts;
+                std::cout << "avg_pt_prime = " << avg_pt_prime << " avg_error = " << avg_error << std::endl;
+            }
+
+            int numPts = pts.size();
+            int convexSignFlip = isConvex() ? 1 : -1;
+            _Tpl signed_distance;
+            _Tpl max_signed_distance;
+            _Tpl avg_max_signed_distance = 0;
+            for (cv::Vec<_Tpl, 3> pt : pts) {
+                max_signed_distance = -std::numeric_limits<_Tpl>::infinity();
+                for (auto plane_iter = planeSet.begin(); plane_iter != planeSet.end(); ++plane_iter) {
+                    signed_distance = convexSignFlip * (*plane_iter)->evaluate(pt);
+                    if (signed_distance > max_signed_distance) {
+                        max_signed_distance = signed_distance;
+                    }
+                }
+                avg_max_signed_distance += max_signed_distance;
+            }
+            avg_max_signed_distance /= numPts;
+            if (avg_max_signed_distance > ISREAL_THRESHOLD) {
+                _isReal = false;
+            } else {
+                _isReal = true;
+            }
+            if (true) {
+                std::cout << "avg_min_signed_distance = " << avg_max_signed_distance << std::endl;
+                std::cout << "Detected a " << (_isReal ? "REAL" : "VIRTUAL") << " CORNER." << std::endl;
+            }
+            return _isReal;
+        }
+
+        cv::Matx<_Tpl, 3, 3> getNonOrthogonalCoordinateSystem() {
+            cv::Vec<_Tpl, 3> featureToPtVec;
+            cv::Vec<_Tpl, 3> featurePosition;
+            this->getPose().getTranslation(featurePosition);
+            cv::Matx<_Tpl, 3, 3> coordVecs = cv::Matx<_Tpl, 3, 3>::eye();
+            for (int idx = 0; idx < 3; ++idx) {
+                cv::Vec<_Tpl, 3> eVec = edges[idx]->getPoint(edges[idx]->end);
+                featureToPtVec = eVec - featurePosition;
+                featureToPtVec *= 1.0 / std::sqrt(featureToPtVec.dot(featureToPtVec));
+                coordVecs(idx, 0) = featureToPtVec[0];
+                coordVecs(idx, 1) = featureToPtVec[1];
+                coordVecs(idx, 2) = featureToPtVec[2];
+            }
+            std::cout << "coordVecs = " << coordVecs << std::endl;
+            return coordVecs;
         }
 
         CornerType getCameraFrameCornerType() {

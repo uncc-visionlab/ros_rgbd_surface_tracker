@@ -75,12 +75,24 @@ namespace cv {
             rgbdImg.getPoint3f(imgTile.x, imgTile.y + imgTile.height, pts[3]);
             std::vector<cv::Vec2f> plane_uv_coords;
             cv::Vec3f meanPos = 0.25 * (pts[0] + pts[1] + pts[2] + pts[3]);
+            cv::Point3f conv_error;
             for (cv::Point3f pt : pts) {
                 cv::Point2f uv_coord = plane_ptr->xyzToUV(pt);
-                //std::cout << "xyz = " << pt << "-> uv = " << uv_coord << std::endl;
                 plane_uv_coords.push_back(uv_coord);
-                cv::Point3f xyz3 = plane_ptr->uvToXYZ(uv_coord);
-                //std::cout << "uv = " << uv_coord << "-> xyz = " << xyz3 << std::endl;
+                // TODO Resolve circumstances when this conversion can have large error & fix/triage.
+                if (false) { // likely cause is fit error calculation, inliers & outliers
+                    cv::Point3f xyz3 = plane_ptr->uvToXYZ(uv_coord);
+                    conv_error = xyz3 - pt;
+                    float conv_error_lensq = conv_error.dot(conv_error);
+                    if (conv_error_lensq > 0.05) {
+                        std::cout << "plane = " << plane_ptr->toString() << std::endl;
+                        std::cout << "xyz = " << pt << "-> uv = " << uv_coord << std::endl;
+                        std::cout << "uv = " << uv_coord << "-> xyz = " << xyz3 << std::endl;
+                        std::cout << "Error = " << std::sqrt(conv_error_lensq) << std::endl;
+                        uv_coord = plane_ptr->xyzToUV(pt);
+                        xyz3 = plane_ptr->uvToXYZ(uv_coord);
+                    }
+                }
             }
             plane_ptr->addCoords(plane_uv_coords);
 
@@ -123,7 +135,9 @@ namespace cv {
                         rgbd_img.fitImplicitPlaneLeastSquares(tile_data, plane3, quad.error,
                                 quad.noise, quad.inliers, quad.outliers, quad.invalid);
                         if (quad.error / (quad.inliers + quad.outliers) < 0.0025 * avgDepth) {
-                            //std::cout << "areaA " << planeA->area() << " errorA = " << planeA->avgError() << " planeA = " << *planeA << std::endl;
+                            //&& plane3.d > 0 && abs(plane3.x) < 0.99 && abs(plane3.y) < 0.99) {
+                            //std::cout << "areaA " << planeA->area() << " errorA = " 
+                            //<< planeA->avgError() << " planeA = " << *planeA << std::endl;
                             cv::TesselatedPlane3f tplane(plane3, numLabels++);
                             tplane.addQuad(quad);
                             sg::Plane<float>::Ptr planePtr(new sg::Plane<float>(tplane));
@@ -134,7 +148,7 @@ namespace cv {
                             planePtr->addQuad(newQuad); // error and support already known
                             quadQueue.push(newQuad);
                         } else {
-                            // mark for subdivision by placing a null shared pointer in the quadtree
+                            // mark tile coordinates for subdivision
                             recurseTileVec.push_back(Point2i((x_tile << 1) + 0, (y_tile << 1) + 0));
                             recurseTileVec.push_back(Point2i((x_tile << 1) + 1, (y_tile << 1) + 0));
                             recurseTileVec.push_back(Point2i((x_tile << 1) + 0, (y_tile << 1) + 1));
@@ -172,6 +186,7 @@ namespace cv {
                     rgbd_img.fitImplicitPlaneLeastSquares(tile_data, plane3, quad.error,
                             quad.noise, quad.inliers, quad.outliers, quad.invalid);
                     if (quad.error / (quad.inliers + quad.outliers) < 0.0025 * avgDepth) {
+                        //&& plane3.d > 0 && abs(plane3.x) < 0.99 && abs(plane3.y) < 0.99) {
                         //std::cout << "areaA " << planeA->area() << " errorA = " 
                         //<< planeA->avgError() << " planeA = " << *planeA << std::endl;
                         cv::TesselatedPlane3f tplane(plane3, numLabels++);
@@ -184,7 +199,7 @@ namespace cv {
                         planePtr->addQuad(newQuad); // error and support already known
                         quadQueue.push(newQuad);
                     } else {
-                        // mark for subdivision by placing a null shared pointer in the quadtree
+                        // mark tile coordinates for subdivision
                         recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 0, (tileIdx.y << 1) + 0));
                         recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 1, (tileIdx.y << 1) + 0));
                         recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 0, (tileIdx.y << 1) + 1));

@@ -360,6 +360,11 @@ namespace cv {
                 return getErrorStandardDeviation(re.x + (width / 2), re.y + (height / 2));
             }
 
+            bool checkVisibility(cv::Vec3f pt, cv::Rect r) {
+                
+                
+            }
+
             float getErrorStandardDeviation(const float& z3) const {
                 return DEPTH_NOISE_CONSTANT * z3 * z3;
             }
@@ -400,7 +405,7 @@ namespace cv {
             const float& getDepth(int x, int y) const {
                 return zptr[y * zstep + x];
             }
-            
+
             int getWidth() const {
                 return width;
             }

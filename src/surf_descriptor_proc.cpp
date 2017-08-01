@@ -32,7 +32,9 @@ namespace cv {
             int level = quadTree->getLevel();
             std::vector<bool> searchedLevelsVec(16, false);
             int compareLevels[] = {0, 0};
-
+            cv::Vec3f position;
+            cv::Point2f projectedPosition;
+            bool showPlanes = true;
             // TODO: Algorithm never increments compareLevels[0]!
             while (!timeBudgetExpired &&
                     quadTree->numLevels() >= std::max(compareLevels[0], compareLevels[1])) {
@@ -40,23 +42,24 @@ namespace cv {
                 QuadTreeLevel<sg::Plane<float>::Ptr>* qtA = quadTree->getQuadTreeLevel(compareLevels[0]);
                 QuadTreeLevel<sg::Plane<float>::Ptr>* qtB = quadTree->getQuadTreeLevel(compareLevels[1]);
                 QuadTreeLevel<sg::Plane<float>::Ptr>* qts[] = {qtA, qtB};
-                for (int pair_idx = 0; pair_idx < 2; ++pair_idx) {
-                    if (!searchedLevelsVec[compareLevels[pair_idx]]) {
-                        searchedLevelsVec[compareLevels[pair_idx]] = true;
-                        std::unordered_map<int, sg::Plane<float>::Ptr> data = qts[pair_idx]->getData();
-                        for (auto it = data.begin(); it != data.end(); ++it) {
-                            key = it->first;
-                            quadTree->keyToXY(key, qX, qY);
-                            //std::cout << "Quad(" << qX << ", " << qY << ") = " 
-                            //<< ((!planeA) ? "null" : (*planeA).toString()) << std::endl;
-                            sg::Plane<float>::Ptr plane = it->second; // plane from quadTree
-                            // add all planes detected in the pair of quad tree levels being analyzed 
-                            std::vector<sg::Shape::Ptr>& shapes = query_shapeMap[cv::rgbd::SurfaceType::PLANE];
-                            shapes.push_back(plane);
+                if (showPlanes) {
+                    for (int pair_idx = 0; pair_idx < 2; ++pair_idx) {
+                        if (!searchedLevelsVec[compareLevels[pair_idx]]) {
+                            searchedLevelsVec[compareLevels[pair_idx]] = true;
+                            std::unordered_map<int, sg::Plane<float>::Ptr> data = qts[pair_idx]->getData();
+                            for (auto it = data.begin(); it != data.end(); ++it) {
+                                key = it->first;
+                                quadTree->keyToXY(key, qX, qY);
+                                //std::cout << "Quad(" << qX << ", " << qY << ") = " 
+                                //<< ((!planeA) ? "null" : (*planeA).toString()) << std::endl;
+                                sg::Plane<float>::Ptr plane = it->second; // plane from quadTree
+                                // add all planes detected in the pair of quad tree levels being analyzed 
+                                std::vector<sg::Shape::Ptr>& shapes = query_shapeMap[cv::rgbd::SurfaceType::PLANE];
+                                shapes.push_back(plane);
+                            }
                         }
                     }
                 }
-
                 std::vector<sg::Edge<float>::Ptr> edgeVec;
 
                 std::unordered_map<int, sg::Plane<float>::Ptr> dataA = qts[0]->getData();
@@ -69,17 +72,24 @@ namespace cv {
                         for (int dY = rootCompareWindow.y; dY < rootCompareWindow.y + rootCompareWindow.height; ++dY) {
                             sg::Plane<float>::Ptr* planeB_ptr = qts[1]->get((qX << dLevel) + dX, (qY << dLevel) + dY);
                             if (planeB_ptr) {
-                                if (planeA->epsilonPerpendicular(**planeB_ptr, 1 * cv::Plane3f::PERPENDICULAR_SIN_ANGLE_THRESHOLD)) {
+                                if (planeA->epsilonPerpendicular(**planeB_ptr, 3 * cv::Plane3f::PERPENDICULAR_SIN_ANGLE_THRESHOLD)) {
                                     sg::Edge<float>::Ptr edge = boost::make_shared<sg::Edge<float>>(planeA, *planeB_ptr);
-                                    edgeVec.push_back(edge);
-                                    std::vector<sg::Shape::Ptr>& shapes = query_shapeMap[cv::rgbd::SurfaceType::EDGE];
                                     //if (shapes.size() > 1) {
                                     //    sg::Edge<float>::Ptr edgePtr = boost::static_pointer_cast<sg::Edge<float>>(*(shapes.end() - 1));
                                     //    std::cout << "edgeA = " << edge->toString() << std::endl;
                                     //    std::cout << "edgeB = " << edgePtr->toString() << std::endl;
                                     //    std::cout << "test = " << edge->sharesPlane(edgePtr) << std::endl;
                                     //}
-                                    shapes.push_back(edge);
+                                    // make sure extracted element is visible
+                                    edge->getPose().getTranslation(position);
+                                    projectedPosition = rgbd_img.project(position);
+                                    if (projectedPosition.x > 0 && projectedPosition.y > 0 &&
+                                            projectedPosition.x < rgbd_img.getWidth() &&
+                                            projectedPosition.y < rgbd_img.getHeight()) {
+                                        edgeVec.push_back(edge);
+                                        std::vector<sg::Shape::Ptr>& shapes = query_shapeMap[cv::rgbd::SurfaceType::EDGE];
+                                        shapes.push_back(edge);
+                                    }
                                 } /* restrict pair matches to be approximately perpendicular */
                             } /* restrict surface pairwise comparisons to planes */
                         } /* loop over candidate second match surface elements (surface pairs) */
@@ -107,11 +117,30 @@ namespace cv {
                                         //std::cout << "Found corner, parallelpiped volume = " << piped_volume << std::endl;
                                         sg::Corner<float>::Ptr corner = sg::Corner<float>::create(edgeA, edgeB, edgeC);
 
-                                        Point2f corner_proj = rgbd_img.project(*corner);
-                                        cv::circle(rgb_result, corner_proj, 5, cv::Scalar(255, 255, 0), 3);
+                                        // make sure extracted element is visible
+                                        corner->getPose().getTranslation(position);
+                                        projectedPosition = rgbd_img.project(position);
+                                        if (projectedPosition.x > 0 && projectedPosition.y > 0 &&
+                                                projectedPosition.x < rgbd_img.getWidth() &&
+                                                projectedPosition.y < rgbd_img.getHeight()) {
 
-                                        std::vector<sg::Shape::Ptr>& shapes = query_shapeMap[cv::rgbd::SurfaceType::CORNER];
-                                        shapes.push_back(corner);
+                                            Point2f corner_proj = rgbd_img.project(*corner);
+                                            cv::circle(rgb_result, corner_proj, 5, cv::Scalar(255, 255, 0), 3);
+
+                                            if (false) {
+                                                std::cout << "Corner found at " << corner << " from planes :";
+                                                std::unordered_set<sg::Plane<float>::Ptr> planeSet;
+                                                corner->getPlanes(planeSet);
+                                                for (auto plane_iter = planeSet.begin(); plane_iter != planeSet.end(); ++plane_iter) {
+                                                    cv::Vec3f position;
+                                                    (*plane_iter)->getPose().getTranslation(position);
+                                                    std::cout << "pos = " << position << " ";
+                                                }
+                                                std::cout << std::endl;
+                                            }
+                                            std::vector<sg::Shape::Ptr>& shapes = query_shapeMap[cv::rgbd::SurfaceType::CORNER];
+                                            shapes.push_back(corner);
+                                        }
                                     } /* restrict triplet matches to be approximately perpendicular */
                                 }
                             } /* loop over candidate third surface elements (triplets of Edges) */

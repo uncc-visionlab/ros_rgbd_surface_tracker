@@ -83,10 +83,16 @@ namespace cv {
             virtual ~RgbdSurfaceTracker() {
             };
 
+            // validate edge and corner features with geometric measurements center on feature location
             void setRealorVirtualFlag(cv::rgbd::RgbdImage& rgbd_img,
                     cv::QuadTree<sg::Plane<float>::Ptr>& quadTree,
-                    std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>& query_shapeMap,
+                    std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&query_shapeMap,
                     cv::Mat& rgb_result);
+
+            // erase edge and corner features that do not lie within the image boundary
+            bool setIsRealFlag(const sg::Shape::Ptr shape,
+                const cv::rgbd::RgbdImage& rgbd_img, const cv::Size& tileDims,
+                const cv::rgbd::SurfaceType& shapeType) const;
 
             void clusterDetections(std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&query_shapeMap,
                     cv::Mat& rgb_result);

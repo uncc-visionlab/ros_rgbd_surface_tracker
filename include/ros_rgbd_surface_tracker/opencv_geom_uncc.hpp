@@ -357,7 +357,7 @@ namespace cv {
                 uVec = cv::Point3_<_Tpl>(inverse * this->y, -inverse * this->x, (_Tpl) 0.0);
             }
             vVec = uVec.cross(*this);
-            cv::Point3_<_Tpl> pt0(-d * this->x, -d * this->y, -d * this->z), uVec3, vVec3;
+            cv::Point3_<_Tpl> pt0(-d * this->x, -d * this->y, -d * this->z);
             pt0 = p - pt0;
             uv.x = pt0.dot(uVec);
             uv.y = pt0.dot(vVec);
