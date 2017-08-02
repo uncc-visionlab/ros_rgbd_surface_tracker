@@ -92,7 +92,7 @@ namespace cv {
             // erase edge and corner features that do not lie within the image boundary
             bool setIsRealFlag(const sg::Shape::Ptr shape,
                 const cv::rgbd::RgbdImage& rgbd_img, const cv::Size& tileDims,
-                const cv::rgbd::SurfaceType& shapeType) const;
+                const cv::rgbd::SurfaceType& shapeType, cv::Mat& rgb_result) const;
 
             void clusterDetections(std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&query_shapeMap,
                     cv::Mat& rgb_result);

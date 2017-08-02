@@ -738,10 +738,10 @@ namespace cv {
 
         virtual ~QuadTree() {
         }
-        
+
         int numLevels() {
             return _numLevels;
-        }                
+        }
     };
 
     template<typename T>

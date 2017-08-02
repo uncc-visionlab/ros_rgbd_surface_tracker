@@ -313,8 +313,8 @@ namespace cv {
 
             Point2f project(Point3f p3) const {
                 Point2f p2;
-                p2.x = p3.x / (p3.z * inv_f) + cx;
-                p2.y = p3.y / (p3.z * inv_f) + cy;
+                p2.x = (p3.x / (p3.z * inv_f)) + cx;
+                p2.y = (p3.y / (p3.z * inv_f)) + cy;
                 return p2;
             }
 

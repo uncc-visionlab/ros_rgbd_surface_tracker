@@ -268,8 +268,9 @@ namespace sg {
             // and these two vectors should be unit vectors making v, the edge direction, 
             // a unit vector hence, no normalization is needed unless planes are not in 
             // Hessian normals form.
-            //float normf = 1.0f/std::sqrt(v.dot(v));
-            //v *= normf;
+            // However, for single precision unit vectors the cross product  
+            // produces a vector whose norm is around 95% of unit (5% error!)
+            this->v *= 1.0f / std::sqrt(this->v.dot(this->v));
             float lambda;
             float tstart[2], tend[2];
             tstart[0] = tstart[1] = -std::numeric_limits<float>::infinity();
@@ -298,9 +299,18 @@ namespace sg {
         }
 
         std::vector<cv::Vec3f> generateCoords() {
+            cv::Vec3f midpoint;
+            this->getPose().getTranslation(midpoint);
+            cv::Vec3f posArr[2];
+            this->surfaces[0]->getPose().getTranslation(posArr[0]);
+            this->surfaces[1]->getPose().getTranslation(posArr[1]);
             std::vector<cv::Vec3f> pts = {
                 this->getPoint(this->start),
-                this->getPoint(this->end)
+                this->getPoint(this->end),
+                //midpoint,
+                //posArr[0],
+                //midpoint,
+                //posArr[1],
                 //getPoint(tstart[0]),
                 //getPoint(tend[0]),
                 //getPoint(tstart[1]),
@@ -313,7 +323,7 @@ namespace sg {
         }
 
         std::vector<int> generateCoordIndices() {
-            std::vector<int> ptIdxs = {0, 1}; //, 2, 3};
+            std::vector<int> ptIdxs = {0, 1};//, 2, 3, 4, 5};
             return ptIdxs;
         }
 
@@ -326,17 +336,23 @@ namespace sg {
         }
 
         std::vector<int> generateNormalCoordIndices() {
-            std::vector<int> normIdxs = {0, 0}; //, 0, 0};
+            std::vector<int> normIdxs = {0, 0};//, 0, 0, 0, 0}; //, 0, 0};
             return normIdxs;
         }
 
         std::vector<cv::Vec3f> generateColorCoords() {
-            std::vector<cv::Vec3f> colors = {cv::Vec3f(1, 0, 0)}; //, cv::Vec3f(0, 1, 0)};
-            return colors;
+            static cv::Vec3f red(1.0f, 0.0f, 0.0f);
+            static cv::Vec3f orange(1.0f, 0.5f, 0.0f);
+            if (_isReal) {
+                return std::vector<cv::Vec3f>{red};
+            }
+            return std::vector<cv::Vec3f>{orange};            
+            //std::vector<cv::Vec3f> colors = {cv::Vec3f(1, 0, 0)}; //, cv::Vec3f(0, 1, 0)};
+            //return colors;
         }
 
         std::vector<int> generateColorCoordIndices() {
-            std::vector<int> colorIdxs = {0, 0}; //, 1, 1};
+            std::vector<int> colorIdxs = {0, 0};//, 0, 0, 0, 0}; //, 1, 1};
             return colorIdxs;
         }
 
@@ -380,7 +396,11 @@ namespace sg {
             return _isReal;
         }
 
-        bool setIsRealFlag(const std::vector<cv::Point3f>& pts) {
+        bool setReal(bool realFlag) {
+            _isReal = realFlag;
+        }        
+
+        bool isInside(const std::vector<cv::Point3f>& pts) {
             static _Tpl ISREAL_THRESHOLD = 0.005;
 
             int numPts = pts.size();
@@ -399,36 +419,38 @@ namespace sg {
                 avg_max_signed_distance += max_signed_distance;
             }
             avg_max_signed_distance /= numPts;
-            if (avg_max_signed_distance > ISREAL_THRESHOLD) {
-                _isReal = false;
-            } else {
-                _isReal = true;
-            }
-            if (true) {
-                //std::cout << "avg_min_signed_distance = " << avg_max_signed_distance << std::endl;
-                //std::cout << "Detected a " << (_isReal ? "REAL" : "VIRTUAL") << " EDGE." << std::endl;
-            }
-            return _isReal;
+            return avg_max_signed_distance > 0;
         }
 
         cv::Matx<_Tpl, 3, 3> getNonOrthogonalCoordinateSystem() {
-            cv::Vec<_Tpl, 3> featureToPtVec;
             cv::Vec<_Tpl, 3> featurePosition;
             this->getPose().getTranslation(featurePosition);
             cv::Matx<_Tpl, 3, 3> coordVecs = cv::Matx<_Tpl, 3, 3>::eye();
+            cv::Vec<_Tpl, 3> eVec[2];
+            cv::Vec<_Tpl, 3> eVec_perp[2];
             for (int idx = 0; idx < 2; ++idx) {
-                cv::Vec<_Tpl, 3> eVec;
-                surfaces[idx]->getPose().getTranslation(eVec);
-                featureToPtVec = eVec - featurePosition;
-                featureToPtVec *= 1.0 / std::sqrt(featureToPtVec.dot(featureToPtVec));
-                coordVecs(idx, 0) = featureToPtVec[0];
-                coordVecs(idx, 1) = featureToPtVec[1];
-                coordVecs(idx, 2) = featureToPtVec[2];
+                surfaces[idx]->getPose().getTranslation(eVec[idx]);
+                eVec[idx] = eVec[idx] - featurePosition;
+                //std::cout << "eVec = " << eVec[idx] << " proj = " << eVec[idx].dot(this->v) << std::endl;                
             }
-            coordVecs(2, 0) = this->v[0];
-            coordVecs(2, 1) = this->v[1];
-            coordVecs(2, 2) = this->v[2];
-            std::cout << "coordVecs = " << coordVecs << std::endl;
+            // remove projection on the line direction (v) and half the projection onto the vector to the other plane
+            // assumes equal noise in eVec[0] and eVec[1]
+            eVec_perp[0] = eVec[0] - 0.5 * eVec[0].dot(eVec[1]) * eVec[1]
+                    - eVec[0].dot(this->v) * (cv::Vec3f) this->v;
+            eVec_perp[1] = eVec[0].cross(this->v);
+            if (eVec_perp[1].dot(eVec[1]) < 0) {
+                eVec_perp[1] *= -1;
+            }
+            for (int idx = 0; idx < 2; ++idx) {
+                eVec_perp[idx] *= 1.0 / std::sqrt(eVec_perp[idx].dot(eVec_perp[idx]));
+                coordVecs(idx, 0) = eVec_perp[idx][0];
+                coordVecs(idx, 1) = eVec_perp[idx][1];
+                coordVecs(idx, 2) = eVec_perp[idx][2];
+            }
+            coordVecs(2, 0) = this->v.x;
+            coordVecs(2, 1) = this->v.y;
+            coordVecs(2, 2) = this->v.z;
+            //std::cout << "coordVecs = " << coordVecs << std::endl;
             return coordVecs;
         }
 
@@ -580,38 +602,14 @@ namespace sg {
             return _isReal;
         }
 
-        bool setIsRealFlag(const std::vector<cv::Point3_<_Tpl>>&pts) {
+        bool setReal(bool realFlag) {
+            _isReal = realFlag;
+        }
+
+        bool isInside(const std::vector<cv::Point3_<_Tpl>>&pts) {
             static _Tpl ISREAL_THRESHOLD = 0.005;
             std::unordered_set<Plane<float>::Ptr> planeSet;
             getPlanes(planeSet);
-
-            if (false) {
-                std::cout << "isReal() testing Corner found at " << *this << " from planes :";
-                for (auto plane_iter = planeSet.begin(); plane_iter != planeSet.end(); ++plane_iter) {
-                    cv::Vec<_Tpl, 3> position;
-                    (*plane_iter)->getPose().getTranslation(position);
-                    std::cout << "pos = " << position << " ";
-                }
-                std::cout << std::endl;
-                cv::Matx<_Tpl, 3, 3> coordVecs = getNonOrthogonalCoordinateSystem();
-                cv::Vec<_Tpl, 3> featurePosition;
-                this->getPose().getTranslation(featurePosition);
-                _Tpl errorVal;
-                cv::Vec<_Tpl, 3> pt_prime;
-                cv::Vec<_Tpl, 3> avg_pt_prime(0, 0, 0);
-                _Tpl avg_error;
-                int numPts = pts.size();
-                for (cv::Vec<_Tpl, 3> pt : pts) {
-                    pt_prime = coordVecs * (pt - featurePosition);
-                    avg_pt_prime += pt_prime;
-                    errorVal = std::abs<_Tpl>(std::min<_Tpl>(std::min<_Tpl>(pt_prime[0], pt_prime[1]), pt_prime[2]));
-                    avg_error += errorVal;
-                    //std::cout << "pt_prime = " << pt_prime << " error = " << errorVal << std::endl;                
-                }
-                avg_error /= numPts;
-                avg_pt_prime /= numPts;
-                std::cout << "avg_pt_prime = " << avg_pt_prime << " avg_error = " << avg_error << std::endl;
-            }
 
             int numPts = pts.size();
             int convexSignFlip = isConvex() ? 1 : -1;
@@ -629,32 +627,21 @@ namespace sg {
                 avg_max_signed_distance += max_signed_distance;
             }
             avg_max_signed_distance /= numPts;
-            if (avg_max_signed_distance > ISREAL_THRESHOLD) {
-                _isReal = false;
-            } else {
-                _isReal = true;
-            }
-            if (true) {
-                std::cout << "avg_min_signed_distance = " << avg_max_signed_distance << std::endl;
-                std::cout << "Detected a " << (_isReal ? "REAL" : "VIRTUAL") << " CORNER." << std::endl;
-            }
-            return _isReal;
+            return avg_max_signed_distance > 0;
         }
 
         cv::Matx<_Tpl, 3, 3> getNonOrthogonalCoordinateSystem() {
-            cv::Vec<_Tpl, 3> featureToPtVec;
-            cv::Vec<_Tpl, 3> featurePosition;
-            this->getPose().getTranslation(featurePosition);
+            std::vector<cv::Vec<_Tpl, 3 >> axes(3);
+            getXYZAxes(axes);
             cv::Matx<_Tpl, 3, 3> coordVecs = cv::Matx<_Tpl, 3, 3>::eye();
-            for (int idx = 0; idx < 3; ++idx) {
-                cv::Vec<_Tpl, 3> eVec = edges[idx]->getPoint(edges[idx]->end);
-                featureToPtVec = eVec - featurePosition;
-                featureToPtVec *= 1.0 / std::sqrt(featureToPtVec.dot(featureToPtVec));
-                coordVecs(idx, 0) = featureToPtVec[0];
-                coordVecs(idx, 1) = featureToPtVec[1];
-                coordVecs(idx, 2) = featureToPtVec[2];
+            int idx = 0;
+            for (auto axis_iter = axes.begin(); axis_iter != axes.end(); ++axis_iter, ++idx) {
+                cv::Vec<_Tpl, 3>& axis = *axis_iter;
+                coordVecs(idx, 0) = axis[0];
+                coordVecs(idx, 1) = axis[1];
+                coordVecs(idx, 2) = axis[2];
             }
-            std::cout << "coordVecs = " << coordVecs << std::endl;
+            //std::cout << "coordVecs = " << coordVecs << std::endl;
             return coordVecs;
         }
 

@@ -61,13 +61,13 @@ namespace cv {
             
             switch (key) {
                 case 'a':
-                    glTranslatef(-0.2f, 0.0f, 0.0f);
+                    glTranslatef(+0.2f, 0.0f, 0.0f);
                     break;
                 case 'w':
-                    glTranslatef(0.0f, 0.2f, 0.0f);
+                    glTranslatef(0.0f, +0.2f, 0.0f);
                     break;
                 case 'd':
-                    glTranslatef(0.2f, 0.0f, 0.0f);
+                    glTranslatef(-0.2f, 0.0f, 0.0f);
                     break;
                 case 's':
                     glTranslatef(0.0f, -0.2f, 0.0f);
