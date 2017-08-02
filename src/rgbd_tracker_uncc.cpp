@@ -18,6 +18,7 @@
 #include <ros_rgbd_surface_tracker/AlgebraicSurface.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>
+#include <clustering/dkm.hpp> // simple k-means clustering
 
 extern int supermain(AlgebraicSurface<float>& surf, PlaneVisualizationData& vis_data,
         const Eigen::Matrix<float, 8, 3>& cube, float cubesize, float levelset);
@@ -301,7 +302,8 @@ namespace cv {
             }
         }
 
-        void RgbdSurfaceTracker::clusterDetections(std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&query_shapeMap,
+        void RgbdSurfaceTracker::clusterDetections(
+                std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>& query_shapeMap,
                 cv::Mat & rgb_result) {
             std::vector< std::vector < sg::Plane<float>::Ptr>> planeClusters;
             std::vector< std::vector < sg::Edge<float>::Ptr>> edgeClusters;
@@ -313,24 +315,55 @@ namespace cv {
             cv::Vec3f position;
             bool done = false;
 
-            for (auto shapeType_iter = query_shapeMap.begin();
-                    shapeType_iter != query_shapeMap.end(); ++shapeType_iter) {
-                for (auto shape_iter = (*shapeType_iter).second.begin();
-                        shape_iter != (*shapeType_iter).second.end(); ++shape_iter) {
-                    switch ((*shapeType_iter).first) {
-                        case SurfaceType::CORNER:
-                            cornerPtr = boost::static_pointer_cast<sg::Corner<float>>(*shape_iter);
-                            break;
-                        case SurfaceType::EDGE:
-                            edgePtr = boost::static_pointer_cast<sg::Edge<float>>(*shape_iter);
-                            edgePtr->getPose().getTranslation(position);
-                            break;
-                        case SurfaceType::PLANE:
-                        default:
-                            planePtr = boost::static_pointer_cast<sg::Plane<float>>(*shape_iter);
-                            planePtr->getPose().getTranslation(position);
-                            break;
-                    }
+            for (std::pair<const SurfaceType, std::vector<sg::Shape::Ptr>>& element : query_shapeMap) {
+                
+                std::size_t k = 1;
+                std::vector<std::array<float, 3>> kmeans_data;
+                kmeans_data.reserve(element.second.size());
+                std::tuple<std::vector<std::array<float, 3>>, std::vector<uint32_t>> kmeans_result;
+                
+                switch (element.first) {
+                    case SurfaceType::CORNER:
+                        for (sg::Shape::Ptr shape_ptr : element.second) {
+                            sg::Corner<float>::Ptr corner = boost::static_pointer_cast<sg::Corner<float>>(shape_ptr);
+                            corner->getPose().getTranslation(position);
+                            //std::cout << "corner position: " << position << "\n";
+                            kmeans_data.emplace_back<std::array<float, 3>>({position(0), position(1), position(2)});
+                            
+                        }
+                        
+                        if (kmeans_data.size() > 1) {
+                            kmeans_result = dkm::kmeans_lloyd(kmeans_data, k);
+                            std::cout << "corners detected: " << kmeans_data.size() << ", clusters: " << std::get<0>(kmeans_result).size() << "\n";
+                            std::cout << "cluster results:\n";
+                            for (std::array<float, 3> cluster : std::get<0>(kmeans_result)) {
+                                for (float dim : cluster) {
+                                    std::cout << dim << " ";
+                                }
+                                std::cout << std::endl;
+                            }
+                        }
+                        break;
+
+                    case SurfaceType::EDGE:
+
+                        for (sg::Shape::Ptr shape_ptr : element.second) {
+                            sg::Edge<float>::Ptr edge = boost::static_pointer_cast<sg::Edge<float>>(shape_ptr);
+                            edge->getPose().getTranslation(position);
+                            kmeans_data.emplace_back<std::array<float, 3>>({position(0), position(1), position(2)});
+                        }
+                        break;
+
+                    case SurfaceType::PLANE:
+
+                        for (sg::Shape::Ptr shape_ptr : element.second) {
+                            sg::Plane<float>::Ptr plane = boost::static_pointer_cast<sg::Plane<float>>(shape_ptr);
+                            plane->getPose().getTranslation(position);
+                            kmeans_data.emplace_back<std::array<float, 3>>({position(0), position(1), position(2)});
+                        }
+
+                    default:
+                        break;
                 }
             }
         }
@@ -362,7 +395,9 @@ namespace cv {
             std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>> query_shapeMap;
             surfdescriptor_extractor.compute(rgbd_img, &quadTree, query_shapeMap,
                     descriptor_timeBudget_ms, rgb_result);
-
+            
+            clusterDetections(query_shapeMap, rgb_result);
+            
             // Validate higher-order detections:
             // We want to discriminate between virtual/real corner detections and virtual/real edge detections
             // TODO: Implement setRealorVirtualFlag(quadTree, query_shapeMap)

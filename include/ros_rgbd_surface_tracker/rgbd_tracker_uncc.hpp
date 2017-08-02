@@ -62,6 +62,10 @@ namespace cv {
                     cv::QuadTree<sg::Plane<float>::Ptr>* quadTree,
                     std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
                     int timeBudget_ms, cv::Mat& rgb_result) const;
+            
+            void cluster(
+                std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap);
+            
         }; /* class SurfaceDescriptorExtractor */
 
         class SurfaceDescriptorMatcher {
@@ -94,7 +98,7 @@ namespace cv {
                 const cv::rgbd::RgbdImage& rgbd_img, const cv::Size& tileDims,
                 const cv::rgbd::SurfaceType& shapeType, cv::Mat& rgb_result) const;
 
-            void clusterDetections(std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&query_shapeMap,
+            void clusterDetections(std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>& query_shapeMap,
                     cv::Mat& rgb_result);
 
             void segmentDepth(cv::rgbd::RgbdImage& rgbd_img, cv::Mat& result);
