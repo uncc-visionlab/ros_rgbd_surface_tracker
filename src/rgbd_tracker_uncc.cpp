@@ -274,7 +274,7 @@ namespace cv {
         }
 
         void RgbdSurfaceTracker::clusterDetections(
-                std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>& query_shapeMap,
+                std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
                 cv::Mat & rgb_result) {
             std::vector< std::vector < sg::Plane<float>::Ptr>> planeClusters;
             std::vector< std::vector < sg::Edge<float>::Ptr>> edgeClusters;
@@ -286,23 +286,23 @@ namespace cv {
             cv::Vec3f position;
             bool done = false;
 
-            for (std::pair<const SurfaceType, std::vector<sg::Shape::Ptr>>& element : query_shapeMap) {
-                
+            for (std::pair<const SurfaceType, std::vector < sg::Shape::Ptr>>&element : query_shapeMap) {
+
                 std::size_t k = 1;
-                std::vector<std::array<float, 3>> kmeans_data;
+                std::vector<std::array<float, 3 >> kmeans_data;
                 kmeans_data.reserve(element.second.size());
-                std::tuple<std::vector<std::array<float, 3>>, std::vector<uint32_t>> kmeans_result;
-                
+                std::tuple<std::vector<std::array<float, 3 >>, std::vector < uint32_t>> kmeans_result;
+
                 switch (element.first) {
                     case SurfaceType::CORNER:
                         for (sg::Shape::Ptr shape_ptr : element.second) {
                             sg::Corner<float>::Ptr corner = boost::static_pointer_cast<sg::Corner<float>>(shape_ptr);
                             corner->getPose().getTranslation(position);
                             //std::cout << "corner position: " << position << "\n";
-                            kmeans_data.emplace_back<std::array<float, 3>>({position(0), position(1), position(2)});
-                            
+                            kmeans_data.emplace_back<std::array<float, 3 >> ({position(0), position(1), position(2)});
+
                         }
-                        
+
                         if (kmeans_data.size() > 1) {
                             kmeans_result = dkm::kmeans_lloyd(kmeans_data, k);
                             std::cout << "corners detected: " << kmeans_data.size() << ", clusters: " << std::get<0>(kmeans_result).size() << "\n";
@@ -321,7 +321,7 @@ namespace cv {
                         for (sg::Shape::Ptr shape_ptr : element.second) {
                             sg::Edge<float>::Ptr edge = boost::static_pointer_cast<sg::Edge<float>>(shape_ptr);
                             edge->getPose().getTranslation(position);
-                            kmeans_data.emplace_back<std::array<float, 3>>({position(0), position(1), position(2)});
+                            kmeans_data.emplace_back<std::array<float, 3 >> ({position(0), position(1), position(2)});
                         }
                         break;
 
@@ -330,7 +330,7 @@ namespace cv {
                         for (sg::Shape::Ptr shape_ptr : element.second) {
                             sg::Plane<float>::Ptr plane = boost::static_pointer_cast<sg::Plane<float>>(shape_ptr);
                             plane->getPose().getTranslation(position);
-                            kmeans_data.emplace_back<std::array<float, 3>>({position(0), position(1), position(2)});
+                            kmeans_data.emplace_back<std::array<float, 3 >> ({position(0), position(1), position(2)});
                         }
 
                     default:
@@ -368,9 +368,7 @@ namespace cv {
             std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>> query_shapeMap;
             surfdescriptor_extractor.compute(rgbd_img, quadTree, query_shapeMap,
                     descriptor_timeBudget_ms, rgb_result);
-            
-            clusterDetections(query_shapeMap, rgb_result);
-            
+
             // Validate higher-order detections:
             // We want to discriminate between virtual/real corner detections and virtual/real edge detections
             // TODO: Implement setRealorVirtualFlag(quadTree, query_shapeMap)
@@ -388,6 +386,22 @@ namespace cv {
             //
             // We may want to keep virtual corners as they may be useful for odometry / loop closure
             filterDetections(rgbd_img, quadTree, query_shapeMap, rgb_result);
+
+            // Cluster detections:
+            // Merge multiple detections of the same structure
+            // TODO: Implement clusterDetections(query_shapeMap)
+            // This function visits all features for matching, e.g., planes, edges and corners,
+            // and clusters the detections into groups and produces a smaller collection of
+            // features for integration with the "map"
+            //clusterDetections(query_shapeMap, rgb_result);
+
+            // Match structures detected in this image with structures of the map
+            // Compute the map between detected structures and existing structures
+            // TODO: Implement match(query_shapeMap)
+            // This function visits all features for matching, e.g., planes, edges and corners,
+            // and clusters the detections into groups and produces a smaller collection of
+            // features for integration with the "map"
+            //clusterDetections(query_shapeMap, rgb_result);
 
             // RENDER DETECTED SHAPE GRAMMAR GEOMETRIES
             std::vector<ObjectGeometry> detected_geometries;
@@ -413,20 +427,6 @@ namespace cv {
             }
             glDraw.clearObjects();
 
-            // Cluster detections:
-            // Merge multiple detections of the same structure
-            // TODO: Implement clusterDetections(query_shapeMap)
-            // This function visits all features for matching, e.g., planes, edges and corners,
-            // and clusters the detections into groups and produces a smaller collection of
-            // features for integration with the "map"
-            //clusterDetections(query_shapeMap, rgb_result);
-
-            // Match structures detected in this image with structures of the map
-            // Compute the map between detected structures and existing structures
-            // TODO: Implement match(query_shapeMap)
-            // This function visits all features for matching, e.g., planes, edges and corners,
-            // and clusters the detections into groups and produces a smaller collection of
-            // features for integration with the "map"
             if (prev_quadTree) {
                 int descriptor_matching_timeBudget_ms = 20;
                 std::vector<cv::rgbd::ShapeMatch> shapeMatches;
@@ -434,7 +434,7 @@ namespace cv {
                 surfmatcher.match(query_shapeMap, train_shapeMap, shapeMatches, newShapes,
                         descriptor_matching_timeBudget_ms, rgb_result);
             }
-            
+
             prev_quadTree = quadTree;
             // Structures without a match are inserted to the map
             // addToMap(unmatched_
