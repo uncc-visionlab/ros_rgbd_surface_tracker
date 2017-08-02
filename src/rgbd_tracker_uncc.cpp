@@ -74,7 +74,7 @@ namespace cv {
             }
         }
 
-        bool RgbdSurfaceTracker::setIsRealFlag(const sg::Shape::Ptr shape,
+        bool RgbdSurfaceTracker::filterShape(const sg::Shape::Ptr shape,
                 const cv::rgbd::RgbdImage& rgbd_img, const cv::Size& tileDims,
                 const cv::rgbd::SurfaceType& shapeType, cv::Mat& rgb_result) const {
             static float ISREAL_THRESHOLD = 0.022;
@@ -92,161 +92,162 @@ namespace cv {
                 //std::cout << "tile = " << tile << std::endl;
                 // delete -> feature position at the periphery of image 
                 // (tile data exceeds image dimensions)
+                // erase features too close to image boundary for analysis
                 return true;
             }
-//            int numSamples = (tile.width * tile.height) / 2;
-//            std::vector<cv::Point3f> tile_data;
-//            tile_data.reserve(numSamples);
-//            rgbd_img.getTileData_Uniform(tile.x, tile.y,
-//                    tile.width, tile.height, tile_data, numSamples);
-//            if (tile_data.size() > (numSamples >> 2)) {
-                cv::Matx33f coordVecs;
-                sg::Corner<float>::Ptr cornerPtr;
-                sg::Edge<float>::Ptr edgePtr;
+            //            int numSamples = (tile.width * tile.height) / 2;
+            //            std::vector<cv::Point3f> tile_data;
+            //            tile_data.reserve(numSamples);
+            //            rgbd_img.getTileData_Uniform(tile.x, tile.y,
+            //                    tile.width, tile.height, tile_data, numSamples);
+            //            if (tile_data.size() > (numSamples >> 2)) {
+            cv::Matx33f coordVecs;
+            sg::Corner<float>::Ptr cornerPtr;
+            sg::Edge<float>::Ptr edgePtr;
 
-                cv::Rect testTile;
-                int idx;
-                std::unordered_set<sg::Plane<float>::Ptr> planeSet;
-                cv::Vec3f axes2[3];
-                cv::Vec3f planePos3[3];
-                cv::Vec2f planePos2[3];
-                cv::Vec2f dirVec[3];
-                cv::Vec2f tileCtr[3];
-                cv::Vec2f avgTileCtr;
-                cv::Point3f ctrpt;
-                float error, planeerror;
+            cv::Rect testTile;
+            int idx;
+            std::unordered_set<sg::Plane<float>::Ptr> planeSet;
+            cv::Vec3f axes2[3];
+            cv::Vec3f planePos3[3];
+            cv::Vec2f planePos2[3];
+            cv::Vec2f dirVec[3];
+            cv::Vec2f tileCtr[3];
+            cv::Vec2f avgTileCtr;
+            cv::Point3f ctrpt;
+            float error, planeerror;
 
-                cv::rectangle(rgb_result, tile, cv::Scalar(0, 255, 0), 1);
+            cv::rectangle(rgb_result, tile, cv::Scalar(0, 255, 0), 1);
 
-                switch (shapeType) {
-                    case SurfaceType::CORNER:
-                        cornerPtr = boost::static_pointer_cast<sg::Corner<float>>(shape);
-                        if (false) { // use vector to plane positions directly
-                            cornerPtr->getPlanes(planeSet);
-                            idx = 0;
-                            for (auto plane_iter = planeSet.begin(); plane_iter != planeSet.end(); ++plane_iter, ++idx) {
-                                (*plane_iter)->getPose().getTranslation(planePos3[idx]);
-                                planePos2[idx] = rgbd_img.project(planePos3[idx]);
-                                dirVec[idx] = planePos2[idx] - projPt;
-                                dirVec[idx] *= 1.0 / std::sqrt(dirVec[idx].dot(dirVec[idx]));
-                                tileCtr[idx][0] = projPt[0] + 0.4 * dirVec[idx][0] * tileDims.width;
-                                tileCtr[idx][1] = projPt[1] + 0.4 * dirVec[idx][1] * tileDims.height;
-                            }
-                        } else { // use local approximately perpendicular coordinate system
-                            coordVecs = cornerPtr->getNonOrthogonalCoordinateSystem();
-                            //std::cout << "coordVecs = " << coordVecs << std::endl;
-                            for (idx = 0; idx < 3; ++idx) {
-                                axes2[idx][0] = coordVecs(idx, 0);
-                                axes2[idx][1] = coordVecs(idx, 1);
-                                axes2[idx][2] = coordVecs(idx, 2);
-                            }
-                            for (idx = 0; idx < 3; ++idx) {
-                                planePos3[idx] = position + 0.05 * axes2[idx] + 0.05 * axes2[(idx + 1) % 3];
-                                planePos2[idx] = rgbd_img.project(planePos3[idx]);
-                                dirVec[idx] = planePos2[idx] - projPt;
-                                dirVec[idx] *= 1.0 / std::sqrt(dirVec[idx].dot(dirVec[idx]));
-                                tileCtr[idx][0] = projPt[0] + 0.4 * dirVec[idx][0] * tileDims.width;
-                                tileCtr[idx][1] = projPt[1] + 0.4 * dirVec[idx][1] * tileDims.height;
-                            }
+            switch (shapeType) {
+                case SurfaceType::CORNER:
+                    cornerPtr = boost::static_pointer_cast<sg::Corner<float>>(shape);
+                    if (false) { // use vector to plane positions directly
+                        cornerPtr->getPlanes(planeSet);
+                        idx = 0;
+                        for (auto plane_iter = planeSet.begin(); plane_iter != planeSet.end(); ++plane_iter, ++idx) {
+                            (*plane_iter)->getPose().getTranslation(planePos3[idx]);
+                            planePos2[idx] = rgbd_img.project(planePos3[idx]);
+                            dirVec[idx] = planePos2[idx] - projPt;
+                            dirVec[idx] *= 1.0 / std::sqrt(dirVec[idx].dot(dirVec[idx]));
+                            tileCtr[idx][0] = projPt[0] + 0.4 * dirVec[idx][0] * tileDims.width;
+                            tileCtr[idx][1] = projPt[1] + 0.4 * dirVec[idx][1] * tileDims.height;
                         }
-                        avgTileCtr = (tileCtr[0] + tileCtr[1] + tileCtr[2]) / 3.0;
-                        avgTileCtr -= projPt;
-                        error = 0;
+                    } else { // use local approximately perpendicular coordinate system
+                        coordVecs = cornerPtr->getNonOrthogonalCoordinateSystem();
+                        //std::cout << "coordVecs = " << coordVecs << std::endl;
                         for (idx = 0; idx < 3; ++idx) {
-                            testTile.x = tileCtr[idx][0] - avgTileCtr[0] - 0.10 * std::abs(dirVec[idx][0] * tileDims.width);
-                            testTile.y = tileCtr[idx][1] - avgTileCtr[1] - 0.10 * std::abs(dirVec[idx][1] * tileDims.height);
-                            testTile.width = 0.2 * tileDims.width;
-                            testTile.height = 0.2 * tileDims.height;
+                            axes2[idx][0] = coordVecs(idx, 0);
+                            axes2[idx][1] = coordVecs(idx, 1);
+                            axes2[idx][2] = coordVecs(idx, 2);
+                        }
+                        for (idx = 0; idx < 3; ++idx) {
+                            planePos3[idx] = position + 0.05 * axes2[idx] + 0.05 * axes2[(idx + 1) % 3];
+                            planePos2[idx] = rgbd_img.project(planePos3[idx]);
+                            dirVec[idx] = planePos2[idx] - projPt;
+                            dirVec[idx] *= 1.0 / std::sqrt(dirVec[idx].dot(dirVec[idx]));
+                            tileCtr[idx][0] = projPt[0] + 0.4 * dirVec[idx][0] * tileDims.width;
+                            tileCtr[idx][1] = projPt[1] + 0.4 * dirVec[idx][1] * tileDims.height;
+                        }
+                    }
+                    avgTileCtr = (tileCtr[0] + tileCtr[1] + tileCtr[2]) / 3.0;
+                    avgTileCtr -= projPt;
+                    error = 0;
+                    for (idx = 0; idx < 3; ++idx) {
+                        testTile.x = tileCtr[idx][0] - avgTileCtr[0] - 0.10 * std::abs(dirVec[idx][0] * tileDims.width);
+                        testTile.y = tileCtr[idx][1] - avgTileCtr[1] - 0.10 * std::abs(dirVec[idx][1] * tileDims.height);
+                        testTile.width = 0.2 * tileDims.width;
+                        testTile.height = 0.2 * tileDims.height;
 
-                            cv::rectangle(rgb_result, testTile, cv::Scalar(255, 255, 0), 1);
-                            
-                            rgbd_img.getPoint3f(tileCtr[idx][0] - avgTileCtr[0], tileCtr[idx][1] - avgTileCtr[1], ctrpt);
-                            if (std::isnan(ctrpt.z)) {
-                                cornerPtr->setReal(false);
-                                return true; // delete
-                                //return false; // keep
-                            }
-                            ctrpt = (cv::Vec3f) ctrpt - position;
-                            // out of plane error --> plane index is (idx+2)%3
-                            planeerror = std::abs(ctrpt.dot(axes2[(idx + 2) % 3]));
-                            //std::cout << "plane error = " << planeerror << std::endl;
-                            error = std::max(planeerror, error);
+                        cv::rectangle(rgb_result, testTile, cv::Scalar(255, 255, 0), 1);
+
+                        rgbd_img.getPoint3f(tileCtr[idx][0] - avgTileCtr[0], tileCtr[idx][1] - avgTileCtr[1], ctrpt);
+                        if (std::isnan(ctrpt.z)) {
+                            cornerPtr->setReal(false);
+                            return true; // delete
+                            //return false; // keep
                         }
-                        //std::cout << "error = " << error << std::endl;
-                        cornerPtr->setReal(error < ISREAL_THRESHOLD);
-                        //return false;                        
-                        return !cornerPtr->isReal();
-                        break;
-                    case SurfaceType::EDGE:
-                        edgePtr = boost::static_pointer_cast<sg::Edge<float>>(shape);
-                        if (false) { // use vector to plane positions directly
-                            edgePtr->getPlanes(planeSet);
-                            idx = 0;
-                            for (auto plane_iter = planeSet.begin(); plane_iter != planeSet.end(); ++plane_iter, ++idx) {
-                                (*plane_iter)->getPose().getTranslation(planePos3[idx]);
-                                planePos2[idx] = rgbd_img.project(planePos3[idx]);
-                                dirVec[idx] = planePos2[idx] - projPt;
-                                dirVec[idx] *= 1.0 / std::sqrt(dirVec[idx].dot(dirVec[idx]));
-                                tileCtr[idx][0] = projPt[0] + 0.33 * dirVec[idx][0] * tileDims.width;
-                                tileCtr[idx][1] = projPt[1] + 0.33 * dirVec[idx][1] * tileDims.height;
-                            }
-                        } else { // use local approximately perpendicular coordinate system
-                            coordVecs = edgePtr->getNonOrthogonalCoordinateSystem();
-                            //std::cout << "coordVecs = " << coordVecs << std::endl;
-                            for (idx = 0; idx < 2; ++idx) {
-                                axes2[idx][0] = coordVecs(idx, 0);
-                                axes2[idx][1] = coordVecs(idx, 1);
-                                axes2[idx][2] = coordVecs(idx, 2);
-                                planePos3[idx] = position + 0.05 * axes2[idx];
-                                planePos2[idx] = rgbd_img.project(planePos3[idx]);
-                                dirVec[idx] = planePos2[idx] - projPt;
-                                dirVec[idx] *= 1.0 / std::sqrt(dirVec[idx].dot(dirVec[idx]));
-                                tileCtr[idx][0] = projPt[0] + 0.33 * dirVec[idx][0] * tileDims.width;
-                                tileCtr[idx][1] = projPt[1] + 0.33 * dirVec[idx][1] * tileDims.height;
-                            }
+                        ctrpt = (cv::Vec3f) ctrpt - position;
+                        // out of plane error --> plane index is (idx+2)%3
+                        planeerror = std::abs(ctrpt.dot(axes2[(idx + 2) % 3]));
+                        //std::cout << "plane error = " << planeerror << std::endl;
+                        error = std::max(planeerror, error);
+                    }
+                    //std::cout << "error = " << error << std::endl;
+                    cornerPtr->setReal(error < ISREAL_THRESHOLD);
+                    //return false;                        
+                    return !cornerPtr->isReal();
+                    break;
+                case SurfaceType::EDGE:
+                    edgePtr = boost::static_pointer_cast<sg::Edge<float>>(shape);
+                    if (false) { // use vector to plane positions directly
+                        edgePtr->getPlanes(planeSet);
+                        idx = 0;
+                        for (auto plane_iter = planeSet.begin(); plane_iter != planeSet.end(); ++plane_iter, ++idx) {
+                            (*plane_iter)->getPose().getTranslation(planePos3[idx]);
+                            planePos2[idx] = rgbd_img.project(planePos3[idx]);
+                            dirVec[idx] = planePos2[idx] - projPt;
+                            dirVec[idx] *= 1.0 / std::sqrt(dirVec[idx].dot(dirVec[idx]));
+                            tileCtr[idx][0] = projPt[0] + 0.33 * dirVec[idx][0] * tileDims.width;
+                            tileCtr[idx][1] = projPt[1] + 0.33 * dirVec[idx][1] * tileDims.height;
                         }
-                        avgTileCtr = 0.5 * (tileCtr[0] + tileCtr[1]);
-                        avgTileCtr -= projPt;
-                        error = 0;
+                    } else { // use local approximately perpendicular coordinate system
+                        coordVecs = edgePtr->getNonOrthogonalCoordinateSystem();
+                        //std::cout << "coordVecs = " << coordVecs << std::endl;
                         for (idx = 0; idx < 2; ++idx) {
-                            testTile.x = tileCtr[idx][0] - avgTileCtr[0] - 0.15 * std::abs(dirVec[idx][0] * tileDims.width);
-                            testTile.y = tileCtr[idx][1] - avgTileCtr[1] - 0.15 * std::abs(dirVec[idx][1] * tileDims.height);
-                            testTile.width = 0.3 * tileDims.width;
-                            testTile.height = 0.3 * tileDims.height;
-                            
-                            cv::rectangle(rgb_result, testTile,
-                                    (idx == 0) ? cv::Scalar(255, 255, 0) : cv::Scalar(0, 255, 255), 1);
-
-                            rgbd_img.getPoint3f(tileCtr[idx][0] - avgTileCtr[0], tileCtr[idx][1] - avgTileCtr[1], ctrpt);
-                            if (std::isnan(ctrpt.z)) {
-                                edgePtr->setReal(false);
-                                return true; // delete
-                                //return false; // keep
-                            }
-                            ctrpt = (cv::Vec3f) ctrpt - position;
-                            // out of plane error --> plane index is (idx+1)%2
-                            planeerror = std::abs(ctrpt.dot(axes2[(idx + 1) % 2]));
-                            //std::cout << "plane error = " << planeerror << std::endl;
-                            error = std::max(planeerror, error);
+                            axes2[idx][0] = coordVecs(idx, 0);
+                            axes2[idx][1] = coordVecs(idx, 1);
+                            axes2[idx][2] = coordVecs(idx, 2);
+                            planePos3[idx] = position + 0.05 * axes2[idx];
+                            planePos2[idx] = rgbd_img.project(planePos3[idx]);
+                            dirVec[idx] = planePos2[idx] - projPt;
+                            dirVec[idx] *= 1.0 / std::sqrt(dirVec[idx].dot(dirVec[idx]));
+                            tileCtr[idx][0] = projPt[0] + 0.33 * dirVec[idx][0] * tileDims.width;
+                            tileCtr[idx][1] = projPt[1] + 0.33 * dirVec[idx][1] * tileDims.height;
                         }
-                        //std::cout << "error = " << error << std::endl;
-                        edgePtr->setReal(error < ISREAL_THRESHOLD);
-                        //return false;
-                        return !edgePtr->isReal();
-                        break;
-                    default:
-                        std::cout << "RgbdSurfaceTracker::setIsRealFlag() -> should never execute!" << std::endl;
-                        break;
-                }
-//            } else {
-//                // delete -> not enough data to confirm edge / corner structure
-//                return true;
-//            }
+                    }
+                    avgTileCtr = 0.5 * (tileCtr[0] + tileCtr[1]);
+                    avgTileCtr -= projPt;
+                    error = 0;
+                    for (idx = 0; idx < 2; ++idx) {
+                        testTile.x = tileCtr[idx][0] - avgTileCtr[0] - 0.15 * std::abs(dirVec[idx][0] * tileDims.width);
+                        testTile.y = tileCtr[idx][1] - avgTileCtr[1] - 0.15 * std::abs(dirVec[idx][1] * tileDims.height);
+                        testTile.width = 0.3 * tileDims.width;
+                        testTile.height = 0.3 * tileDims.height;
+
+                        cv::rectangle(rgb_result, testTile,
+                                (idx == 0) ? cv::Scalar(255, 255, 0) : cv::Scalar(0, 255, 255), 1);
+
+                        rgbd_img.getPoint3f(tileCtr[idx][0] - avgTileCtr[0], tileCtr[idx][1] - avgTileCtr[1], ctrpt);
+                        if (std::isnan(ctrpt.z)) {
+                            edgePtr->setReal(false);
+                            return true; // delete
+                            //return false; // keep
+                        }
+                        ctrpt = (cv::Vec3f) ctrpt - position;
+                        // out of plane error --> plane index is (idx+1)%2
+                        planeerror = std::abs(ctrpt.dot(axes2[(idx + 1) % 2]));
+                        //std::cout << "plane error = " << planeerror << std::endl;
+                        error = std::max(planeerror, error);
+                    }
+                    //std::cout << "error = " << error << std::endl;
+                    edgePtr->setReal(error < ISREAL_THRESHOLD);
+                    //return false;
+                    return !edgePtr->isReal();
+                    break;
+                default:
+                    std::cout << "RgbdSurfaceTracker::setIsRealFlag() -> should never execute!" << std::endl;
+                    break;
+            }
+            //            } else {
+            //                // delete -> not enough data to confirm edge / corner structure
+            //                return true;
+            //            }
             return false; // keep this shape and we have set it's isReal() flag
         }
 
-        void RgbdSurfaceTracker::setRealorVirtualFlag(cv::rgbd::RgbdImage& rgbd_img,
-                cv::QuadTree<sg::Plane<float>::Ptr>& quadTree,
+        void RgbdSurfaceTracker::filterDetections(cv::rgbd::RgbdImage& rgbd_img,
+                cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
                 std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&query_shapeMap,
                 cv::Mat& rgb_result) {
             //sg::Corner<float>::Ptr cornerPtr;
@@ -264,40 +265,10 @@ namespace cv {
 
                     // erase features too close to image boundary for analysis
                     shapeVec.erase(std::remove_if(shapeVec.begin(), shapeVec.end(),
-                            boost::bind(&RgbdSurfaceTracker::setIsRealFlag, this, _1,
+                            boost::bind(&RgbdSurfaceTracker::filterShape, this, _1,
                             boost::ref(rgbd_img), boost::ref(tileDims), boost::ref(shapeType),
                             boost::ref(rgb_result))),
                             shapeVec.end());
-
-                    //                    for (auto shape_iter = shapeVec.begin();
-                    //                            shape_iter != shapeVec.end(); ++shape_iter) {
-                    //                        sg::Shape::Ptr& shape = (*shape_iter);
-                    //                        shape->getPose().getTranslation(position);
-                    //                        cv::Point2f projPt = rgbd_img.project(position);
-                    //                        cv::Rect tile((int) projPt.x - (tileDims.width >> 1),
-                    //                                (int) projPt.y - (tileDims.height >> 1),
-                    //                                tileDims.width, tileDims.height);
-                    //                        int numSamples = (tile.width * tile.height) / 2;
-                    //                        std::vector<Point3f> tile_data;
-                    //                        tile_data.reserve(numSamples);
-                    //                        rgbd_img.getTileData_Uniform(tile.x, tile.y,
-                    //                                tile.width, tile.height, tile_data, numSamples);
-                    //
-                    //                        if (tile_data.size() > (numSamples >> 2)) {
-                    //                            switch (shapeType) {
-                    //                                case SurfaceType::CORNER:
-                    //                                    cornerPtr = boost::static_pointer_cast<sg::Corner<float>>(*shape_iter);
-                    //                                    cornerPtr->setIsRealFlag(tile_data);
-                    //                                    break;
-                    //                                case SurfaceType::EDGE:
-                    //                                    edgePtr = boost::static_pointer_cast<sg::Edge<float>>(*shape_iter);
-                    //                                    edgePtr->setIsRealFlag(tile_data);
-                    //                                    break;
-                    //                                default:
-                    //                                    break;
-                    //                            }
-                    //                        }
-                    //                    }
                 }
             }
         }
@@ -368,6 +339,8 @@ namespace cv {
             }
         }
 
+        cv::QuadTree<sg::Plane<float>::Ptr>::Ptr prev_quadTree;
+
         void RgbdSurfaceTracker::segmentDepth(cv::rgbd::RgbdImage& rgbd_img, cv::Mat & rgb_result) {
 
 #ifdef PROFILE_CALLGRIND
@@ -386,14 +359,14 @@ namespace cv {
             cv::Rect roi(MARGIN_X, MARGIN_Y, rgbd_img.getWidth() - 2 * MARGIN_X, rgbd_img.getHeight() - 2 * MARGIN_Y);
             cv::Size imgSize(rgbd_img.getWidth(), rgbd_img.getHeight());
             cv::Size tileSize(BLOCKSIZE, BLOCKSIZE);
-            cv::QuadTree<sg::Plane<float>::Ptr> quadTree(imgSize, tileSize, roi);
+            cv::QuadTree<sg::Plane<float>::Ptr>::Ptr quadTree(new QuadTree<sg::Plane<float>::Ptr>(imgSize, tileSize, roi));
 
             int detector_timeBudget_ms = 15;
             surfdetector.detect(rgbd_img, quadTree, detector_timeBudget_ms, rgb_result);
 
             int descriptor_timeBudget_ms = 20;
             std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>> query_shapeMap;
-            surfdescriptor_extractor.compute(rgbd_img, &quadTree, query_shapeMap,
+            surfdescriptor_extractor.compute(rgbd_img, quadTree, query_shapeMap,
                     descriptor_timeBudget_ms, rgb_result);
             
             clusterDetections(query_shapeMap, rgb_result);
@@ -414,7 +387,7 @@ namespace cv {
             // 3. If points violate initial plane fitting criteria set the the corner as virtual
             //
             // We may want to keep virtual corners as they may be useful for odometry / loop closure
-            setRealorVirtualFlag(rgbd_img, quadTree, query_shapeMap, rgb_result);
+            filterDetections(rgbd_img, quadTree, query_shapeMap, rgb_result);
 
             // RENDER DETECTED SHAPE GRAMMAR GEOMETRIES
             std::vector<ObjectGeometry> detected_geometries;
@@ -446,7 +419,7 @@ namespace cv {
             // This function visits all features for matching, e.g., planes, edges and corners,
             // and clusters the detections into groups and produces a smaller collection of
             // features for integration with the "map"
-            clusterDetections(query_shapeMap, rgb_result);
+            //clusterDetections(query_shapeMap, rgb_result);
 
             // Match structures detected in this image with structures of the map
             // Compute the map between detected structures and existing structures
@@ -454,12 +427,15 @@ namespace cv {
             // This function visits all features for matching, e.g., planes, edges and corners,
             // and clusters the detections into groups and produces a smaller collection of
             // features for integration with the "map"
-            int descriptor_matching_timeBudget_ms = 20;
-            std::vector<cv::DMatch> geometricMatches;
-            std::vector<int> noMatches;
-            surfmatcher.match(query_shapeMap, train_shapeMap, geometricMatches,
-                    descriptor_matching_timeBudget_ms, rgb_result);
-
+            if (prev_quadTree) {
+                int descriptor_matching_timeBudget_ms = 20;
+                std::vector<cv::rgbd::ShapeMatch> shapeMatches;
+                std::vector<sg::Shape::Ptr> newShapes;
+                surfmatcher.match(query_shapeMap, train_shapeMap, shapeMatches, newShapes,
+                        descriptor_matching_timeBudget_ms, rgb_result);
+            }
+            
+            prev_quadTree = quadTree;
             // Structures without a match are inserted to the map
             // addToMap(unmatched_
             // Structures having a match are used to solve the following problems:

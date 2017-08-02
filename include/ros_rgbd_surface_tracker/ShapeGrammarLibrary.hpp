@@ -81,6 +81,25 @@ public:
     void getTranslation(cv::Vec3f& _position) {
         _position = position;
     }
+
+    cv::Matx44f getTransform() {
+        static cv::Mat rotMat;
+        cv::Matx44f tform;
+        cv::Rodrigues(rodrigues, rotMat);
+        float *rotmat = rotMat.ptr<float>(0, 0);
+        for (int i = 0, j = 3; i < 11; ++i) {
+            tform.val[i] = *rotmat++;
+            if ((i + 1) % j == 0) {
+                j += 4;
+                i++;
+            }
+        }
+        tform.val[3] = position[0];
+        tform.val[7] = position[1];
+        tform.val[11] = position[2];
+        tform.val[15] = 1.0f;
+        return tform;
+    }
 private:
     // -------------------------
     // Disabling default copy constructor and default
@@ -129,6 +148,7 @@ namespace sg {
         virtual std::vector<cv::Vec3f> generateColorCoords() = 0;
         virtual std::vector<int> generateColorCoordIndices() = 0;
         virtual std::string toString() = 0;
+        virtual float matchDistance(Shape::Ptr qShape) = 0;
 
         void setPose(Pose _pose) {
             pose = _pose;
@@ -232,6 +252,18 @@ namespace sg {
             return coloridxs;
         }
 
+        float matchDistance(Shape::Ptr qShape) {
+            sg::Plane<_Tpl>::Ptr planePtr = boost::dynamic_pointer_cast<sg::Plane < _Tpl >> (qShape);
+            if (!planePtr) {
+                return std::numeric_limits<_Tpl>::infinity();
+            }
+            cv::Vec<_Tpl, 4> errorVec(planePtr->x - this->x,
+                    planePtr->y - this->y,
+                    planePtr->z - this->z,
+                    planePtr->d - this->d);
+            return std::sqrt(errorVec.dot(errorVec));
+        }
+
         std::string toString() {
             std::ostringstream stringStream;
             stringStream << cv::Plane3_<_Tpl>::toString();
@@ -323,7 +355,7 @@ namespace sg {
         }
 
         std::vector<int> generateCoordIndices() {
-            std::vector<int> ptIdxs = {0, 1};//, 2, 3, 4, 5};
+            std::vector<int> ptIdxs = {0, 1}; //, 2, 3, 4, 5};
             return ptIdxs;
         }
 
@@ -336,7 +368,7 @@ namespace sg {
         }
 
         std::vector<int> generateNormalCoordIndices() {
-            std::vector<int> normIdxs = {0, 0};//, 0, 0, 0, 0}; //, 0, 0};
+            std::vector<int> normIdxs = {0, 0}; //, 0, 0, 0, 0}; //, 0, 0};
             return normIdxs;
         }
 
@@ -346,13 +378,13 @@ namespace sg {
             if (_isReal) {
                 return std::vector<cv::Vec3f>{red};
             }
-            return std::vector<cv::Vec3f>{orange};            
+            return std::vector<cv::Vec3f>{orange};
             //std::vector<cv::Vec3f> colors = {cv::Vec3f(1, 0, 0)}; //, cv::Vec3f(0, 1, 0)};
             //return colors;
         }
 
         std::vector<int> generateColorCoordIndices() {
-            std::vector<int> colorIdxs = {0, 0};//, 0, 0, 0, 0}; //, 1, 1};
+            std::vector<int> colorIdxs = {0, 0}; //, 0, 0, 0, 0}; //, 1, 1};
             return colorIdxs;
         }
 
@@ -398,7 +430,7 @@ namespace sg {
 
         bool setReal(bool realFlag) {
             _isReal = realFlag;
-        }        
+        }
 
         bool isInside(const std::vector<cv::Point3f>& pts) {
             static _Tpl ISREAL_THRESHOLD = 0.005;
@@ -454,6 +486,20 @@ namespace sg {
             return coordVecs;
         }
 
+        float matchDistance(Shape::Ptr qShape) {
+            sg::Edge<_Tpl>::Ptr edgePtr = boost::dynamic_pointer_cast<sg::Edge < _Tpl >> (qShape);
+            if (!edgePtr) {
+                return std::numeric_limits<_Tpl>::infinity();
+            }
+            cv::Vec<_Tpl, 6> errorVec(edgePtr->v.x - this->v.x,
+                    edgePtr->v.y - this->v.y,
+                    edgePtr->v.z - this->v.z,
+                    edgePtr->p0.x - this->p0.x,
+                    edgePtr->p0.y - this->p0.y,
+                    edgePtr->p0.z - this->p0.z);
+            return std::sqrt(errorVec.dot(errorVec));
+        }
+        
         std::string toString() {
             std::ostringstream stringStream;
             stringStream << cv::LineSegment3_<_Tpl>::toString();
@@ -671,6 +717,17 @@ namespace sg {
                 std::swap(axes[1], axes[2]);
         }
 
+        float matchDistance(Shape::Ptr qShape) {
+            sg::Corner<_Tpl>::Ptr cornerPtr = boost::dynamic_pointer_cast<sg::Corner < _Tpl >> (qShape);
+            if (!cornerPtr) {
+                return std::numeric_limits<_Tpl>::infinity();
+            }
+            cv::Vec<_Tpl, 3> errorVec(cornerPtr->x - this->x,
+                    cornerPtr->y - this->y,
+                    cornerPtr->z - this->z);
+            return std::sqrt(errorVec.dot(errorVec));
+        }
+        
         std::string toString() {
             std::ostringstream stringStream;
             stringStream << this;
@@ -713,6 +770,17 @@ namespace sg {
 
         //std::vector<cv::rgbd::ObjectGeometryPtr> getPlanes();
 
+        float matchDistance(Shape::Ptr qShape) {
+            sg::Box::Ptr boxPtr = boost::dynamic_pointer_cast<sg::Box> (qShape);
+            if (!boxPtr) {
+                return std::numeric_limits<float>::infinity();
+            }
+            cv::Vec<float, 3> errorVec(boxPtr->dims.x - this->dims.x,
+                    boxPtr->dims.y - this->dims.y,
+                    boxPtr->dims.z - this->dims.z);
+            return std::sqrt(errorVec.dot(errorVec));
+        }
+        
         std::string toString() {
             std::ostringstream stringStream;
             stringStream << "I AM A BOX";
@@ -769,6 +837,16 @@ namespace sg {
 
         std::vector<int> generateColorCoordIndices();
 
+        float matchDistance(Shape::Ptr qShape) {
+            sg::Cylinder::Ptr cylinderPtr = boost::dynamic_pointer_cast<sg::Cylinder> (qShape);
+            if (!cylinderPtr) {
+                return std::numeric_limits<float>::infinity();
+            }
+            cv::Vec<float, 2> errorVec(cylinderPtr->r - this->r,
+                    cylinderPtr->h - this->h);
+            return std::sqrt(errorVec.dot(errorVec));
+        }
+        
         std::string toString() {
             std::ostringstream stringStream;
             stringStream << "I AM A CYLINDER";

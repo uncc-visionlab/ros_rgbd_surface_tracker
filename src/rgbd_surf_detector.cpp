@@ -35,7 +35,7 @@ namespace cv {
         //        }
 
         void SurfaceDetector::detect(const cv::rgbd::RgbdImage& rgbd_img,
-                cv::QuadTree<sg::Plane<float>::Ptr>& quadTree,
+                cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
                 int timeBudget_ms, cv::Mat& rgb_result, cv::Mat mask) const {
             cv::ErrorSortedRectQueue quadQueue;
             cv::Mat img_L;
@@ -45,15 +45,15 @@ namespace cv {
             int64 timeBudgetTicks = timeBudget_ms * cv::getTickFrequency() / 1000;
             int64 ticksNow, ticksStart = cv::getTickCount();
 
-            std::vector<Point2i> recurseTileVec = findPlanes(quadQueue, rgbd_img, &quadTree, img_L, numLabels);
+            std::vector<Point2i> recurseTileVec = findPlanes(quadQueue, rgbd_img, quadTree, img_L, numLabels);
             //populateGeometries(rgbd_img, &quadTree, geometries);
 
             ticksNow = cv::getTickCount();
             timeBudgetExpired = (ticksNow - ticksStart) > timeBudgetTicks;
 
-            int level = quadTree.getLevel();
+            int level = quadTree->getLevel();
             while (recurseTileVec.size() > 0 && !timeBudgetExpired) {
-                QuadTreeLevel<sg::Plane<float>::Ptr>* nextLevel_ptr = quadTree.getQuadTreeLevel(++level);
+                QuadTreeLevel<sg::Plane<float>::Ptr>* nextLevel_ptr = quadTree->getQuadTreeLevel(++level);
                 if (!nextLevel_ptr) {
                     break;
                 }
@@ -112,7 +112,7 @@ namespace cv {
 
         std::vector<cv::Point2i> SurfaceDetector::findPlanes(ErrorSortedRectQueue& quadQueue,
                 const RgbdImage& rgbd_img,
-                QuadTreeLevel<sg::Plane<float>::Ptr>* quadTree,
+                const QuadTreeLevel<sg::Plane<float>::Ptr>::Ptr& quadTree,
                 Mat& img_labels, int& numLabels) const {
             std::vector<cv::Point2i> recurseTileVec;
             cv::Plane3f plane3;

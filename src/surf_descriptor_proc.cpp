@@ -19,7 +19,7 @@ namespace cv {
     namespace rgbd {
 
         void SurfaceDescriptorExtractor::compute(const cv::rgbd::RgbdImage& rgbd_img,
-                cv::QuadTree<sg::Plane<float>::Ptr>* quadTree,
+                cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
                 std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
                 int timeBudget_ms, cv::Mat& rgb_result) const {
 
@@ -256,36 +256,81 @@ corner_search_done:
             //    sg::Shape& shape = *shape_ptr;
         }
 
+        float MATCH_DISTANCE_THRESHOLD = 2;
+
         void SurfaceDescriptorMatcher::match(std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&query_shapeMap,
                 std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&train_shapeMap,
-                std::vector<cv::DMatch>& matches, int timeBudget_ms,
+                std::vector<cv::rgbd::ShapeMatch>& matches, std::vector<sg::Shape::Ptr>& newShapes, int timeBudget_ms,
                 cv::Mat& rgb_result, Pose camPose, cv::Mat mask) {
             cv::Vec3f position;
-            sg::Corner<float>::Ptr cornerPtr;
-            sg::Edge<float>::Ptr edgePtr;
-            sg::Plane<float>::Ptr planePtr;
 
+            sg::Shape::Ptr bestMatch;
+            sg::Corner<float>::Ptr cornerPtrA, cornerPtrB;
+            sg::Edge<float>::Ptr edgePtrA, edgePtrB;
+            sg::Plane<float>::Ptr planePtrA, planePtrB;
+
+            cv::Matx44f camTransform = camPose.getTransform();
+            //std::cout << "camTransform = " << camTransform << std::endl;
+            float distance, min_distance;
             for (auto shapeType_iter = train_shapeMap.begin();
                     shapeType_iter != train_shapeMap.end(); ++shapeType_iter) {
-                for (auto shape_iter = (*shapeType_iter).second.begin();
-                        shape_iter != (*shapeType_iter).second.end(); ++shape_iter) {
-                    switch ((*shapeType_iter).first) {
-                        case SurfaceType::CORNER:
-                            cornerPtr = boost::static_pointer_cast<sg::Corner<float>>(*shape_iter);
-                            cornerPtr->getPose().getTranslation(position);
-                            break;
-                        case SurfaceType::EDGE:
-                            edgePtr = boost::static_pointer_cast<sg::Edge<float>>(*shape_iter);
-                            edgePtr->getPose().getTranslation(position);
-                            break;
-                        case SurfaceType::PLANE:
-                        default:
-                            planePtr = boost::static_pointer_cast<sg::Plane<float>>(*shape_iter);
-                            planePtr->getPose().getTranslation(position);
-                            break;
+                std::vector<sg::Shape::Ptr>& shapeVec = (*shapeType_iter).second;
+                cv::rgbd::SurfaceType shapeType = (*shapeType_iter).first;
+                for (auto shape_iterA = shapeVec.begin(); shape_iterA != shapeVec.end(); ++shape_iterA) {
+                    sg::Shape::Ptr& shapeA = *shape_iterA;
+                    shapeA->getPose().getTranslation(position);
+                    if (shape_iterA + 1 != shapeVec.end()) {
+                        switch (shapeType) {
+                            case SurfaceType::CORNER:
+                                cornerPtrA = boost::static_pointer_cast<sg::Corner<float>>(shapeA);
+                                min_distance = std::numeric_limits<float>::infinity();
+                                for (auto shape_iterB = shape_iterA + 1; shape_iterB != shapeVec.end(); ++shape_iterB) {
+                                    cornerPtrB = boost::static_pointer_cast<sg::Corner<float>>(*shape_iterB);
+                                    distance = cornerPtrA->matchDistance(cornerPtrB);
+                                    if (distance < min_distance) {
+                                        bestMatch = cornerPtrB;
+                                        min_distance = distance;
+                                    }
+                                }
+                                break;
+                            case SurfaceType::EDGE:
+                                edgePtrA = boost::static_pointer_cast<sg::Edge<float>>(shapeA);
+                                for (auto shape_iterB = shape_iterA + 1; shape_iterB != shapeVec.end(); ++shape_iterB) {
+                                    edgePtrB = boost::static_pointer_cast<sg::Edge<float>>(*shape_iterB);
+                                    distance = edgePtrA->matchDistance(edgePtrB);
+                                    if (distance < min_distance) {
+                                        bestMatch = edgePtrB;
+                                        min_distance = distance;
+                                    }
+                                }
+                                break;
+                            case SurfaceType::PLANE:
+                            default:
+                                planePtrA = boost::static_pointer_cast<sg::Plane<float>>(shapeA);
+                                for (auto shape_iterB = shape_iterA + 1; shape_iterB != shapeVec.end(); ++shape_iterB) {
+                                    planePtrB = boost::static_pointer_cast<sg::Plane<float>>(*shape_iterB);
+                                    distance = planePtrA->matchDistance(planePtrB);
+                                    if (distance < min_distance) {
+                                        bestMatch = planePtrB;
+                                        min_distance = distance;
+                                    }
+                                }
+                                break;
+                        }
+                        if (min_distance < MATCH_DISTANCE_THRESHOLD) {
+                            cv::rgbd::ShapeMatch matchAB;
+                            matchAB.query_shape = shapeA;
+                            matchAB.train_shape = bestMatch;
+                            matchAB.distance = min_distance;
+                            matchAB.surfaceType = shapeType;
+                            matches.push_back(matchAB);
+                        } else {
+                            newShapes.push_back(shapeA);
+                        }
                     }
                 }
             }
+
         }
     } /* namespace rgbd */
 } /* namespace cv */

@@ -39,13 +39,13 @@ namespace cv {
         class SurfaceDetector {
         public:
             void detect(const cv::rgbd::RgbdImage& rgbd_img,
-                    cv::QuadTree<sg::Plane<float>::Ptr>& quadTree,
+                    cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
                     int timeBudget_ms, cv::Mat& rgb_result,
                     const cv::Mat mask = cv::Mat()) const;
 
             std::vector<cv::Point2i> findPlanes(ErrorSortedRectQueue& quadQueue,
                     const RgbdImage& rgbd_img,
-                    QuadTreeLevel<sg::Plane<float>::Ptr>* quadTree,
+                    const QuadTreeLevel<sg::Plane<float>::Ptr>::Ptr& quadTree,
                     Mat& img_labels, int& numLabels) const;
 
             std::vector<cv::Point2i> recursiveSubdivision(ErrorSortedRectQueue& quadQueue,
@@ -59,7 +59,7 @@ namespace cv {
         class SurfaceDescriptorExtractor {
         public:
             void compute(const cv::rgbd::RgbdImage& rgbd_img,
-                    cv::QuadTree<sg::Plane<float>::Ptr>* quadTree,
+                    cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
                     std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
                     int timeBudget_ms, cv::Mat& rgb_result) const;
             
@@ -72,10 +72,13 @@ namespace cv {
         public:
             void match(std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
                     std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&train_shapeMap,
-                    std::vector<cv::DMatch>& matches, int timeBudget_ms,
+                    std::vector<cv::rgbd::ShapeMatch>& matches, 
+                    std::vector<sg::Shape::Ptr>& newShapes, int timeBudget_ms,
                     cv::Mat& rgb_result, Pose camPose = Pose(), cv::Mat mask = cv::Mat());
         }; /* class SurfaceDescriptorMatcher */
 
+        
+        
         class RgbdSurfaceTracker {
         public:
             static OpenGLRenderer glDraw;
@@ -88,13 +91,13 @@ namespace cv {
             };
 
             // validate edge and corner features with geometric measurements center on feature location
-            void setRealorVirtualFlag(cv::rgbd::RgbdImage& rgbd_img,
-                    cv::QuadTree<sg::Plane<float>::Ptr>& quadTree,
+            void filterDetections(cv::rgbd::RgbdImage& rgbd_img,
+                    cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
                     std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&query_shapeMap,
                     cv::Mat& rgb_result);
 
             // erase edge and corner features that do not lie within the image boundary
-            bool setIsRealFlag(const sg::Shape::Ptr shape,
+            bool filterShape(const sg::Shape::Ptr shape,
                 const cv::rgbd::RgbdImage& rgbd_img, const cv::Size& tileDims,
                 const cv::rgbd::SurfaceType& shapeType, cv::Mat& rgb_result) const;
 
