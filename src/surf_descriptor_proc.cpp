@@ -258,10 +258,12 @@ corner_search_done:
 
         float MATCH_DISTANCE_THRESHOLD = 2;
 
-        void SurfaceDescriptorMatcher::match(std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&query_shapeMap,
-                std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&train_shapeMap,
+        void SurfaceDescriptorMatcher::match(const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
+                const std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&query_shapeMap,
+                const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& prev_quadTree,
+                const std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&train_shapeMap,
                 std::vector<cv::rgbd::ShapeMatch>& matches, std::vector<sg::Shape::Ptr>& newShapes, int timeBudget_ms,
-                cv::Mat& rgb_result, Pose camPose, cv::Mat mask) {
+                cv::Mat& rgb_result, Pose camPose, cv::Mat mask) const {
             cv::Vec3f position;
 
             sg::Shape::Ptr bestMatch;
@@ -274,10 +276,10 @@ corner_search_done:
             float distance, min_distance;
             for (auto shapeType_iter = train_shapeMap.begin();
                     shapeType_iter != train_shapeMap.end(); ++shapeType_iter) {
-                std::vector<sg::Shape::Ptr>& shapeVec = (*shapeType_iter).second;
+                const std::vector<sg::Shape::Ptr>& shapeVec = (*shapeType_iter).second;
                 cv::rgbd::SurfaceType shapeType = (*shapeType_iter).first;
                 for (auto shape_iterA = shapeVec.begin(); shape_iterA != shapeVec.end(); ++shape_iterA) {
-                    sg::Shape::Ptr& shapeA = *shape_iterA;
+                    const sg::Shape::Ptr& shapeA = *shape_iterA;
                     shapeA->getPose().getTranslation(position);
                     if (shape_iterA + 1 != shapeVec.end()) {
                         switch (shapeType) {
