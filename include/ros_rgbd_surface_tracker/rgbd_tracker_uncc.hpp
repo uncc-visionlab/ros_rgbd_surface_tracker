@@ -109,7 +109,7 @@ namespace cv {
             bool estimateDeltaPose(const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
                     const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&train_shapeMap,
                     const std::vector<cv::rgbd::ShapeMatch>& matches,
-                    Pose& pose_estimate);
+                    Pose& delta_pose_estimate);
 
             void segmentDepth(cv::rgbd::RgbdImage& rgbd_img, cv::Mat& result);
 
@@ -134,7 +134,10 @@ namespace cv {
             SurfaceDescriptorMatcher surfmatcher;
             
             cv::QuadTree<sg::Plane<float>::Ptr>::Ptr prev_quadTree;
+
             cv::rgbd::WorldMap world_map;
+
+            Pose delta_pose_estimate;
             Pose global_pose_estimate;
 
         }; /* class RgbdSurfaceTracker */

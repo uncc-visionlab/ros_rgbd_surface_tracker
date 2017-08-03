@@ -82,6 +82,11 @@ public:
         _position = position;
     }
 
+    void set(cv::Vec3f _rodrigues, cv::Vec3f _position) {
+        this->rodrigues = _rodrigues;
+        this->position = _position;
+    }
+    
     cv::Matx44f getTransform() {
         static cv::Mat rotMat;
         cv::Matx44f tform;

@@ -146,6 +146,13 @@ namespace cv {
 
                         cv::rectangle(rgb_result, testTile, cv::Scalar(255, 255, 0), 1);
 
+                        // TODO: get classification from quadTree and apply
+                        // code A) 
+                        // sg::Plane<float>::Ptr fitPlane = quadTree->getObject(tileCtr[idx][0] - avgTileCtr[0], tileCtr[idx][1] - avgTileCtr[1]);
+                        // if (fitPlane && !fitPlane.approxEquals(plane[(idx + 2) % 3]) {
+                        // cornerPtr->setReal(false);
+                        // return true;
+                        // } else {
                         rgbd_img.getPoint3f(tileCtr[idx][0] - avgTileCtr[0], tileCtr[idx][1] - avgTileCtr[1], ctrpt);
                         if (std::isnan(ctrpt.z)) {
                             cornerPtr->setReal(false);
@@ -158,6 +165,9 @@ namespace cv {
                         //std::cout << "plane error = " << planeerror << std::endl;
                         error = std::max(planeerror, error);
                     }
+                    // code A)
+                    // cornerPtr->setReal(true);
+                    // return false;
                     //std::cout << "error = " << error << std::endl;
                     cornerPtr->setReal(error < ISREAL_THRESHOLD);
                     //return false;                        
@@ -203,6 +213,13 @@ namespace cv {
                         cv::rectangle(rgb_result, testTile,
                                 (idx == 0) ? cv::Scalar(255, 255, 0) : cv::Scalar(0, 255, 255), 1);
 
+                        // TODO: get classification from quadTree and apply
+                        // code A) 
+                        // sg::Plane<float>::Ptr fitPlane = quadTree->getObject(tileCtr[idx][0] - avgTileCtr[0], tileCtr[idx][1] - avgTileCtr[1]);
+                        // if (fitplane && !fitPlane.approxEquals(plane[(idx + 1) % 2]) {
+                        // edgePtr->setReal(false);
+                        // return true;
+                        // } else {
                         rgbd_img.getPoint3f(tileCtr[idx][0] - avgTileCtr[0], tileCtr[idx][1] - avgTileCtr[1], ctrpt);
                         if (std::isnan(ctrpt.z)) {
                             edgePtr->setReal(false);
@@ -215,13 +232,16 @@ namespace cv {
                         //std::cout << "plane error = " << planeerror << std::endl;
                         error = std::max(planeerror, error);
                     }
+                    // code A)
+                    // edgePtr->setReal(true);
+                    // return false;                    
                     //std::cout << "error = " << error << std::endl;
                     edgePtr->setReal(error < ISREAL_THRESHOLD);
                     //return false;
                     return !edgePtr->isReal();
                     break;
                 default:
-                    std::cout << "RgbdSurfaceTracker::setIsRealFlag() -> should never execute!" << std::endl;
+                    std::cout << "RgbdSurfaceTracker::filterShape() -> should never execute!" << std::endl;
                     break;
             }
             //            } else {
@@ -240,10 +260,9 @@ namespace cv {
 
             for (auto shapeType_iter = query_shapeMap.begin();
                     shapeType_iter != query_shapeMap.end(); ++shapeType_iter) {
-                if ((*shapeType_iter).first == SurfaceType::EDGE ||
-                        (*shapeType_iter).first == SurfaceType::CORNER) {
+                cv::rgbd::SurfaceType shapeType = (*shapeType_iter).first;
+                if (shapeType == SurfaceType::EDGE || shapeType == SurfaceType::CORNER) {
                     std::vector<sg::Shape::Ptr>& shapeVec = (*shapeType_iter).second;
-                    cv::rgbd::SurfaceType shapeType = (*shapeType_iter).first;
 
                     // erase features too close to image boundary for analysis
                     shapeVec.erase(std::remove_if(shapeVec.begin(), shapeVec.end(),
@@ -326,7 +345,52 @@ namespace cv {
                 const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
                 const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&train_shapeMap,
                 const std::vector<cv::rgbd::ShapeMatch>& matches,
-                Pose& pose_estimate) {
+                Pose& delta_pose_estimate) {
+
+            sg::Corner<float>::Ptr cornerPtr;
+            sg::Edge<float>::Ptr edgePtr;
+            sg::Plane<float>::Ptr fixedPlanePtr, movingPlanePtr;
+            std::vector<cv::Plane3f::Ptr> fixedPlanes;
+            std::vector<cv::Plane3f::Ptr> movingPlanes;
+            for (auto match_iter = matches.begin(); match_iter != matches.end(); ++match_iter) {
+                const cv::rgbd::ShapeMatch& match = *match_iter;
+                sg::Shape::Ptr movingShape = match.query_shape;
+                sg::Shape::Ptr fixedShape = match.train_shape;
+                if (match.surfaceType == cv::rgbd::PLANE) {
+                    fixedPlanePtr = boost::static_pointer_cast<sg::Plane<float>>(movingShape);
+                    movingPlanePtr = boost::static_pointer_cast<sg::Plane<float>>(fixedShape);
+                    fixedPlanes.push_back(fixedPlanePtr);
+                    movingPlanes.push_back(movingPlanePtr);
+                }
+            }
+            cv::Mat cvTransform(4, 4, CV_32FC1);
+            //directly use the buffer allocated by OpenCV
+            Eigen::Map<Eigen::Matrix4f> eigenTransformMap(cvTransform.ptr<float>(0, 0));
+            Eigen::Matrix4f eigenTransform = Eigen::Matrix4f::Zero(4, 4);
+            if (movingPlanes.size() < 3) {
+                std::cout << "RgbdSurfaceTracker::estimateDeltaPose -> Not enough plane matches (" 
+                        << movingPlanes.size() << ") cannot estimate pose change." << std::endl;
+                return false;
+            }
+            int solutionHasReflection = planeListAlignmentCV(movingPlanes,
+                    fixedPlanes, eigenTransform);
+            if (solutionHasReflection) {
+                std::cout << "RgbdSurfaceTracker::estimateDeltaPose -> Solution has a reflection..."
+                        << " discarding pose change estimate." << std::endl;
+                return false;
+            }
+            std::cout << "eigen mat = " << eigenTransform << std::endl;
+            eigenTransformMap = eigenTransform;
+            //std::cout << "eigen mat mapped = " << eigenTransformMap << std::endl;
+            cv::transpose(cvTransform, cvTransform);
+            cv::Vec3f tVec = cvTransform(cv::Rect(3, 0, 1, 3));
+            cv::Vec3f rVec;
+            cv::Mat rotMat = cvTransform(cv::Rect(0, 0, 3, 3));
+            cv::Rodrigues(rotMat, rVec);
+            //cv::transpose(rotMat, rotMat);
+            std::cout << "R = " << rotMat << std::endl;
+            std::cout << "t = " << tVec << std::endl;
+            delta_pose_estimate.set(tVec, rVec);
             return true;
         }
 
@@ -411,7 +475,6 @@ namespace cv {
             // Match structures detected in this image with structures of the map
             // Compute the map between detected structures and existing structures
             // TODO: Implement match(query_shapeMap)
-            Pose delta_pose_estimate;
             std::vector<sg::Shape::Ptr> newShapes;
             if (prev_quadTree) {
                 int descriptor_matching_timeBudget_ms = 20;
@@ -453,7 +516,7 @@ namespace cv {
         void WorldMap::update(const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
                 const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
                 const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& prev_quadTree,
-                const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&train_shapeMap,
+                const std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&train_shapeMap,
                 std::vector<cv::rgbd::ShapeMatch>& matches, Pose global_pose) {
         }
 
