@@ -415,7 +415,7 @@ public:
                 timersub(&current_time, &previous_time, &interval);
                 previous_time = current_time;
                 double fps = num_frames_stat / (interval.tv_sec + 1e-6 * interval.tv_usec);
-                printf("running at %lf fps\n", fps);
+                printf("** FRAMERATE STATS **** --> Running at %lf fps\n", fps);
                 fflush(stdout);
             }
         }

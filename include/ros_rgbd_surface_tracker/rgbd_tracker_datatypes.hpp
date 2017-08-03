@@ -75,15 +75,17 @@ namespace cv {
             }
         };
 
-        class WorldMap {
+        class ShapeMap : public std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>> {
         public:
-            std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>> map;
+            //typedef boost::shared_ptr<std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>> Ptr;
+            typedef boost::shared_ptr<ShapeMap> Ptr;
+            typedef boost::shared_ptr<const ShapeMap> ConstPtr;
 
-            WorldMap() {
+            ShapeMap() {
 
             }
 
-            virtual ~WorldMap() {
+            virtual ~ShapeMap() {
 
             }
 
@@ -94,6 +96,10 @@ namespace cv {
                     const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& prev_quadTree,
                     const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&train_shapeMap,
                     std::vector<cv::rgbd::ShapeMatch>& matches, Pose global_pose);
+
+            static ShapeMap::Ptr create() {
+                return ShapeMap::Ptr(boost::make_shared<ShapeMap>());
+            }
 
         };
 

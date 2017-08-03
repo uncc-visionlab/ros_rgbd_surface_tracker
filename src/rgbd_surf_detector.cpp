@@ -14,26 +14,6 @@
 namespace cv {
     namespace rgbd {
 
-        //        void populateGeometries(const cv::rgbd::RgbdImage& rgbd_img,
-        //                QuadTreeLevel<sg::Plane<float>::Ptr>* quadTree,
-        //                std::vector<AlgebraicSurfacePatch::Ptr>& geometries) {
-        //            std::unordered_map<int, sg::Plane<float>::Ptr> data = quadTree->getData();
-        //            for (auto it = data.begin(); it != data.end(); ++it) {
-        //                //int key = it->first;
-        //                //int qX, qY;
-        //                //quadTree->keyToXY(key, qX, qY);
-        //                //std::cout << "Quad(" << qX << ", " << qY << ") = " << ((!planeA) ? "null" : (*planeA).toString()) << std::endl;
-        //                sg::Plane<float>::Ptr& planeA = it->second;
-        //                if (planeA) {
-        //                    AlgebraicSurfacePatch::Ptr surfPatch = AlgebraicSurfacePatch::create(planeA, rgbd_img);
-        //                    if (planeA->avgError() < 0.0025 * surfPatch->getAverageDepth()) {
-        //                        //std::cout << "areaA " << planeA->area() << " errorA = " << planeA->avgError() << " planeA = " << *planeA << std::endl;
-        //                        geometries.push_back(surfPatch);
-        //                    }
-        //                }
-        //            }
-        //        }
-
         void SurfaceDetector::detect(const cv::rgbd::RgbdImage& rgbd_img,
                 cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
                 int timeBudget_ms, cv::Mat& rgb_result, cv::Mat mask) const {

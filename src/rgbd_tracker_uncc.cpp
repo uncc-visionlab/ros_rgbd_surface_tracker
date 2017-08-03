@@ -42,8 +42,6 @@ namespace cv {
             {SurfaceType::BOX, "Box"}
         };
 
-        std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>> train_shapeMap;
-
         void RgbdSurfaceTracker::callback(cv::Mat& _ocv_rgbframe, cv::Mat& _ocv_depthframe_float,
                 cv::Mat& _rgb_distortionCoeffs, cv::Mat& _rgb_cameraMatrix) {
             float cx = _rgb_cameraMatrix.at<float>(0, 2);
@@ -368,7 +366,7 @@ namespace cv {
             Eigen::Map<Eigen::Matrix4f> eigenTransformMap(cvTransform.ptr<float>(0, 0));
             Eigen::Matrix4f eigenTransform = Eigen::Matrix4f::Zero(4, 4);
             if (movingPlanes.size() < 3) {
-                std::cout << "RgbdSurfaceTracker::estimateDeltaPose -> Not enough plane matches (" 
+                std::cout << "RgbdSurfaceTracker::estimateDeltaPose -> Not enough plane matches ("
                         << movingPlanes.size() << ") cannot estimate pose change." << std::endl;
                 return false;
             }
@@ -418,7 +416,10 @@ namespace cv {
             surfdetector.detect(rgbd_img, quadTree, detector_timeBudget_ms, rgb_result);
 
             int descriptor_timeBudget_ms = 20;
-            std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>> query_shapeMap;
+
+            cv::rgbd::ShapeMap::Ptr query_shapeMapPtr = cv::rgbd::ShapeMap::create();
+            cv::rgbd::ShapeMap& query_shapeMap = *query_shapeMapPtr;
+
             surfdescriptor_extractor.compute(rgbd_img, quadTree, query_shapeMap,
                     descriptor_timeBudget_ms, rgb_result);
 
@@ -474,9 +475,9 @@ namespace cv {
 
             // Match structures detected in this image with structures of the map
             // Compute the map between detected structures and existing structures
-            // TODO: Implement match(query_shapeMap)
             std::vector<sg::Shape::Ptr> newShapes;
-            if (prev_quadTree) {
+            if (prev_quadTree && train_shapeMapPtr) {
+                cv::rgbd::ShapeMap& train_shapeMap = *train_shapeMapPtr;
                 int descriptor_matching_timeBudget_ms = 20;
                 std::vector<cv::rgbd::ShapeMatch> shapeMatches;
                 surfmatcher.match(quadTree, query_shapeMap,
@@ -496,15 +497,16 @@ namespace cv {
                     //global_pose_estimate.set(newPose);
                     // Mapping -> Structure estimation
                     //updateMap(query_shapeMap, train_shapeMap);
-                    world_map.update(quadTree, query_shapeMap,
+                    world_map->update(quadTree, query_shapeMap,
                             prev_quadTree, train_shapeMap,
                             shapeMatches, global_pose_estimate);
                 }
             }
             //addToMap(unmatched)
-            world_map.insert(newShapes, global_pose_estimate);
+            world_map->insert(newShapes, global_pose_estimate);
 
             prev_quadTree = quadTree;
+            train_shapeMapPtr = query_shapeMapPtr;
             //iterativeAlignment(rgbd_img, rgb_result);
 
 #ifdef PROFILE_CALLGRIND
@@ -513,14 +515,14 @@ namespace cv {
 
         }
 
-        void WorldMap::update(const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
+        void ShapeMap::update(const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
                 const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
                 const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& prev_quadTree,
                 const std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&train_shapeMap,
                 std::vector<cv::rgbd::ShapeMatch>& matches, Pose global_pose) {
         }
 
-        void WorldMap::insert(std::vector<sg::Shape::Ptr>& newShapes, Pose global_pose) {
+        void ShapeMap::insert(std::vector<sg::Shape::Ptr>& newShapes, Pose global_pose) {
 
         }
 
