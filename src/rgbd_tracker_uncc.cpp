@@ -57,25 +57,10 @@ namespace cv {
             cv::waitKey(3);
         }
 
-        void testHypotheses(cv::rgbd::RgbdImage& rgbd_img,
-                cv::QuadTree<sg::Plane<float>::Ptr>& quadtree,
-                cv::Rect2i& roi, std::vector<cv::rgbd::ObjectGeometry>& geometry_list) {
-
-            for (cv::rgbd::ObjectGeometry& geometry : geometry_list) {
-                switch (geometry.getSurfaceType()) {
-                    case SurfaceType::EDGE:
-                        sg::Edge<float>::Ptr edge = boost::static_pointer_cast<sg::Edge<float>>(geometry.getShape());
-                        cv::Point3f midpoint_edge = 0.5 * (edge->getPoint(edge->start) + edge->getPoint(edge->end));
-                        cv::Point2f img_midpoint_edge = rgbd_img.project(midpoint_edge);
-                        std::cout << "img_midpoint: " << img_midpoint_edge << std::endl;
-                        //getBlockOfPoint(img_midpoint_edge, quadtree, roi);
-                        break;
-                }
-            }
-        }
-
         bool RgbdSurfaceTracker::filterShape(const sg::Shape::Ptr shape,
-                const cv::rgbd::RgbdImage& rgbd_img, const cv::Size& tileDims,
+                const cv::rgbd::RgbdImage& rgbd_img,
+                const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
+                const cv::Size& tileDims,
                 const cv::rgbd::SurfaceType& shapeType, cv::Mat& rgb_result) const {
             static float ISREAL_THRESHOLD = 0.022;
 
@@ -246,13 +231,10 @@ namespace cv {
             return false; // keep this shape and we have set it's isReal() flag
         }
 
-        void RgbdSurfaceTracker::filterDetections(cv::rgbd::RgbdImage& rgbd_img,
-                cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
+        void RgbdSurfaceTracker::filterDetections(const cv::rgbd::RgbdImage& rgbd_img,
+                const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
                 std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&query_shapeMap,
                 cv::Mat& rgb_result) {
-            //sg::Corner<float>::Ptr cornerPtr;
-            //sg::Edge<float>::Ptr edgePtr;
-            //cv::Vec3f position;
 
             cv::Size tileDims(BLOCKSIZE, BLOCKSIZE);
 
@@ -266,7 +248,8 @@ namespace cv {
                     // erase features too close to image boundary for analysis
                     shapeVec.erase(std::remove_if(shapeVec.begin(), shapeVec.end(),
                             boost::bind(&RgbdSurfaceTracker::filterShape, this, _1,
-                            boost::ref(rgbd_img), boost::ref(tileDims), boost::ref(shapeType),
+                            boost::ref(rgbd_img), boost::ref(quadTree),
+                            boost::ref(tileDims), boost::ref(shapeType),
                             boost::ref(rgb_result))),
                             shapeVec.end());
                 }
@@ -339,7 +322,13 @@ namespace cv {
             }
         }
 
-        cv::QuadTree<sg::Plane<float>::Ptr>::Ptr prev_quadTree;
+        bool RgbdSurfaceTracker::estimateDeltaPose(
+                const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
+                const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&train_shapeMap,
+                const std::vector<cv::rgbd::ShapeMatch>& matches,
+                Pose& pose_estimate) {
+            return true;
+        }
 
         void RgbdSurfaceTracker::segmentDepth(cv::rgbd::RgbdImage& rgbd_img, cv::Mat & rgb_result) {
 
@@ -371,7 +360,7 @@ namespace cv {
 
             // Validate higher-order detections:
             // We want to discriminate between virtual/real corner detections and virtual/real edge detections
-            // TODO: Implement setRealorVirtualFlag(quadTree, query_shapeMap)
+            // TODO: Implement filterDetections(quadTree, query_shapeMap)
             // This function will visit edges and corners:
             // For each edge:
             // 1. Sample data from the depth image tile centered on the edge midpoint
@@ -390,14 +379,6 @@ namespace cv {
             // Cluster detections:
             // Merge multiple detections of the same structure
             // TODO: Implement clusterDetections(query_shapeMap)
-            // This function visits all features for matching, e.g., planes, edges and corners,
-            // and clusters the detections into groups and produces a smaller collection of
-            // features for integration with the "map"
-            //clusterDetections(query_shapeMap, rgb_result);
-
-            // Match structures detected in this image with structures of the map
-            // Compute the map between detected structures and existing structures
-            // TODO: Implement match(query_shapeMap)
             // This function visits all features for matching, e.g., planes, edges and corners,
             // and clusters the detections into groups and produces a smaller collection of
             // features for integration with the "map"
@@ -427,23 +408,40 @@ namespace cv {
             }
             glDraw.clearObjects();
 
+            // Match structures detected in this image with structures of the map
+            // Compute the map between detected structures and existing structures
+            // TODO: Implement match(query_shapeMap)
+            Pose delta_pose_estimate;
+            std::vector<sg::Shape::Ptr> newShapes;
             if (prev_quadTree) {
                 int descriptor_matching_timeBudget_ms = 20;
                 std::vector<cv::rgbd::ShapeMatch> shapeMatches;
-                std::vector<sg::Shape::Ptr> newShapes;
-                surfmatcher.match(query_shapeMap, train_shapeMap, shapeMatches, newShapes,
+                surfmatcher.match(quadTree, query_shapeMap,
+                        prev_quadTree, train_shapeMap,
+                        shapeMatches, newShapes,
                         descriptor_matching_timeBudget_ms, rgb_result);
+                // Structures having a match are used to solve the following problems:
+                // 1. Localization -> (Range-based Odometry / Pose-change estimation)
+                if (!estimateDeltaPose(query_shapeMap, train_shapeMap, shapeMatches, delta_pose_estimate)) {
+                    std::cout << "Could not estimate pose from provided shape matches!" << std::endl;
+                    return;
+                } else { // use pose estimate to update map
+                    cv::Matx44f pose = global_pose_estimate.getTransform();
+                    cv::Matx44f deltaPose = delta_pose_estimate.getTransform();
+                    cv::Matx44f new_pose = pose*deltaPose;
+                    // TODO: implement set function for pose
+                    //global_pose_estimate.set(newPose);
+                    // Mapping -> Structure estimation
+                    //updateMap(query_shapeMap, train_shapeMap);
+                    world_map.update(quadTree, query_shapeMap,
+                            prev_quadTree, train_shapeMap,
+                            shapeMatches, global_pose_estimate);
+                }
             }
+            //addToMap(unmatched)
+            world_map.insert(newShapes, global_pose_estimate);
 
             prev_quadTree = quadTree;
-            // Structures without a match are inserted to the map
-            // addToMap(unmatched_
-            // Structures having a match are used to solve the following problems:
-            // 1. Localization -> (Range-based Odometry / Pose-change estimation)
-            // TODO: computePoseChange();
-            // 2. Mapping -> Structure estimation
-            // TODO: updateMap(query_shapeMap, train_shapeMap);
-
             //iterativeAlignment(rgbd_img, rgb_result);
 
 #ifdef PROFILE_CALLGRIND
@@ -451,5 +449,17 @@ namespace cv {
 #endif      
 
         }
+
+        void WorldMap::update(const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
+                const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
+                const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& prev_quadTree,
+                const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&train_shapeMap,
+                std::vector<cv::rgbd::ShapeMatch>& matches, Pose global_pose) {
+        }
+
+        void WorldMap::insert(std::vector<sg::Shape::Ptr>& newShapes, Pose global_pose) {
+
+        }
+
     } /* namespace rgbd */
 } /* namespace cv */

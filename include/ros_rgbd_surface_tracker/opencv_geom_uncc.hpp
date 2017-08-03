@@ -727,7 +727,7 @@ namespace cv {
         int _numLevels;
     public:
         typedef boost::shared_ptr<QuadTree> Ptr;
-        typedef boost::shared_ptr<QuadTree> ConstPtr;
+        typedef boost::shared_ptr<const QuadTree> ConstPtr;
 
         QuadTree(cv::Size _srcSize, cv::Size _blockSize, cv::Rect _roi) :
         srcDims(_srcSize), roi(_roi), _numLevels(0),
@@ -748,7 +748,7 @@ namespace cv {
     class QuadTreeLevel {
     public:
         typedef boost::shared_ptr<QuadTreeLevel> Ptr;
-        typedef boost::shared_ptr<QuadTreeLevel> ConstPtr;
+        typedef boost::shared_ptr<const QuadTreeLevel> ConstPtr;
 
     private:
         int level;

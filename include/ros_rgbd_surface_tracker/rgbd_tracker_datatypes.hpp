@@ -75,6 +75,28 @@ namespace cv {
             }
         };
 
+        class WorldMap {
+        public:
+            std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>> map;
+
+            WorldMap() {
+
+            }
+
+            virtual ~WorldMap() {
+
+            }
+
+            void insert(std::vector<sg::Shape::Ptr>& newShapes, Pose global_pose);
+
+            void update(const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
+                    const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
+                    const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& prev_quadTree,
+                    const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&train_shapeMap,
+                    std::vector<cv::rgbd::ShapeMatch>& matches, Pose global_pose);
+
+        };
+
         class ObjectGeometry {
             //std::vector<AlgebraicSurfacePatch::Ptr> patchVec;
             sg::Shape::Ptr parentShape;

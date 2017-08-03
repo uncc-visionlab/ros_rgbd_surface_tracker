@@ -62,23 +62,23 @@ namespace cv {
                     cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
                     std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
                     int timeBudget_ms, cv::Mat& rgb_result) const;
-            
+
             void cluster(
-                std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap);
-            
+                    std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap);
+
         }; /* class SurfaceDescriptorExtractor */
 
         class SurfaceDescriptorMatcher {
         public:
-            void match(std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
-                    std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&train_shapeMap,
-                    std::vector<cv::rgbd::ShapeMatch>& matches, 
+            void match(const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
+                    const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
+                    const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& prev_quadTree,
+                    const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&train_shapeMap,
+                    std::vector<cv::rgbd::ShapeMatch>& matches,
                     std::vector<sg::Shape::Ptr>& newShapes, int timeBudget_ms,
-                    cv::Mat& rgb_result, Pose camPose = Pose(), cv::Mat mask = cv::Mat());
+                    cv::Mat& rgb_result, Pose camPose = Pose(), cv::Mat mask = cv::Mat()) const;
         }; /* class SurfaceDescriptorMatcher */
 
-        
-        
         class RgbdSurfaceTracker {
         public:
             static OpenGLRenderer glDraw;
@@ -91,18 +91,25 @@ namespace cv {
             };
 
             // validate edge and corner features with geometric measurements center on feature location
-            void filterDetections(cv::rgbd::RgbdImage& rgbd_img,
-                    cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
+            void filterDetections(const cv::rgbd::RgbdImage& rgbd_img,
+                    const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
                     std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&query_shapeMap,
                     cv::Mat& rgb_result);
 
             // erase edge and corner features that do not lie within the image boundary
             bool filterShape(const sg::Shape::Ptr shape,
-                const cv::rgbd::RgbdImage& rgbd_img, const cv::Size& tileDims,
-                const cv::rgbd::SurfaceType& shapeType, cv::Mat& rgb_result) const;
+                    const cv::rgbd::RgbdImage& rgbd_img,
+                    const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
+                    const cv::Size& tileDims,
+                    const cv::rgbd::SurfaceType& shapeType, cv::Mat& rgb_result) const;
 
-            void clusterDetections(std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>& query_shapeMap,
+            void clusterDetections(std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
                     cv::Mat& rgb_result);
+
+            bool estimateDeltaPose(const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
+                    const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&train_shapeMap,
+                    const std::vector<cv::rgbd::ShapeMatch>& matches,
+                    Pose& pose_estimate);
 
             void segmentDepth(cv::rgbd::RgbdImage& rgbd_img, cv::Mat& result);
 
@@ -125,6 +132,11 @@ namespace cv {
             SurfaceDetector surfdetector;
             SurfaceDescriptorExtractor surfdescriptor_extractor;
             SurfaceDescriptorMatcher surfmatcher;
+            
+            cv::QuadTree<sg::Plane<float>::Ptr>::Ptr prev_quadTree;
+            cv::rgbd::WorldMap world_map;
+            Pose global_pose_estimate;
+
         }; /* class RgbdSurfaceTracker */
     } /* namespace rgbd */
 } /* namespace cv */
