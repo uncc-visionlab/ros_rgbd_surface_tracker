@@ -193,7 +193,9 @@ corner_search_done:
             //shapePtrVec.push_back(cyl1ptr);
         }
 
-        float MATCH_DISTANCE_THRESHOLD = 2;
+        float CORNER_MATCH_DISTANCE_THRESHOLD = 2.0f;
+        float EDGE_MATCH_DISTANCE_THRESHOLD = 2.0f;
+        float PLANE_MATCH_DISTANCE_THRESHOLD = 0.1f;
 
         void SurfaceDescriptorMatcher::match(const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
                 const std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&query_shapeMap,
@@ -215,21 +217,20 @@ corner_search_done:
             int64 timeBudgetTicks = timeBudget_ms * cv::getTickFrequency() / 1000;
             int64 ticksNow, ticksStart = cv::getTickCount();
 
-            ticksNow = cv::getTickCount();
-            timeBudgetExpired = (ticksNow - ticksStart) > timeBudgetTicks;
-
             // Search for matching edges and corners first between successive frames
             // these elements encode more information than planes
             float distance, min_distance;
             for (auto shapeType_iter = train_shapeMap.begin();
                     shapeType_iter != train_shapeMap.end(); ++shapeType_iter) {
+                const cv::rgbd::SurfaceType shapeType = (*shapeType_iter).first;
                 const std::vector<sg::Shape::Ptr>& shapeVec = (*shapeType_iter).second;
-                cv::rgbd::SurfaceType shapeType = (*shapeType_iter).first;
                 if (!shapeType == cv::rgbd::PLANE) { // planes are matches using sequential frame quadtrees
                     for (auto shape_iterA = shapeVec.begin(); shape_iterA != shapeVec.end(); ++shape_iterA) {
                         const sg::Shape::Ptr& shapeA = *shape_iterA;
                         shapeA->getPose().getTranslation(position);
                         if (shape_iterA + 1 != shapeVec.end()) {
+                            bestMatch = nullptr;
+                            min_distance = std::numeric_limits<float>::infinity();
                             switch (shapeType) {
                                 case SurfaceType::CORNER:
                                     cornerPtrA = boost::static_pointer_cast<sg::Corner<float>>(shapeA);
@@ -237,7 +238,8 @@ corner_search_done:
                                     for (auto shape_iterB = shape_iterA + 1; shape_iterB != shapeVec.end(); ++shape_iterB) {
                                         cornerPtrB = boost::static_pointer_cast<sg::Corner<float>>(*shape_iterB);
                                         distance = cornerPtrA->matchDistance(cornerPtrB);
-                                        if (distance < min_distance) {
+                                        if (distance < CORNER_MATCH_DISTANCE_THRESHOLD &&
+                                                distance < min_distance) {
                                             bestMatch = cornerPtrB;
                                             min_distance = distance;
                                         }
@@ -248,7 +250,8 @@ corner_search_done:
                                     for (auto shape_iterB = shape_iterA + 1; shape_iterB != shapeVec.end(); ++shape_iterB) {
                                         edgePtrB = boost::static_pointer_cast<sg::Edge<float>>(*shape_iterB);
                                         distance = edgePtrA->matchDistance(edgePtrB);
-                                        if (distance < min_distance) {
+                                        if (distance < EDGE_MATCH_DISTANCE_THRESHOLD &&
+                                                distance < min_distance) {
                                             bestMatch = edgePtrB;
                                             min_distance = distance;
                                         }
@@ -260,14 +263,15 @@ corner_search_done:
                                     for (auto shape_iterB = shape_iterA + 1; shape_iterB != shapeVec.end(); ++shape_iterB) {
                                         planePtrB = boost::static_pointer_cast<sg::Plane<float>>(*shape_iterB);
                                         distance = planePtrA->matchDistance(planePtrB);
-                                        if (distance < min_distance) {
+                                        if (distance < PLANE_MATCH_DISTANCE_THRESHOLD &&
+                                                distance < min_distance) {
                                             bestMatch = planePtrB;
                                             min_distance = distance;
                                         }
                                     }
                                     break;
                             }
-                            if (min_distance < MATCH_DISTANCE_THRESHOLD) {
+                            if (bestMatch) {
                                 cv::rgbd::ShapeMatch matchAB;
                                 matchAB.query_shape = shapeA;
                                 matchAB.train_shape = bestMatch;
@@ -285,20 +289,47 @@ corner_search_done:
             ticksNow = cv::getTickCount();
             timeBudgetExpired = (ticksNow - ticksStart) > timeBudgetTicks;
 
-
             // match planes directly out of the previous frame and current frame quadTrees
             cv::Rect rootCompareWindow(-2, -2, 5, 5);
             int qX, qY, key, dLevel;
-            int level = quadTree->getLevel();
-            std::vector<bool> searchedLevelsVec(16, false);
             int compareLevels[] = {0, 0};
-            cv::Point2f projectedPosition;
             while (!timeBudgetExpired &&
                     quadTree->numLevels() >= std::max(compareLevels[0], compareLevels[1])) {
                 dLevel = compareLevels[1] - compareLevels[0];
                 QuadTreeLevel<sg::Plane<float>::Ptr>* qt_prv = prev_quadTree->getQuadTreeLevel(compareLevels[0]);
                 QuadTreeLevel<sg::Plane<float>::Ptr>* qt_cur = quadTree->getQuadTreeLevel(compareLevels[1]);
                 QuadTreeLevel<sg::Plane<float>::Ptr>* qts[] = {qt_prv, qt_cur};
+
+                std::unordered_map<int, sg::Plane<float>::Ptr> dataA = qts[0]->getData();
+                for (auto it = dataA.begin(); it != dataA.end(); ++it) {
+                    key = it->first;
+                    qts[0]->keyToXY(key, qX, qY);
+                    sg::Plane<float>::Ptr planeA = it->second; // plane from first quadTree
+                    bestMatch = nullptr;
+                    min_distance = std::numeric_limits<float>::infinity();
+                    for (int dX = rootCompareWindow.x; dX < rootCompareWindow.x + rootCompareWindow.width; ++dX) {
+                        for (int dY = rootCompareWindow.y; dY < rootCompareWindow.y + rootCompareWindow.height; ++dY) {
+                            sg::Plane<float>::Ptr* planeB_ptr = qts[1]->get((qX << dLevel) + dX, (qY << dLevel) + dY);
+                            if (planeB_ptr) {
+                                distance = planeA->matchDistance(*planeB_ptr);
+                                if (distance < PLANE_MATCH_DISTANCE_THRESHOLD &&
+                                        distance < min_distance) {
+                                    bestMatch = *planeB_ptr;
+                                    min_distance = distance;
+                                }
+                            } /* restrict surface pairwise comparisons to planes */
+                        } /* loop over candidate second match surface elements (surface pairs) */
+                    } /* loop over candidate surface elements */
+                    if (bestMatch) {
+                        cv::rgbd::ShapeMatch matchAB;
+                        matchAB.query_shape = planeA;
+                        matchAB.train_shape = bestMatch;
+                        matchAB.distance = min_distance;
+                        matchAB.surfaceType = cv::rgbd::PLANE;
+                        matches.push_back(matchAB);
+                    }
+                }
+
 
                 ticksNow = cv::getTickCount();
                 timeBudgetExpired = (ticksNow - ticksStart) > timeBudgetTicks;
@@ -313,15 +344,13 @@ corner_search_done:
             std::cout << "Surface matcher time used = " << ((double) (ticksNow - ticksStart) / cv::getTickFrequency())
                     << " sec time allocated = " << ((double) timeBudgetTicks / cv::getTickFrequency()) << " sec" << std::endl;
 
-            static bool verbose = false;
+            static bool verbose = true;
             if (verbose) {
                 for (auto it = query_shapeMap.begin(); it != query_shapeMap.end(); ++it) {
                     std::cout << "Found " << (*it).second.size() << " " <<
                             cv::rgbd::surfaceTypeToString[(*it).first] << " geometries." << std::endl;
                 }
             }
-
-
         }
     } /* namespace rgbd */
 } /* namespace cv */

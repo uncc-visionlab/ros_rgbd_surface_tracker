@@ -476,6 +476,14 @@ namespace cv {
             // Match structures detected in this image with structures of the map
             // Compute the map between detected structures and existing structures
             std::vector<sg::Shape::Ptr> newShapes;
+
+            // Code here ensures the new image has enough information to
+            // be used for matching. If we use it, then we must be sure that we
+            // can match to this map in both the current the next frame.
+            if (quadTree->getData().size() < 50) {
+                return; // not enough information to use this image
+            }
+            
             if (prev_quadTree && train_shapeMapPtr) {
                 cv::rgbd::ShapeMap& train_shapeMap = *train_shapeMapPtr;
                 int descriptor_matching_timeBudget_ms = 20;
@@ -487,7 +495,7 @@ namespace cv {
                 // Structures having a match are used to solve the following problems:
                 // 1. Localization -> (Range-based Odometry / Pose-change estimation)
                 if (!estimateDeltaPose(query_shapeMap, train_shapeMap, shapeMatches, delta_pose_estimate)) {
-                    std::cout << "Could not estimate pose from provided shape matches!" << std::endl;
+                    std::cout << "Could not estimate pose change from provided shape matches!" << std::endl;
                     return;
                 } else { // use pose estimate to update map
                     cv::Matx44f pose = global_pose_estimate.getTransform();
@@ -512,7 +520,6 @@ namespace cv {
 #ifdef PROFILE_CALLGRIND
             CALLGRIND_TOGGLE_COLLECT;
 #endif      
-
         }
 
         void ShapeMap::update(const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
