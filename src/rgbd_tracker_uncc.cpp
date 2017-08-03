@@ -60,7 +60,8 @@ namespace cv {
                 const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
                 const cv::Size& tileDims,
                 const cv::rgbd::SurfaceType& shapeType, cv::Mat& rgb_result) const {
-            static float ISREAL_THRESHOLD = 0.022;
+//            static float ISREAL_THRESHOLD = 0.022;
+            static float ISREAL_THRESHOLD = 0.003;
 
             cv::Vec3f position;
             shape->getPose().getTranslation(position);
@@ -99,6 +100,9 @@ namespace cv {
             cv::Vec2f avgTileCtr;
             cv::Point3f ctrpt;
             float error, planeerror;
+            int samples_per_tile = 100;
+            std::vector<cv::Point3f> tile_data;
+            tile_data.reserve(samples_per_tile);
 
             cv::rectangle(rgb_result, tile, cv::Scalar(0, 255, 0), 1);
 
@@ -171,10 +175,12 @@ namespace cv {
                     //return false;                        
                     return !cornerPtr->isReal();
                     break;
+                    
+                    
                 case SurfaceType::EDGE:
                     edgePtr = boost::static_pointer_cast<sg::Edge<float>>(shape);
+                    edgePtr->getPlanes(planeSet);
                     if (false) { // use vector to plane positions directly
-                        edgePtr->getPlanes(planeSet);
                         idx = 0;
                         for (auto plane_iter = planeSet.begin(); plane_iter != planeSet.end(); ++plane_iter, ++idx) {
                             (*plane_iter)->getPose().getTranslation(planePos3[idx]);
@@ -201,6 +207,7 @@ namespace cv {
                     }
                     avgTileCtr = 0.5 * (tileCtr[0] + tileCtr[1]);
                     avgTileCtr -= projPt;
+                    
                     error = 0;
                     for (idx = 0; idx < 2; ++idx) {
                         testTile.x = tileCtr[idx][0] - avgTileCtr[0] - 0.15 * std::abs(dirVec[idx][0] * tileDims.width);
@@ -218,26 +225,43 @@ namespace cv {
                         // edgePtr->setReal(false);
                         // return true;
                         // } else {
-                        rgbd_img.getPoint3f(tileCtr[idx][0] - avgTileCtr[0], tileCtr[idx][1] - avgTileCtr[1], ctrpt);
-                        if (std::isnan(ctrpt.z)) {
+                        
+                        tile_data.clear();
+                        rgbd_img.getTileData_Uniform(testTile.x, testTile.y, testTile.width, testTile.height, tile_data, samples_per_tile);
+                        
+                        if (tile_data.size() > 0.75*samples_per_tile) {
+                            
+                            float last_plane_error = std::numeric_limits<float>::infinity();
+                            
+                            for (const sg::Plane<float>::Ptr& plane : planeSet) {
+                                
+                                planeerror = 0;
+                                for (const cv::Point3f& pt : tile_data) {
+                                    planeerror += std::pow<float>(plane->evaluate(pt), 2.0);
+                                }
+                                
+                                planeerror = std::min(planeerror, last_plane_error);
+                                last_plane_error = planeerror;
+                            }
+                            
+                        } else {
                             edgePtr->setReal(false);
+                            cv::rectangle(rgb_result, tile, (edgePtr->isReal()) ? cv::Scalar(0, 255, 0) : cv::Scalar(0, 140, 255), 1);
                             return true; // delete
-                            //return false; // keep
                         }
-                        ctrpt = (cv::Vec3f) ctrpt - position;
-                        // out of plane error --> plane index is (idx+1)%2
-                        planeerror = std::abs(ctrpt.dot(axes2[(idx + 1) % 2]));
-                        //std::cout << "plane error = " << planeerror << std::endl;
+                        
+//                        std::string rect_txt = "err=" + std::to_string(planeerror);
+//                        cv::putText(rgb_result, rect_txt, testTile.tl() + cv::Point2i(0, -5), 0, .3, Scalar::all(255), 1, 8);
                         error = std::max(planeerror, error);
                     }
-                    // code A)
-                    // edgePtr->setReal(true);
-                    // return false;                    
-                    //std::cout << "error = " << error << std::endl;
+//                    cv::putText(rgb_result, std::string("err=" + std::to_string(planeerror)),
+//                            tile.tl() + cv::Point2i(0, tile.height + 5), 0, .3, Scalar::all(255), 1, 8);
                     edgePtr->setReal(error < ISREAL_THRESHOLD);
-                    //return false;
+                    cv::rectangle(rgb_result, tile, (edgePtr->isReal()) ? cv::Scalar(0, 255, 0) : cv::Scalar(0, 140, 255), 1);
                     return !edgePtr->isReal();
                     break;
+                    
+                    
                 default:
                     std::cout << "RgbdSurfaceTracker::filterShape() -> should never execute!" << std::endl;
                     break;
@@ -248,7 +272,7 @@ namespace cv {
             //            }
             return false; // keep this shape and we have set it's isReal() flag
         }
-
+        
         void RgbdSurfaceTracker::filterDetections(const cv::rgbd::RgbdImage& rgbd_img,
                 const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
                 std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&query_shapeMap,
