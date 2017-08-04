@@ -61,7 +61,7 @@ namespace cv {
                 const cv::Size& tileDims,
                 const cv::rgbd::SurfaceType& shapeType, cv::Mat& rgb_result) const {
 //            static float ISREAL_THRESHOLD = 0.022;
-            static float ISREAL_THRESHOLD = 0.003;
+            static float ISREAL_THRESHOLD = 0.01;
 
             cv::Vec3f position;
             shape->getPose().getTranslation(position);
@@ -109,8 +109,8 @@ namespace cv {
             switch (shapeType) {
                 case SurfaceType::CORNER:
                     cornerPtr = boost::static_pointer_cast<sg::Corner<float>>(shape);
+                    cornerPtr->getPlanes(planeSet);
                     if (false) { // use vector to plane positions directly
-                        cornerPtr->getPlanes(planeSet);
                         idx = 0;
                         for (auto plane_iter = planeSet.begin(); plane_iter != planeSet.end(); ++plane_iter, ++idx) {
                             (*plane_iter)->getPose().getTranslation(planePos3[idx]);
@@ -155,15 +155,40 @@ namespace cv {
                         // cornerPtr->setReal(false);
                         // return true;
                         // } else {
-                        rgbd_img.getPoint3f(tileCtr[idx][0] - avgTileCtr[0], tileCtr[idx][1] - avgTileCtr[1], ctrpt);
-                        if (std::isnan(ctrpt.z)) {
+                        
+                        tile_data.clear();
+                        rgbd_img.getTileData_Uniform(testTile.x, testTile.y, testTile.width, testTile.height, tile_data, samples_per_tile);
+                        
+                        if (tile_data.size() > 0.75*samples_per_tile) {
+                            
+                            float last_plane_error = std::numeric_limits<float>::infinity();
+                            
+                            for (const sg::Plane<float>::Ptr& plane : planeSet) {
+                                
+                                planeerror = 0;
+                                for (const cv::Point3f& pt : tile_data) {
+                                    planeerror += std::pow<float>(plane->evaluate(pt), 2.0);
+                                }
+                                
+                                planeerror = std::min(planeerror, last_plane_error);
+                                last_plane_error = planeerror;
+                            }
+                            
+                        } else {
                             cornerPtr->setReal(false);
+                            cv::rectangle(rgb_result, tile, (cornerPtr->isReal()) ? cv::Scalar(0, 255, 0) : cv::Scalar(0, 140, 255), 1);
                             return true; // delete
-                            //return false; // keep
                         }
-                        ctrpt = (cv::Vec3f) ctrpt - position;
-                        // out of plane error --> plane index is (idx+2)%3
-                        planeerror = std::abs(ctrpt.dot(axes2[(idx + 2) % 3]));
+                        
+//                        rgbd_img.getPoint3f(tileCtr[idx][0] - avgTileCtr[0], tileCtr[idx][1] - avgTileCtr[1], ctrpt);
+//                        if (std::isnan(ctrpt.z)) {
+//                            cornerPtr->setReal(false);
+//                            return true; // delete
+//                            //return false; // keep
+//                        }
+//                        ctrpt = (cv::Vec3f) ctrpt - position;
+//                        // out of plane error --> plane index is (idx+2)%3
+//                        planeerror = std::abs(ctrpt.dot(axes2[(idx + 2) % 3]));
                         //std::cout << "plane error = " << planeerror << std::endl;
                         error = std::max(planeerror, error);
                     }
@@ -250,6 +275,16 @@ namespace cv {
                             return true; // delete
                         }
                         
+//                        rgbd_img.getPoint3f(tileCtr[idx][0] - avgTileCtr[0], tileCtr[idx][1] - avgTileCtr[1], ctrpt);
+//                        if (std::isnan(ctrpt.z)) {
+//                            edgePtr->setReal(false);
+//                            return true; // delete
+//                            //return false; // keep
+//                        }
+//                        ctrpt = (cv::Vec3f) ctrpt - position;
+//                        // out of plane error --> plane index is (idx+1)%2
+//                        planeerror = std::abs(ctrpt.dot(axes2[(idx + 1) % 2]));
+
 //                        std::string rect_txt = "err=" + std::to_string(planeerror);
 //                        cv::putText(rgb_result, rect_txt, testTile.tl() + cv::Point2i(0, -5), 0, .3, Scalar::all(255), 1, 8);
                         error = std::max(planeerror, error);
