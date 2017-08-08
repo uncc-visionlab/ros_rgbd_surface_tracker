@@ -50,7 +50,7 @@ namespace cv {
             float fy = _rgb_cameraMatrix.at<float>(1, 1);
             cv::rgbd::RgbdImage rgbd_img(_ocv_rgbframe, _ocv_depthframe_float, cx, cy, fx);
             cv::Mat rgb_result = _ocv_rgbframe;
-            segmentDepth(rgbd_img, rgb_result);
+            updateSurfaces(rgbd_img, rgb_result);
             cv::imshow("RGB Result", rgb_result);
             cv::waitKey(3);
         }
@@ -399,8 +399,8 @@ namespace cv {
         }
 
         bool RgbdSurfaceTracker::estimateDeltaPose(
-                const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
-                const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&train_shapeMap,
+                const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>& query_shapeMap,
+                const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>& train_shapeMap,
                 const std::vector<cv::rgbd::ShapeMatch>& matches,
                 Pose& delta_pose_estimate) {
 
@@ -436,7 +436,7 @@ namespace cv {
                         << " discarding pose change estimate." << std::endl;
                 return false;
             }
-            std::cout << "eigen mat = " << eigenTransform << std::endl;
+            //std::cout << "eigen mat = " << eigenTransform << std::endl;
             eigenTransformMap = eigenTransform;
             //std::cout << "eigen mat mapped = " << eigenTransformMap << std::endl;
             cv::transpose(cvTransform, cvTransform);
@@ -445,13 +445,13 @@ namespace cv {
             cv::Mat rotMat = cvTransform(cv::Rect(0, 0, 3, 3));
             cv::Rodrigues(rotMat, rVec);
             //cv::transpose(rotMat, rotMat);
-            std::cout << "R = " << rotMat << std::endl;
-            std::cout << "t = " << tVec << std::endl;
+            //std::cout << "R = " << rotMat << std::endl;
+            //std::cout << "t = " << tVec << std::endl;
             delta_pose_estimate.set(tVec, rVec);
             return true;
         }
 
-        void RgbdSurfaceTracker::segmentDepth(cv::rgbd::RgbdImage& rgbd_img, cv::Mat & rgb_result) {
+        void RgbdSurfaceTracker::updateSurfaces(cv::rgbd::RgbdImage& rgbd_img, cv::Mat & rgb_result) {
 
 #ifdef PROFILE_CALLGRIND
             CALLGRIND_TOGGLE_COLLECT;
@@ -465,7 +465,8 @@ namespace cv {
             //cv::Rect rectVal(290, 200, 640 - 2 * 290, 480 - 2 * 200);
             //cv::rectangle(rgb_result, rectVal, cv::Scalar(0, 255, 0), 3);
             //rgbd_img.computeNormals();
-
+            rgbd_img.invalidate_NaN_Neighbors();
+            
             cv::Rect roi(MARGIN_X, MARGIN_Y, rgbd_img.getWidth() - 2 * MARGIN_X, rgbd_img.getHeight() - 2 * MARGIN_Y);
             cv::Size imgSize(rgbd_img.getWidth(), rgbd_img.getHeight());
             cv::Size tileSize(BLOCKSIZE, BLOCKSIZE);
@@ -538,8 +539,8 @@ namespace cv {
 
             // Code here ensures the new image has enough information to
             // be used for matching. If we use it, then we must be sure that we
-            // can match to this map in both the current the next frame.
-            if (quadTree->getData().size() < 50) {
+            // can match to this map in both the current the next frame. 
+            if (quadTree->numElements() < 50) {
                 return; // not enough information to use this image
             }
             
@@ -557,13 +558,12 @@ namespace cv {
                     std::cout << "Could not estimate pose change from provided shape matches!" << std::endl;
                     return;
                 } else { // use pose estimate to update map
-                    cv::Matx44f pose = global_pose_estimate.getTransform();
-                    cv::Matx44f deltaPose = delta_pose_estimate.getTransform();
-                    cv::Matx44f new_pose = pose*deltaPose;
-                    // TODO: implement set function for pose
-                    //global_pose_estimate.set(newPose);
-                    // Mapping -> Structure estimation
-                    //updateMap(query_shapeMap, train_shapeMap);
+                    //cv::Matx44f pose = global_pose_estimate.getTransform();
+                    //cv::Matx44f deltaPose = delta_pose_estimate.getTransform();
+                    //cv::Matx44f new_pose = pose*deltaPose;
+                    //global_pose_estimate.set(new_pose);
+                    global_pose_estimate.update(delta_pose_estimate);
+                    // Mapping -> Structure estimation                   
                     world_map->update(quadTree, query_shapeMap,
                             prev_quadTree, train_shapeMap,
                             shapeMatches, global_pose_estimate);

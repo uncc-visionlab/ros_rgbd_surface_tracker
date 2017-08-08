@@ -71,6 +71,8 @@ public:
             bool useRectifiedParameters, cv::Mat &cameraMatrix,
             cv::Mat &distortionCoeffs, cv::Size &imSize);
 
+    void updateSurfaces(const sensor_msgs::ImageConstPtr& depth_msg,
+            cv::rgbd::RgbdImage& rgbd_img, cv::Mat & rgb_result);
 
 private:
     // -------------------------
@@ -84,8 +86,10 @@ private:
     ros::NodeHandlePtr nodeptr;
     ros::Time frame_time;
     std::string frame_id_str;
+    
     cv_bridge::CvImageConstPtr cv_rgbimg_ptr;
     cv_bridge::CvImageConstPtr cv_depthimg_ptr;
+
     image_geometry::PinholeCameraModel model_;
     std::string depth_encoding;
     int depth_row_step;
@@ -103,7 +107,11 @@ private:
     message_filters::Subscriber<sensor_msgs::CameraInfo> sub_rgbCameraInfo;
     message_filters::Subscriber<sensor_msgs::CameraInfo> sub_depthCameraInfo;
 
-    ros::Publisher pubPoseWCovariance;
+    ros::Publisher pubPose_w_cov;
+    ros::Publisher pubOdom_w_cov;
+
+    tf::TransformBroadcaster tfbroadcaster;
+
     image_transport::ImageTransport it;
     image_transport::Publisher image_pub;
 

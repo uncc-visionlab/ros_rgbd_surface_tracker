@@ -27,11 +27,14 @@
 
 class PlaneVisualizationData {
 public:
+    typedef boost::shared_ptr<PlaneVisualizationData> Ptr;
+    typedef boost::shared_ptr<const PlaneVisualizationData> ConstPtr;
+
     class Tri {
     public:
         std::array<Eigen::Vector3f, 3> vertices;
     };
-    
+
     std::vector<Tri> triangles;
     std::vector<Eigen::Vector3f> rect_points;
 
@@ -223,39 +226,39 @@ Eigen::Matrix<ScalarType, 4, 7> jacobianTransformedPlaneQuat(
     // Jacobian columns from left to right: s, vx, vy, vz, tx, ty, tz
 
     Eigen::Matrix<ScalarType, 4, 7> jacobian;
-    
-    jacobian(0, 0) = (2*(c*pow(s,2)*vy - b*pow(s,2)*vz - 2*b*s*vx*vy - 2*c*s*vx*vz + 2*a*s*pow(vy,2) + 2*a*s*pow(vz,2) - c*pow(vx,2)*vy + b*pow(vx,2)*vz - c*pow(vy,3) + b*pow(vy,2)*vz - c*vy*pow(vz,2) + b*pow(vz,3)))/pow((pow(s,2) + pow(vx,2) + pow(vy,2) + pow(vz,2)),2);
-    jacobian(0, 1) = (2*(b*pow(s,2)*vy + c*pow(s,2)*vz + 2*c*s*vx*vy - 2*b*s*vx*vz - b*pow(vx,2)*vy - c*pow(vx,2)*vz + 2*a*vx*pow(vy,2) + 2*a*vx*pow(vz,2) + b*pow(vy,3) + c*pow(vy,2)*vz + b*vy*pow(vz,2) + c*pow(vz,3)))/pow((pow(s,2) + pow(vx,2) + pow(vy,2) + pow(vz,2)),2);
-    jacobian(0, 2) = -(2*(c*pow(s,3) - b*pow(s,2)*vx + 2*a*pow(s,2)*vy + c*s*pow(vx,2) - c*s*pow(vy,2) + 2*b*s*vy*vz + c*s*pow(vz,2) - b*pow(vx,3) + 2*a*pow(vx,2)*vy + b*vx*pow(vy,2) + 2*c*vx*vy*vz - b*vx*pow(vz,2)))/pow((pow(s,2) + pow(vx,2) + pow(vy,2) + pow(vz,2)),2);
-    jacobian(0, 3) = (2*(b*pow(s,3) + c*pow(s,2)*vx - 2*a*pow(s,2)*vz + b*s*pow(vx,2) + b*s*pow(vy,2) + 2*c*s*vy*vz - b*s*pow(vz,2) + c*pow(vx,3) - 2*a*pow(vx,2)*vz + c*vx*pow(vy,2) - 2*b*vx*vy*vz - c*vx*pow(vz,2)))/pow((pow(s,2) + pow(vx,2) + pow(vy,2) + pow(vz,2)),2);
-    jacobian(0, 4) = 0; 
-    jacobian(0, 5) = 0; 
+
+    jacobian(0, 0) = (2 * (c * pow(s, 2) * vy - b * pow(s, 2) * vz - 2 * b * s * vx * vy - 2 * c * s * vx * vz + 2 * a * s * pow(vy, 2) + 2 * a * s * pow(vz, 2) - c * pow(vx, 2) * vy + b * pow(vx, 2) * vz - c * pow(vy, 3) + b * pow(vy, 2) * vz - c * vy * pow(vz, 2) + b * pow(vz, 3))) / pow((pow(s, 2) + pow(vx, 2) + pow(vy, 2) + pow(vz, 2)), 2);
+    jacobian(0, 1) = (2 * (b * pow(s, 2) * vy + c * pow(s, 2) * vz + 2 * c * s * vx * vy - 2 * b * s * vx * vz - b * pow(vx, 2) * vy - c * pow(vx, 2) * vz + 2 * a * vx * pow(vy, 2) + 2 * a * vx * pow(vz, 2) + b * pow(vy, 3) + c * pow(vy, 2) * vz + b * vy * pow(vz, 2) + c * pow(vz, 3))) / pow((pow(s, 2) + pow(vx, 2) + pow(vy, 2) + pow(vz, 2)), 2);
+    jacobian(0, 2) = -(2 * (c * pow(s, 3) - b * pow(s, 2) * vx + 2 * a * pow(s, 2) * vy + c * s * pow(vx, 2) - c * s * pow(vy, 2) + 2 * b * s * vy * vz + c * s * pow(vz, 2) - b * pow(vx, 3) + 2 * a * pow(vx, 2) * vy + b * vx * pow(vy, 2) + 2 * c * vx * vy * vz - b * vx * pow(vz, 2))) / pow((pow(s, 2) + pow(vx, 2) + pow(vy, 2) + pow(vz, 2)), 2);
+    jacobian(0, 3) = (2 * (b * pow(s, 3) + c * pow(s, 2) * vx - 2 * a * pow(s, 2) * vz + b * s * pow(vx, 2) + b * s * pow(vy, 2) + 2 * c * s * vy * vz - b * s * pow(vz, 2) + c * pow(vx, 3) - 2 * a * pow(vx, 2) * vz + c * vx * pow(vy, 2) - 2 * b * vx * vy * vz - c * vx * pow(vz, 2))) / pow((pow(s, 2) + pow(vx, 2) + pow(vy, 2) + pow(vz, 2)), 2);
+    jacobian(0, 4) = 0;
+    jacobian(0, 5) = 0;
     jacobian(0, 6) = 0;
-    
-    jacobian(1, 0) = -(2*(c*pow(s,2)*vx - a*pow(s,2)*vz - 2*b*s*pow(vx,2) + 2*a*s*vx*vy + 2*c*s*vy*vz - 2*b*s*pow(vz,2) - c*pow(vx,3) + a*pow(vx,2)*vz - c*vx*pow(vy,2) - c*vx*pow(vz,2) + a*pow(vy,2)*vz + a*pow(vz,3)))/pow((pow(s,2) + pow(vx,2) + pow(vy,2) + pow(vz,2)),2);
-    jacobian(1, 1) = (2*(c*pow(s,3) - 2*b*pow(s,2)*vx + a*pow(s,2)*vy - c*s*pow(vx,2) + 2*a*s*vx*vz + c*s*pow(vy,2) + c*s*pow(vz,2) - a*pow(vx,2)*vy - 2*b*vx*pow(vy,2) - 2*c*vx*vy*vz + a*pow(vy,3) + a*vy*pow(vz,2)))/pow((pow(s,2) + pow(vx,2) + pow(vy,2) + pow(vz,2)),2);
-    jacobian(1, 2) = (2*(a*pow(s,2)*vx + c*pow(s,2)*vz - 2*c*s*vx*vy + 2*a*s*vy*vz + a*pow(vx,3) + 2*b*pow(vx,2)*vy + c*pow(vx,2)*vz - a*vx*pow(vy,2) + a*vx*pow(vz,2) - c*pow(vy,2)*vz + 2*b*vy*pow(vz,2) + c*pow(vz,3)))/pow((pow(s,2) + pow(vx,2) + pow(vy,2) + pow(vz,2)),2);
-    jacobian(1, 3) = -(2*(a*pow(s,3) - c*pow(s,2)*vy + 2*b*pow(s,2)*vz + a*s*pow(vx,2) + 2*c*s*vx*vz + a*s*pow(vy,2) - a*s*pow(vz,2) - c*pow(vx,2)*vy + 2*a*vx*vy*vz - c*pow(vy,3) + 2*b*pow(vy,2)*vz + c*vy*pow(vz,2)))/pow((pow(s,2) + pow(vx,2) + pow(vy,2) + pow(vz,2)),2);
+
+    jacobian(1, 0) = -(2 * (c * pow(s, 2) * vx - a * pow(s, 2) * vz - 2 * b * s * pow(vx, 2) + 2 * a * s * vx * vy + 2 * c * s * vy * vz - 2 * b * s * pow(vz, 2) - c * pow(vx, 3) + a * pow(vx, 2) * vz - c * vx * pow(vy, 2) - c * vx * pow(vz, 2) + a * pow(vy, 2) * vz + a * pow(vz, 3))) / pow((pow(s, 2) + pow(vx, 2) + pow(vy, 2) + pow(vz, 2)), 2);
+    jacobian(1, 1) = (2 * (c * pow(s, 3) - 2 * b * pow(s, 2) * vx + a * pow(s, 2) * vy - c * s * pow(vx, 2) + 2 * a * s * vx * vz + c * s * pow(vy, 2) + c * s * pow(vz, 2) - a * pow(vx, 2) * vy - 2 * b * vx * pow(vy, 2) - 2 * c * vx * vy * vz + a * pow(vy, 3) + a * vy * pow(vz, 2))) / pow((pow(s, 2) + pow(vx, 2) + pow(vy, 2) + pow(vz, 2)), 2);
+    jacobian(1, 2) = (2 * (a * pow(s, 2) * vx + c * pow(s, 2) * vz - 2 * c * s * vx * vy + 2 * a * s * vy * vz + a * pow(vx, 3) + 2 * b * pow(vx, 2) * vy + c * pow(vx, 2) * vz - a * vx * pow(vy, 2) + a * vx * pow(vz, 2) - c * pow(vy, 2) * vz + 2 * b * vy * pow(vz, 2) + c * pow(vz, 3))) / pow((pow(s, 2) + pow(vx, 2) + pow(vy, 2) + pow(vz, 2)), 2);
+    jacobian(1, 3) = -(2 * (a * pow(s, 3) - c * pow(s, 2) * vy + 2 * b * pow(s, 2) * vz + a * s * pow(vx, 2) + 2 * c * s * vx * vz + a * s * pow(vy, 2) - a * s * pow(vz, 2) - c * pow(vx, 2) * vy + 2 * a * vx * vy * vz - c * pow(vy, 3) + 2 * b * pow(vy, 2) * vz + c * vy * pow(vz, 2))) / pow((pow(s, 2) + pow(vx, 2) + pow(vy, 2) + pow(vz, 2)), 2);
     jacobian(1, 4) = 0;
     jacobian(1, 5) = 0;
     jacobian(1, 6) = 0;
 
-    jacobian(2, 0) = (2*(b*pow(s,2)*vx - a*pow(s,2)*vy + 2*c*s*pow(vx,2) - 2*a*s*vx*vz + 2*c*s*pow(vy,2) - 2*b*s*vy*vz - b*pow(vx,3) + a*pow(vx,2)*vy - b*vx*pow(vy,2) - b*vx*pow(vz,2) + a*pow(vy,3) + a*vy*pow(vz,2)))/pow((pow(s,2) + pow(vx,2) + pow(vy,2) + pow(vz,2)),2);
-    jacobian(2, 1) = -(2*(b*pow(s,3) + 2*c*pow(s,2)*vx - a*pow(s,2)*vz - b*s*pow(vx,2) + 2*a*s*vx*vy + b*s*pow(vy,2) + b*s*pow(vz,2) + a*pow(vx,2)*vz + 2*b*vx*vy*vz + 2*c*vx*pow(vz,2) - a*pow(vy,2)*vz - a*pow(vz,3)))/pow((pow(s,2) + pow(vx,2) + pow(vy,2) + pow(vz,2)),2);
-    jacobian(2, 2) = (2*(a*pow(s,3) - 2*c*pow(s,2)*vy + b*pow(s,2)*vz + a*s*pow(vx,2) + 2*b*s*vx*vy - a*s*pow(vy,2) + a*s*pow(vz,2) + b*pow(vx,2)*vz - 2*a*vx*vy*vz - b*pow(vy,2)*vz - 2*c*vy*pow(vz,2) + b*pow(vz,3)))/pow((pow(s,2) + pow(vx,2) + pow(vy,2) + pow(vz,2)),2);
-    jacobian(2, 3) = (2*(a*pow(s,2)*vx + b*pow(s,2)*vy + 2*b*s*vx*vz - 2*a*s*vy*vz + a*pow(vx,3) + b*pow(vx,2)*vy + 2*c*pow(vx,2)*vz + a*vx*pow(vy,2) - a*vx*pow(vz,2) + b*pow(vy,3) + 2*c*pow(vy,2)*vz - b*vy*pow(vz,2)))/pow((pow(s,2) + pow(vx,2) + pow(vy,2) + pow(vz,2)),2);
+    jacobian(2, 0) = (2 * (b * pow(s, 2) * vx - a * pow(s, 2) * vy + 2 * c * s * pow(vx, 2) - 2 * a * s * vx * vz + 2 * c * s * pow(vy, 2) - 2 * b * s * vy * vz - b * pow(vx, 3) + a * pow(vx, 2) * vy - b * vx * pow(vy, 2) - b * vx * pow(vz, 2) + a * pow(vy, 3) + a * vy * pow(vz, 2))) / pow((pow(s, 2) + pow(vx, 2) + pow(vy, 2) + pow(vz, 2)), 2);
+    jacobian(2, 1) = -(2 * (b * pow(s, 3) + 2 * c * pow(s, 2) * vx - a * pow(s, 2) * vz - b * s * pow(vx, 2) + 2 * a * s * vx * vy + b * s * pow(vy, 2) + b * s * pow(vz, 2) + a * pow(vx, 2) * vz + 2 * b * vx * vy * vz + 2 * c * vx * pow(vz, 2) - a * pow(vy, 2) * vz - a * pow(vz, 3))) / pow((pow(s, 2) + pow(vx, 2) + pow(vy, 2) + pow(vz, 2)), 2);
+    jacobian(2, 2) = (2 * (a * pow(s, 3) - 2 * c * pow(s, 2) * vy + b * pow(s, 2) * vz + a * s * pow(vx, 2) + 2 * b * s * vx * vy - a * s * pow(vy, 2) + a * s * pow(vz, 2) + b * pow(vx, 2) * vz - 2 * a * vx * vy * vz - b * pow(vy, 2) * vz - 2 * c * vy * pow(vz, 2) + b * pow(vz, 3))) / pow((pow(s, 2) + pow(vx, 2) + pow(vy, 2) + pow(vz, 2)), 2);
+    jacobian(2, 3) = (2 * (a * pow(s, 2) * vx + b * pow(s, 2) * vy + 2 * b * s * vx * vz - 2 * a * s * vy * vz + a * pow(vx, 3) + b * pow(vx, 2) * vy + 2 * c * pow(vx, 2) * vz + a * vx * pow(vy, 2) - a * vx * pow(vz, 2) + b * pow(vy, 3) + 2 * c * pow(vy, 2) * vz - b * vy * pow(vz, 2))) / pow((pow(s, 2) + pow(vx, 2) + pow(vy, 2) + pow(vz, 2)), 2);
     jacobian(2, 4) = 0;
     jacobian(2, 5) = 0;
     jacobian(2, 6) = 0;
-    
+
     jacobian(3, 0) = 0;
-    jacobian(3, 1) = 0; 
+    jacobian(3, 1) = 0;
     jacobian(3, 2) = 0;
     jacobian(3, 3) = 0;
     jacobian(3, 4) = a;
     jacobian(3, 5) = b;
     jacobian(3, 6) = c;
-    
+
     return jacobian;
 }
 
@@ -332,33 +335,32 @@ public:
 
 template <typename ScalarType>
 class SurfaceAlignmentOptimizer {
-
 public:
-    
+
     SurfaceAlignmentOptimizer() = delete;
-    
+
     SurfaceAlignmentOptimizer(int mode = 0) : EigenSolverLM(*this) {
-        
+
         this->mode = mode;
         if (mode == 0)
             this->num_parameters = 7;
         else
             throw "No other modes defined yet!";
-        
+
         this->transform.setIdentity();
         this->EigenSolverLM.parameters.maxfev = 25; // maximum # of iterations
-        
+
     }
-    
+
     SurfaceAlignmentOptimizer(AlgebraicSurfaceProduct<ScalarType>& surface,
-        const Eigen::Matrix<ScalarType, Eigen::Dynamic, 3, Eigen::RowMajor>& points,
-        int mode = 0) : SurfaceAlignmentOptimizer(mode) {
-        
+            const Eigen::Matrix<ScalarType, Eigen::Dynamic, 3, Eigen::RowMajor>& points,
+            int mode = 0) : SurfaceAlignmentOptimizer(mode) {
+
         this->surface = &surface;
         this->points = &points;
 
     }
-    
+
     int operator()(const Eigen::Matrix<ScalarType, Eigen::Dynamic, 1>& x,
             Eigen::Matrix<ScalarType, Eigen::Dynamic, 1>& fvec) {
         // Compute errors, one for each data point, for the given parameter values in 'x'
@@ -376,8 +378,8 @@ public:
         Eigen::Matrix<ScalarType, 3, 3> R0 = quat.toRotationMatrix();
         Eigen::Matrix<ScalarType, 1, 3> t0 = x.tail(3);
 
-        this->transformed_points = (*this->points) * R0.transpose() 
-                + Eigen::Matrix<ScalarType, Eigen::Dynamic, 1>::Ones(N)*t0;
+        this->transformed_points = (*this->points) * R0.transpose()
+                + Eigen::Matrix<ScalarType, Eigen::Dynamic, 1>::Ones(N) * t0;
 
         for (std::size_t i = 0; i != N; i++) {
             fvec(i) = this->surface->evaluate(this->transformed_points.row(i));
@@ -402,29 +404,29 @@ public:
 
         return 0;
     }
-    
+
     bool minimize() {
         Eigen::Matrix<ScalarType, Eigen::Dynamic, 1> x(this->num_parameters);
         if (this->mode == 0)
             x << 1, 0, 0, 0, 0, 0, 0;
         else
             throw "No other modes defined yet!";
-        
+
         this->status = this->EigenSolverLM.minimize(x);
-        
+
         Eigen::Quaternion<ScalarType> quat(x(0), x(1), x(2), x(3));
         quat.normalize();
         Eigen::Matrix<ScalarType, 3, 3> R0 = quat.toRotationMatrix();
-        
+
         this->transform.setIdentity();
         this->transform.template block<3, 3>(0, 0) = R0;
         this->transform.template block<3, 1>(0, 3) = x.tail(3);
-        
+
         std::cout << "-----------------------------------------------------------\n"
-            "Nonlinear Surface Fit:\n";
+                "Nonlinear Surface Fit:\n";
         std::cout << "LM optimization status: " << this->status << "\n";
         std::cout << "Iterations: " << this->EigenSolverLM.iter << "\n";
-        
+
         return ((this->status > 0) ? true : false);
     }
 
@@ -437,9 +439,9 @@ public:
         // The number of parameters, i.e. inputs.
         return this->num_parameters;
     }
-    
+
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    
+
     int mode; // 0 (default) = 7 params: translation vector, quaternion
     int status;
     int num_parameters;
@@ -448,23 +450,23 @@ public:
     const Eigen::Matrix<ScalarType, Eigen::Dynamic, 3, Eigen::RowMajor>* points;
     Eigen::Matrix<ScalarType, Eigen::Dynamic, 3, Eigen::RowMajor> transformed_points;
     Eigen::LevenbergMarquardt<SurfaceAlignmentOptimizer<ScalarType>, ScalarType> EigenSolverLM;
-    
+
 };
 
 template <typename ScalarType>
 bool leastSquaresSurfaceFitLM(AlgebraicSurfaceProduct<ScalarType>& surface,
         const Eigen::Matrix<ScalarType, Eigen::Dynamic, 3, Eigen::RowMajor>& points,
-        Eigen::Ref<Eigen::Matrix<ScalarType, 4, 4>> transform) {
-    
+        Eigen::Ref<Eigen::Matrix<ScalarType, 4, 4 >> transform) {
+
     static SurfaceAlignmentOptimizer<ScalarType> optimizer(surface, points, 0);
-    
+
     optimizer.surface = &surface;
     optimizer.points = &points;
-    
+
     optimizer.minimize();
-    
+
     transform = optimizer.transform;
-    
+
     return (optimizer.status > 0);
 }
 

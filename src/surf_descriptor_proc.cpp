@@ -195,7 +195,7 @@ corner_search_done:
 
         float CORNER_MATCH_DISTANCE_THRESHOLD = 2.0f;
         float EDGE_MATCH_DISTANCE_THRESHOLD = 2.0f;
-        float PLANE_MATCH_DISTANCE_THRESHOLD = 0.1f;
+        float PLANE_MATCH_DISTANCE_THRESHOLD = 0.2f;
 
         void SurfaceDescriptorMatcher::match(const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
                 const std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&query_shapeMap,
@@ -290,7 +290,9 @@ corner_search_done:
             timeBudgetExpired = (ticksNow - ticksStart) > timeBudgetTicks;
 
             // match planes directly out of the previous frame and current frame quadTrees
-            cv::Rect rootCompareWindow(-2, -2, 5, 5);
+            //cv::Rect rootCompareWindow(-2, -2, 5, 5);
+            //cv::Rect rootCompareWindow(-1, -1, 3, 3);
+            cv::Rect rootCompareWindow(0, 0, 1, 1);
             int qX, qY, key, dLevel;
             int compareLevels[] = {0, 0};
             while (!timeBudgetExpired &&
@@ -326,6 +328,7 @@ corner_search_done:
                         matchAB.train_shape = bestMatch;
                         matchAB.distance = min_distance;
                         matchAB.surfaceType = cv::rgbd::PLANE;
+                        //std::cout << matchAB.toString() << std::endl;
                         matches.push_back(matchAB);
                     }
                 }
@@ -334,22 +337,22 @@ corner_search_done:
                 ticksNow = cv::getTickCount();
                 timeBudgetExpired = (ticksNow - ticksStart) > timeBudgetTicks;
                 if (compareLevels[0] == compareLevels[1]) {
+                    compareLevels[0]++;
                     compareLevels[1]++;
+                    //compareLevels[1] += 10;
                 } else {
                     //compareLevels[0]++;
+                    compareLevels[0]++;
                     compareLevels[1]++;
                 }
             }
 
             std::cout << "Surface matcher time used = " << ((double) (ticksNow - ticksStart) / cv::getTickFrequency())
-                    << " sec time allocated = " << ((double) timeBudgetTicks / cv::getTickFrequency()) << " sec" << std::endl;
+                    << " sec. time allocated = " << ((double) timeBudgetTicks / cv::getTickFrequency()) << " sec." << std::endl;
 
             static bool verbose = true;
             if (verbose) {
-                for (auto it = query_shapeMap.begin(); it != query_shapeMap.end(); ++it) {
-                    std::cout << "Found " << (*it).second.size() << " " <<
-                            cv::rgbd::surfaceTypeToString[(*it).first] << " geometries." << std::endl;
-                }
+                    std::cout << "Found " << matches.size() << " geometric matches." << std::endl;
             }
         }
     } /* namespace rgbd */

@@ -350,19 +350,51 @@ namespace cv {
                         + (z_ptr0[zstep + 1] - z_ptr0[-zstep + 1]);
             }
 
-            LineSegment2f getVisibleLineSegment2f(Line3f& line3) const;
+            void invalidate_NaN_Neighbors() {
+                float invalid = std::numeric_limits<float>::quiet_NaN();
+                float infinity = std::numeric_limits<float>::infinity();
+                for (int iy = 0; iy < img_Z.rows; ++iy) {
+                    float *z_cur = img_Z.ptr<float>(iy, 0);
+                    for (int ix = 0; ix < img_Z.cols; ++ix, ++z_cur) {
+                        if (std::isnan(*z_cur)) {
+                            if (iy > 0) {
+                                *(z_cur - zstep) = infinity;
+                            }
+                            if (iy < img_Z.rows - 1) {
+                                *(z_cur + zstep) = infinity;
+                            }
+                            if (ix > 0) {
+                                *(z_cur - 1) = infinity;
+                            }
+                            if (ix < img_Z.cols - 1) {
+                                *(z_cur + 1) = infinity;
+                            }
+                        }
+                    }
+                }
+                for (int iy = 0; iy < img_Z.rows; ++iy) {
+                    float *z_cur = img_Z.ptr<float>(iy, 0);
+                    for (int ix = 0; ix < img_Z.cols; ++ix, ++z_cur) {
+                        if (*z_cur == infinity) {
+                            *z_cur = invalid;
+                        }
+                    }
+                }
+            }
+
+            LineSegment2f getVisibleLineSegment2f(Line3f & line3) const;
 
             bool isInlier(const float error, const float& z3) const {
                 return (error < getErrorStandardDeviation(z3));
             }
 
-            float getErrorStandardDeviation(const RectWithError& re) const {
+            float getErrorStandardDeviation(const RectWithError & re) const {
                 return getErrorStandardDeviation(re.x + (width / 2), re.y + (height / 2));
             }
 
             bool checkVisibility(cv::Vec3f pt, cv::Rect r) {
-                
-                
+
+
             }
 
             float getErrorStandardDeviation(const float& z3) const {
@@ -392,7 +424,7 @@ namespace cv {
 
             cv::Ptr<RgbdNormals> getNormalsComputer(cv::Ptr<RgbdNormals> _nc);
 
-            void setNormals(cv::Mat& _normals) {
+            void setNormals(cv::Mat & _normals) {
                 img_N = _normals;
             }
 

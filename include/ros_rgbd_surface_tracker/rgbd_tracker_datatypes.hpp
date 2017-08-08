@@ -73,10 +73,20 @@ namespace cv {
 
             virtual ~ShapeMatch() {
             }
+
+            std::string toString() {
+                std::ostringstream stringStream;
+                stringStream << "Match{A,B}: " << cv::rgbd::surfaceTypeToString[surfaceType]
+                        << " distance = " << distance << " :"
+                        << " ShapeA = " << query_shape->toString()
+                        << " ShapeB = " << train_shape->toString() << std::endl;
+                return stringStream.str();
+            }
         };
 
-        class ShapeMap : public std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>> {
-        public:
+        class ShapeMap : public std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>
+        {
+            public:
             //typedef boost::shared_ptr<std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>> Ptr;
             typedef boost::shared_ptr<ShapeMap> Ptr;
             typedef boost::shared_ptr<const ShapeMap> ConstPtr;
@@ -92,9 +102,9 @@ namespace cv {
             void insert(std::vector<sg::Shape::Ptr>& newShapes, Pose global_pose);
 
             void update(const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
-                    const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>& query_shapeMap,
+                    const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
                     const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& prev_quadTree,
-                    const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>& train_shapeMap,
+                    const std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&train_shapeMap,
                     std::vector<cv::rgbd::ShapeMatch>& matches, Pose global_pose);
 
             static ShapeMap::Ptr create() {
@@ -104,7 +114,6 @@ namespace cv {
         };
 
         class ObjectGeometry {
-            //std::vector<AlgebraicSurfacePatch::Ptr> patchVec;
             sg::Shape::Ptr parentShape;
             SurfaceType surfaceType;
         public:

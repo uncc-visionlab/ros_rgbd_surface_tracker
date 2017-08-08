@@ -742,6 +742,7 @@ namespace cv {
         int numLevels() {
             return _numLevels;
         }
+        
     };
 
     template<typename T>
@@ -775,11 +776,18 @@ namespace cv {
 
         virtual ~QuadTreeLevel() {
         }
-
+        
         int numTiles() {
             return tileDims.width * tileDims.height;
         }
 
+        int numElements(int _level = -65535) {
+            if (_level == level || !child) {
+                return data.size();
+            }
+            return data.size() + child->numElements();
+        }
+        
         void setRect(int index, cv::Rect& r) {
             r.y = index / tileDims.width;
             r.x = index - r.y * tileDims.width;

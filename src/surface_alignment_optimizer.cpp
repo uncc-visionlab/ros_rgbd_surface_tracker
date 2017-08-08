@@ -346,7 +346,7 @@ namespace cv {
                             (plane_tgt->z - plane_src->z)*(plane_tgt->z - plane_src->z) +
                             (plane_tgt->d - plane_src->d)*(plane_tgt->d - plane_src->d);
 
-                    if (norm < OUTLIER_THRESHOLD || true) {
+                    //if (norm < OUTLIER_THRESHOLD || true) {
                         //std::cout << *plane_src << ", " << *plane_tgt << std::endl;
 
                         normalsCovMat(0, 0) += plane_tgt->x * plane_src->x;
@@ -359,7 +359,7 @@ namespace cv {
                         normalsCovMat(2, 1) += plane_tgt->z * plane_src->y;
                         normalsCovMat(2, 2) += plane_tgt->z * plane_src->z;
 
-                    }
+                    //}
 
                 } else {
                     //std::cout << "NULL" << std::endl;
@@ -398,14 +398,14 @@ namespace cv {
                     Eigen::Vector4d plane_src_coeffs(plane_src->x, plane_src->y, plane_src->z, plane_src->d);
                     plane_src_coeffs.head(3) = R.transpose() * plane_src_coeffs.head(3);
                     plane_src = boost::make_shared<cv::Plane3f>(plane_src_coeffs(0), plane_src_coeffs(1), plane_src_coeffs(2), plane_src_coeffs(3));
-                    plane_src->convertHessianNormalForm();
+                    //plane_src->convertHessianNormalForm();
                     
                     float norm = (plane_tgt->x - plane_src->x)*(plane_tgt->x - plane_src->x) +
                             (plane_tgt->y - plane_src->y)*(plane_tgt->y - plane_src->y) +
                             (plane_tgt->z - plane_src->z)*(plane_tgt->z - plane_src->z) +
                             (plane_tgt->d - plane_src->d)*(plane_tgt->d - plane_src->d);
 
-                    if (norm < OUTLIER_THRESHOLD || true) {
+                    //if (norm < OUTLIER_THRESHOLD || true) {
 
                         normalsCovMat(0, 0) += plane_tgt->x * plane_tgt->x + plane_src->x * plane_src->x;
                         normalsCovMat(1, 1) += plane_tgt->y * plane_tgt->y + plane_src->y * plane_src->y;
@@ -424,13 +424,13 @@ namespace cv {
                         deltaDt_NB(1) += d_diff * plane_tgt->y;
                         deltaDt_NB(2) += d_diff * plane_tgt->z;
 
-                    }
+                    //}
                 }
             }
 
-            normalsCovMat(1, 0) += normalsCovMat(0, 1);
-            normalsCovMat(2, 0) += normalsCovMat(0, 2);
-            normalsCovMat(2, 1) += normalsCovMat(1, 2);
+            normalsCovMat(1, 0) = normalsCovMat(0, 1);
+            normalsCovMat(2, 0) = normalsCovMat(0, 2);
+            normalsCovMat(2, 1) = normalsCovMat(1, 2);
 
             Eigen::Matrix<double, 3, 1> t = normalsCovMat.inverse()*(deltaDt_NA + deltaDt_NB);
 

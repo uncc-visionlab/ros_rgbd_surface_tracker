@@ -78,16 +78,40 @@ public:
         pt[2] = mm[6] * pt[0] + mm[7] * pt[1] + mm[8] * pt[2] + position[2];
     }
 
-    void getTranslation(cv::Vec3f& _position) {
+    void getTranslation(cv::Vec3f& _position) const {
         _position = position;
+    }
+
+    cv::Mat getRotation() const {
+        cv::Mat rotMat;
+        cv::Rodrigues(rodrigues, rotMat);
+        return rotMat;
+    }
+
+    void set(const cv::Matx44f tform) {
+        cv::Mat rotMat(3, 3, CV_32F);
+        float *rotmat = rotMat.ptr<float>(0, 0);
+        for (int i = 0, j = 3; i < 11; ++i) {
+            *rotmat++ = tform.val[i];
+            if ((i + 1) % j == 0) {
+                j += 4;
+                i++;
+            }
+        }
+        cv::Vec3f _rodrigues;
+        cv::Rodrigues(rotMat, _rodrigues);
+        this->rodrigues = _rodrigues;
+        this->position[0] = tform.val[3];
+        this->position[1] = tform.val[7];
+        this->position[2] = tform.val[11];
     }
 
     void set(cv::Vec3f _rodrigues, cv::Vec3f _position) {
         this->rodrigues = _rodrigues;
         this->position = _position;
     }
-    
-    cv::Matx44f getTransform() {
+
+    cv::Matx44f getTransform() const {
         static cv::Mat rotMat;
         cv::Matx44f tform;
         cv::Rodrigues(rodrigues, rotMat);
@@ -104,6 +128,21 @@ public:
         tform.val[11] = position[2];
         tform.val[15] = 1.0f;
         return tform;
+    }
+
+    void update(const Pose& deltaPose) {
+        this->position -= deltaPose.position;
+        cv::Mat r1, r2;
+        cv::Rodrigues(this->rodrigues, r1);
+        cv::Rodrigues(deltaPose.rodrigues, r2);
+        r1 = r1*r2.t();
+        cv::Rodrigues(r1, this->rodrigues);
+    }
+
+    std::string toString() {
+        std::ostringstream stringStream;
+        stringStream << "position = " << position << " rotVec = " << rodrigues << std::endl;
+        return stringStream.str();
     }
 private:
     // -------------------------
@@ -504,7 +543,7 @@ namespace sg {
                     edgePtr->p0.z - this->p0.z);
             return std::sqrt(errorVec.dot(errorVec));
         }
-        
+
         std::string toString() {
             std::ostringstream stringStream;
             stringStream << cv::LineSegment3_<_Tpl>::toString();
@@ -732,7 +771,7 @@ namespace sg {
                     cornerPtr->z - this->z);
             return std::sqrt(errorVec.dot(errorVec));
         }
-        
+
         std::string toString() {
             std::ostringstream stringStream;
             stringStream << this;
@@ -785,7 +824,7 @@ namespace sg {
                     boxPtr->dims.z - this->dims.z);
             return std::sqrt(errorVec.dot(errorVec));
         }
-        
+
         std::string toString() {
             std::ostringstream stringStream;
             stringStream << "I AM A BOX";
@@ -851,7 +890,7 @@ namespace sg {
                     cylinderPtr->h - this->h);
             return std::sqrt(errorVec.dot(errorVec));
         }
-        
+
         std::string toString() {
             std::ostringstream stringStream;
             stringStream << "I AM A CYLINDER";

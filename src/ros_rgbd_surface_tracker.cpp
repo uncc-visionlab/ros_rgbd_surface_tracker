@@ -1,4 +1,3 @@
-#include <math.h>
 #include <stdio.h>      /* printf, scanf, puts, NULL */
 #include <stdlib.h>     /* srand, rand */
 #include <time.h>       /* time */
@@ -9,8 +8,9 @@
 #include <cv_bridge/cv_bridge.h>
 
 // TF includes
-#include "tf/transform_listener.h"
-#include "tf_conversions/tf_eigen.h"
+#include <tf/transform_listener.h>
+#include <tf/transform_broadcaster.h>
+#include <tf_conversions/tf_eigen.h>
 
 // subscriber for depth images
 //#include <message_filters/time_synchronizer.h>
@@ -31,13 +31,9 @@
 // Includes for this Library
 #include <ros_rgbd_surface_tracker/ros_rgbd_surface_tracker.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>
-//#include <ros_rgbd_surface_tracker/plane.h>
-//#include <ros_rgbd_surface_tracker/planes.h>
-
 
 //typedef float Scalar;
 typedef double Scalar;
-
 
 namespace stdpatch {
 #define NUMIDCHARS 3
@@ -84,24 +80,88 @@ void ROS_RgbdSurfaceTracker::depthImageCallback(const sensor_msgs::ImageConstPtr
 
     cv::Mat _ocv_depthframe_float(cv_depthimg_ptr->image.size(), CV_32F);
     createDepthImageFloat(_ocv_depthframe_float);
-    static cv::Mat _ocv_rgbframe = cv::Mat(_ocv_depthframe_float.size(), CV_8UC3, cv::Scalar(127,127,127));
+    static cv::Mat _ocv_rgbframe = cv::Mat(_ocv_depthframe_float.size(), CV_8UC3, cv::Scalar(127, 127, 127));
     float cx = cameraMatrix.at<float>(0, 2);
     float cy = cameraMatrix.at<float>(1, 2);
     float fx = cameraMatrix.at<float>(0, 0);
     float fy = cameraMatrix.at<float>(1, 1);
     cv::rgbd::RgbdImage rgbd_img(_ocv_rgbframe, _ocv_depthframe_float, cx, cy, fx);
     cv::Mat rgb_result = _ocv_rgbframe.clone();
-    rgbdSurfTracker.segmentDepth(rgbd_img, rgb_result);
+    updateSurfaces(depth_msg, rgbd_img, rgb_result);
+}
+
+tf::Transform convertPoseToTFTransform(const Pose& pose) {
+    cv::Mat rotation = pose.getRotation();
+    cv::Vec3f translation;
+    pose.getTranslation(translation);
+    Eigen::Map<Eigen::Matrix3f> eigenRot((float *) rotation.data);
+    //std::cout << "rotation = " << rotation << std::endl;
+    eigenRot.transposeInPlace();
+    //std::cout << "eigenRot = " << eigenRot << std::endl;
+    Eigen::Quaternionf quat(eigenRot);
+    return tf::Transform(tf::Quaternion(quat.x(), quat.y(), quat.z(), quat.w()),
+            tf::Vector3(translation[0], translation[1], translation[2]));
+}
+
+void ROS_RgbdSurfaceTracker::updateSurfaces(const sensor_msgs::ImageConstPtr& depth_msg,
+        cv::rgbd::RgbdImage& rgbd_img, cv::Mat & rgb_result) {
+    
+    rgbdSurfTracker.updateSurfaces(rgbd_img, rgb_result);
+
+    PlaneVisualizationData* vis_data = rgbdSurfTracker.getPlaneVisualizationData();
+    plane_vis.clearMarkerList();
+    plane_vis.publishTriangleMesh(*vis_data, depth_msg->header.stamp);
+    
+    Pose pose = rgbdSurfTracker.getPose();
+    tf::Transform pose_transformTF = convertPoseToTFTransform(pose);
+    tf::StampedTransform pose_stampedTF(pose_transformTF, frame_time,
+            parent_frame_id_str, rgbd_frame_id_str);
+    tfbroadcaster.sendTransform(pose_stampedTF);
 
     if (image_pub.getNumSubscribers() > 0) {
-        cv::Mat resultImg = cv::Mat::zeros(imSize, CV_8UC3);
         //show input with augmented information
         cv_bridge::CvImage out_msg;
-        out_msg.header.frame_id = depth_msg->header.frame_id;
-        out_msg.header.stamp = depth_msg->header.stamp;
-        out_msg.encoding = sensor_msgs::image_encodings::RGB8;
+        out_msg.header.frame_id = rgbd_frame_id_str;
+        out_msg.header.stamp = frame_time;
+        out_msg.encoding = sensor_msgs::image_encodings::BGR8;
         out_msg.image = rgb_result;
         image_pub.publish(out_msg.toImageMsg());
+    }
+
+    if (pubPose_w_cov.getNumSubscribers() > 0 && true) {
+        geometry_msgs::TransformStamped pose_stampedMSG;
+        tf::transformStampedTFToMsg(pose_stampedTF, pose_stampedMSG);
+        geometry_msgs::PoseWithCovarianceStamped pose_msg;
+        pose_msg.header.frame_id = rgbd_frame_id_str;
+        pose_msg.header.stamp = frame_time;
+        pose_msg.pose.pose.orientation = pose_stampedMSG.transform.rotation;
+        pose_msg.pose.pose.position.x = pose_stampedMSG.transform.translation.x;
+        pose_msg.pose.pose.position.y = pose_stampedMSG.transform.translation.y;
+        pose_msg.pose.pose.position.z = pose_stampedMSG.transform.translation.z;
+        for (int offset = 0; offset < 36; offset++) {
+            pose_msg.pose.covariance[offset] = 0.0f; //cov[offset];
+        }
+        pubPose_w_cov.publish(pose_msg);
+    }
+    
+    if (pubOdom_w_cov.getNumSubscribers() > 0) {        
+        Pose delta_pose = rgbdSurfTracker.getDeltaPose();
+        tf::Transform delta_pose_transformTF = convertPoseToTFTransform(delta_pose);
+        tf::StampedTransform delta_pose_stampedTF(delta_pose_transformTF, frame_time,
+                parent_frame_id_str, rgbd_frame_id_str);
+        geometry_msgs::TransformStamped delta_pose_stampedMSG;
+        tf::transformStampedTFToMsg(delta_pose_stampedTF, delta_pose_stampedMSG);
+        geometry_msgs::PoseWithCovarianceStamped delta_pose_msg;
+        delta_pose_msg.header.frame_id = rgbd_frame_id_str;
+        delta_pose_msg.header.stamp = frame_time;
+        delta_pose_msg.pose.pose.orientation = delta_pose_stampedMSG.transform.rotation;
+        delta_pose_msg.pose.pose.position.x = delta_pose_stampedMSG.transform.translation.x;
+        delta_pose_msg.pose.pose.position.y = delta_pose_stampedMSG.transform.translation.y;
+        delta_pose_msg.pose.pose.position.z = delta_pose_stampedMSG.transform.translation.z;
+        for (int offset = 0; offset < 36; offset++) {
+            delta_pose_msg.pose.covariance[offset] = 0.0f; //cov[offset];
+        }
+        pubOdom_w_cov.publish(delta_pose_msg);
     }
 }
 
@@ -142,21 +202,7 @@ void ROS_RgbdSurfaceTracker::rgbdImageCallback(const sensor_msgs::ImageConstPtr&
     float fy = cameraMatrix.at<float>(1, 1);
     cv::rgbd::RgbdImage rgbd_img(_ocv_rgbframe, _ocv_depthframe_float, cx, cy, fx);
     cv::Mat rgb_result = _ocv_rgbframe.clone();
-    rgbdSurfTracker.segmentDepth(rgbd_img, rgb_result);
-
-    PlaneVisualizationData* vis_data = rgbdSurfTracker.getPlaneVisualizationData();
-    plane_vis.clearMarkerList();
-    plane_vis.publishTriangleMesh(*vis_data, depth_msg->header.stamp);
-
-    if (image_pub.getNumSubscribers() > 0) {
-        //show input with augmented information
-        cv_bridge::CvImage out_msg;
-        out_msg.header.frame_id = depth_msg->header.frame_id;
-        out_msg.header.stamp = depth_msg->header.stamp;
-        out_msg.encoding = sensor_msgs::image_encodings::BGR8;
-        out_msg.image = rgb_result;
-        image_pub.publish(out_msg.toImageMsg());
-    }
+    updateSurfaces(depth_msg, rgbd_img, rgb_result);
 }
 
 void ROS_RgbdSurfaceTracker::createDepthImageFloat(cv::Mat& depth_frame) {
@@ -267,7 +313,8 @@ void ROS_RgbdSurfaceTracker::initializeSubscribersAndPublishers() {
                 this, _1, _2));
     }
 
-    pubPoseWCovariance = nodeptr->advertise<geometry_msgs::PoseWithCovarianceStamped>("pose_w_cov", 1000);
+    pubPose_w_cov = nodeptr->advertise<geometry_msgs::PoseWithCovarianceStamped>("pose_w_cov", 1000);
+    pubOdom_w_cov = nodeptr->advertise<geometry_msgs::PoseWithCovarianceStamped>("odom_w_cov", 1000);
 }
 
 int main(int argc, char **argv) {

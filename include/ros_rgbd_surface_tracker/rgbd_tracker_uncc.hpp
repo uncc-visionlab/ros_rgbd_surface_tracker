@@ -112,7 +112,15 @@ namespace cv {
                     const std::vector<cv::rgbd::ShapeMatch>& matches,
                     Pose& delta_pose_estimate);
 
-            void segmentDepth(cv::rgbd::RgbdImage& rgbd_img, cv::Mat& result);
+            void updateSurfaces(cv::rgbd::RgbdImage& rgbd_img, cv::Mat& rgb_result);
+            
+            Pose getPose() {
+                return global_pose_estimate;
+            }
+
+            Pose getDeltaPose() {
+                return delta_pose_estimate;
+            }            
 
             void callback(cv::Mat& _ocv_rgbframe, cv::Mat& _ocv_depthframe_float,
                     cv::Mat& _rgb_distortionCoeffs, cv::Mat& _rgb_cameraMatrix);
