@@ -193,8 +193,8 @@ corner_search_done:
             //shapePtrVec.push_back(cyl1ptr);
         }
 
-        float CORNER_MATCH_DISTANCE_THRESHOLD = 2.0f;
-        float EDGE_MATCH_DISTANCE_THRESHOLD = 2.0f;
+        float CORNER_MATCH_DISTANCE_THRESHOLD = 0.05f;
+        float EDGE_MATCH_DISTANCE_THRESHOLD = 0.05f;
         float PLANE_MATCH_DISTANCE_THRESHOLD = 0.2f;
 
         void SurfaceDescriptorMatcher::match(const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
@@ -224,7 +224,7 @@ corner_search_done:
                     shapeType_iter != train_shapeMap.end(); ++shapeType_iter) {
                 const cv::rgbd::SurfaceType shapeType = (*shapeType_iter).first;
                 const std::vector<sg::Shape::Ptr>& shapeVec = (*shapeType_iter).second;
-                if (!shapeType == cv::rgbd::PLANE) { // planes are matches using sequential frame quadtrees
+                if (!(shapeType == cv::rgbd::PLANE)) { // planes are matches using sequential frame quadtrees
                     for (auto shape_iterA = shapeVec.begin(); shape_iterA != shapeVec.end(); ++shape_iterA) {
                         const sg::Shape::Ptr& shapeA = *shape_iterA;
                         shapeA->getPose().getTranslation(position);

@@ -18,6 +18,8 @@
 
 #include <iostream>
 
+#include <boost/shared_ptr.hpp>
+
 // Eigen includes
 #include <Eigen/Dense>
 #include <Eigen/Geometry>

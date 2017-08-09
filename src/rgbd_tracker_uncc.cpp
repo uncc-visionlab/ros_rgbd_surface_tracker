@@ -60,7 +60,7 @@ namespace cv {
                 const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
                 const cv::Size& tileDims,
                 const cv::rgbd::SurfaceType& shapeType, cv::Mat& rgb_result) const {
-//            static float ISREAL_THRESHOLD = 0.022;
+            //            static float ISREAL_THRESHOLD = 0.022;
             static float ISREAL_THRESHOLD = 0.01;
 
             cv::Vec3f position;
@@ -109,8 +109,8 @@ namespace cv {
             switch (shapeType) {
                 case SurfaceType::CORNER:
                     cornerPtr = boost::static_pointer_cast<sg::Corner<float>>(shape);
-                    cornerPtr->getPlanes(planeSet);
                     if (false) { // use vector to plane positions directly
+                        cornerPtr->getPlanes(planeSet);
                         idx = 0;
                         for (auto plane_iter = planeSet.begin(); plane_iter != planeSet.end(); ++plane_iter, ++idx) {
                             (*plane_iter)->getPose().getTranslation(planePos3[idx]);
@@ -155,40 +155,41 @@ namespace cv {
                         // cornerPtr->setReal(false);
                         // return true;
                         // } else {
-                        
-                        tile_data.clear();
-                        rgbd_img.getTileData_Uniform(testTile.x, testTile.y, testTile.width, testTile.height, tile_data, samples_per_tile);
-                        
-                        if (tile_data.size() > 0.75*samples_per_tile) {
-                            
-                            float last_plane_error = std::numeric_limits<float>::infinity();
-                            
-                            for (const sg::Plane<float>::Ptr& plane : planeSet) {
-                                
-                                planeerror = 0;
-                                for (const cv::Point3f& pt : tile_data) {
-                                    planeerror += std::pow<float>(plane->evaluate(pt), 2.0);
+                        if (false) {
+                            cornerPtr->getPlanes(planeSet);
+                            tile_data.clear();
+                            rgbd_img.getTileData_Uniform(testTile.x, testTile.y, testTile.width, testTile.height, tile_data, samples_per_tile);
+
+                            if (tile_data.size() > 0.75 * samples_per_tile) {
+
+                                float last_plane_error = std::numeric_limits<float>::infinity();
+
+                                for (const sg::Plane<float>::Ptr& plane : planeSet) {
+
+                                    planeerror = 0;
+                                    for (const cv::Point3f& pt : tile_data) {
+                                        planeerror += std::pow<float>(plane->evaluate(pt), 2.0);
+                                    }
+
+                                    planeerror = std::min(planeerror, last_plane_error);
+                                    last_plane_error = planeerror;
                                 }
-                                
-                                planeerror = std::min(planeerror, last_plane_error);
-                                last_plane_error = planeerror;
+
+                            } else {
+                                cornerPtr->setReal(false);
+                                return true; // delete
                             }
-                            
-                        } else {
-                            cornerPtr->setReal(false);
-                            cv::rectangle(rgb_result, tile, (cornerPtr->isReal()) ? cv::Scalar(0, 255, 0) : cv::Scalar(0, 140, 255), 1);
-                            return true; // delete
                         }
-                        
-//                        rgbd_img.getPoint3f(tileCtr[idx][0] - avgTileCtr[0], tileCtr[idx][1] - avgTileCtr[1], ctrpt);
-//                        if (std::isnan(ctrpt.z)) {
-//                            cornerPtr->setReal(false);
-//                            return true; // delete
-//                            //return false; // keep
-//                        }
-//                        ctrpt = (cv::Vec3f) ctrpt - position;
-//                        // out of plane error --> plane index is (idx+2)%3
-//                        planeerror = std::abs(ctrpt.dot(axes2[(idx + 2) % 3]));
+
+                        rgbd_img.getPoint3f(tileCtr[idx][0] - avgTileCtr[0], tileCtr[idx][1] - avgTileCtr[1], ctrpt);
+                        if (std::isnan(ctrpt.z)) {
+                            cornerPtr->setReal(false);
+                            return true; // delete
+                            //return false; // keep
+                        }
+                        ctrpt = (cv::Vec3f) ctrpt - position;
+                        // out of plane error --> plane index is (idx+2)%3
+                        planeerror = std::abs(ctrpt.dot(axes2[(idx + 2) % 3]));
                         //std::cout << "plane error = " << planeerror << std::endl;
                         error = std::max(planeerror, error);
                     }
@@ -197,15 +198,16 @@ namespace cv {
                     // return false;
                     //std::cout << "error = " << error << std::endl;
                     cornerPtr->setReal(error < ISREAL_THRESHOLD);
+                    cv::rectangle(rgb_result, tile, (cornerPtr->isReal()) ? cv::Scalar(0, 255, 0) : cv::Scalar(0, 140, 255), 1);
                     //return false;                        
                     return !cornerPtr->isReal();
                     break;
-                    
-                    
+
+
                 case SurfaceType::EDGE:
                     edgePtr = boost::static_pointer_cast<sg::Edge<float>>(shape);
-                    edgePtr->getPlanes(planeSet);
                     if (false) { // use vector to plane positions directly
+                        edgePtr->getPlanes(planeSet);
                         idx = 0;
                         for (auto plane_iter = planeSet.begin(); plane_iter != planeSet.end(); ++plane_iter, ++idx) {
                             (*plane_iter)->getPose().getTranslation(planePos3[idx]);
@@ -232,7 +234,7 @@ namespace cv {
                     }
                     avgTileCtr = 0.5 * (tileCtr[0] + tileCtr[1]);
                     avgTileCtr -= projPt;
-                    
+
                     error = 0;
                     for (idx = 0; idx < 2; ++idx) {
                         testTile.x = tileCtr[idx][0] - avgTileCtr[0] - 0.15 * std::abs(dirVec[idx][0] * tileDims.width);
@@ -240,8 +242,7 @@ namespace cv {
                         testTile.width = 0.3 * tileDims.width;
                         testTile.height = 0.3 * tileDims.height;
 
-                        cv::rectangle(rgb_result, testTile,
-                                (idx == 0) ? cv::Scalar(255, 255, 0) : cv::Scalar(0, 255, 255), 1);
+                        cv::rectangle(rgb_result, testTile, (idx == 0) ? cv::Scalar(255, 255, 0) : cv::Scalar(0, 255, 255), 1);
 
                         // TODO: get classification from quadTree and apply
                         // code A) 
@@ -250,53 +251,53 @@ namespace cv {
                         // edgePtr->setReal(false);
                         // return true;
                         // } else {
-                        
-                        tile_data.clear();
-                        rgbd_img.getTileData_Uniform(testTile.x, testTile.y, testTile.width, testTile.height, tile_data, samples_per_tile);
-                        
-                        if (tile_data.size() > 0.75*samples_per_tile) {
-                            
-                            float last_plane_error = std::numeric_limits<float>::infinity();
-                            
-                            for (const sg::Plane<float>::Ptr& plane : planeSet) {
-                                
-                                planeerror = 0;
-                                for (const cv::Point3f& pt : tile_data) {
-                                    planeerror += std::pow<float>(plane->evaluate(pt), 2.0);
-                                }
-                                
-                                planeerror = std::min(planeerror, last_plane_error);
-                                last_plane_error = planeerror;
-                            }
-                            
-                        } else {
-                            edgePtr->setReal(false);
-                            cv::rectangle(rgb_result, tile, (edgePtr->isReal()) ? cv::Scalar(0, 255, 0) : cv::Scalar(0, 140, 255), 1);
-                            return true; // delete
-                        }
-                        
-//                        rgbd_img.getPoint3f(tileCtr[idx][0] - avgTileCtr[0], tileCtr[idx][1] - avgTileCtr[1], ctrpt);
-//                        if (std::isnan(ctrpt.z)) {
-//                            edgePtr->setReal(false);
-//                            return true; // delete
-//                            //return false; // keep
-//                        }
-//                        ctrpt = (cv::Vec3f) ctrpt - position;
-//                        // out of plane error --> plane index is (idx+1)%2
-//                        planeerror = std::abs(ctrpt.dot(axes2[(idx + 1) % 2]));
+                        if (false) {
+                            edgePtr->getPlanes(planeSet);
+                            tile_data.clear();
+                            rgbd_img.getTileData_Uniform(testTile.x, testTile.y, testTile.width, testTile.height, tile_data, samples_per_tile);
 
-//                        std::string rect_txt = "err=" + std::to_string(planeerror);
-//                        cv::putText(rgb_result, rect_txt, testTile.tl() + cv::Point2i(0, -5), 0, .3, Scalar::all(255), 1, 8);
+                            if (tile_data.size() > 0.75 * samples_per_tile) {
+
+                                float last_plane_error = std::numeric_limits<float>::infinity();
+
+                                for (const sg::Plane<float>::Ptr& plane : planeSet) {
+
+                                    planeerror = 0;
+                                    for (const cv::Point3f& pt : tile_data) {
+                                        planeerror += std::pow<float>(plane->evaluate(pt), 2.0);
+                                    }
+
+                                    planeerror = std::min(planeerror, last_plane_error);
+                                    last_plane_error = planeerror;
+                                }
+
+                            } else {
+                                edgePtr->setReal(false);
+                                return true; // delete
+                            }
+                        }
+                        rgbd_img.getPoint3f(tileCtr[idx][0] - avgTileCtr[0], tileCtr[idx][1] - avgTileCtr[1], ctrpt);
+                        if (std::isnan(ctrpt.z)) {
+                            edgePtr->setReal(false);
+                            return true; // delete
+                            //return false; // keep
+                        }
+                        ctrpt = (cv::Vec3f) ctrpt - position;
+                        // out of plane error --> plane index is (idx+1)%2
+                        planeerror = std::abs(ctrpt.dot(axes2[(idx + 1) % 2]));
+
+                        //                        std::string rect_txt = "err=" + std::to_string(planeerror);
+                        //                        cv::putText(rgb_result, rect_txt, testTile.tl() + cv::Point2i(0, -5), 0, .3, Scalar::all(255), 1, 8);
                         error = std::max(planeerror, error);
                     }
-//                    cv::putText(rgb_result, std::string("err=" + std::to_string(planeerror)),
-//                            tile.tl() + cv::Point2i(0, tile.height + 5), 0, .3, Scalar::all(255), 1, 8);
+                    //                    cv::putText(rgb_result, std::string("err=" + std::to_string(planeerror)),
+                    //                            tile.tl() + cv::Point2i(0, tile.height + 5), 0, .3, Scalar::all(255), 1, 8);
                     edgePtr->setReal(error < ISREAL_THRESHOLD);
                     cv::rectangle(rgb_result, tile, (edgePtr->isReal()) ? cv::Scalar(0, 255, 0) : cv::Scalar(0, 140, 255), 1);
                     return !edgePtr->isReal();
                     break;
-                    
-                    
+
+
                 default:
                     std::cout << "RgbdSurfaceTracker::filterShape() -> should never execute!" << std::endl;
                     break;
@@ -307,7 +308,7 @@ namespace cv {
             //            }
             return false; // keep this shape and we have set it's isReal() flag
         }
-        
+
         void RgbdSurfaceTracker::filterDetections(const cv::rgbd::RgbdImage& rgbd_img,
                 const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
                 std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&query_shapeMap,
@@ -399,13 +400,15 @@ namespace cv {
         }
 
         bool RgbdSurfaceTracker::estimateDeltaPose(
-                const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>& query_shapeMap,
-                const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>& train_shapeMap,
+                const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
+                const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&train_shapeMap,
                 const std::vector<cv::rgbd::ShapeMatch>& matches,
                 Pose& delta_pose_estimate) {
 
-            sg::Corner<float>::Ptr cornerPtr;
-            sg::Edge<float>::Ptr edgePtr;
+            sg::Corner<float>::Ptr fixedCornerPtr, movingCornerPtr;
+            sg::Edge<float>::Ptr fixedEdgePtr, movingEdgePtr;
+            std::unordered_set<sg::Plane<float>::Ptr> movingPlaneSet;
+            std::unordered_set<sg::Plane<float>::Ptr> fixedPlaneSet;
             sg::Plane<float>::Ptr fixedPlanePtr, movingPlanePtr;
             std::vector<cv::Plane3f::Ptr> fixedPlanes;
             std::vector<cv::Plane3f::Ptr> movingPlanes;
@@ -413,11 +416,25 @@ namespace cv {
                 const cv::rgbd::ShapeMatch& match = *match_iter;
                 sg::Shape::Ptr movingShape = match.query_shape;
                 sg::Shape::Ptr fixedShape = match.train_shape;
-                if (match.surfaceType == cv::rgbd::PLANE) {
-                    fixedPlanePtr = boost::static_pointer_cast<sg::Plane<float>>(movingShape);
-                    movingPlanePtr = boost::static_pointer_cast<sg::Plane<float>>(fixedShape);
-                    fixedPlanes.push_back(fixedPlanePtr);
-                    movingPlanes.push_back(movingPlanePtr);
+                switch (match.surfaceType) {
+                    case SurfaceType::CORNER:
+                        fixedCornerPtr = boost::static_pointer_cast<sg::Corner<float>>(movingShape);
+                        movingCornerPtr = boost::static_pointer_cast<sg::Corner<float>>(fixedShape);
+                        fixedCornerPtr->getPlanes(fixedPlaneSet);
+                        movingCornerPtr->getPlanes(movingPlaneSet);
+                        break;
+                    case SurfaceType::EDGE:
+                        fixedEdgePtr = boost::static_pointer_cast<sg::Edge<float>>(movingShape);
+                        movingEdgePtr = boost::static_pointer_cast<sg::Edge<float>>(fixedShape);
+                        fixedEdgePtr->getPlanes(fixedPlaneSet);
+                        movingEdgePtr->getPlanes(movingPlaneSet);
+                        break;
+                    case cv::rgbd::PLANE:
+                        fixedPlanePtr = boost::static_pointer_cast<sg::Plane<float>>(movingShape);
+                        movingPlanePtr = boost::static_pointer_cast<sg::Plane<float>>(fixedShape);
+                        fixedPlanes.push_back(fixedPlanePtr);
+                        movingPlanes.push_back(movingPlanePtr);
+                        break;
                 }
             }
             cv::Mat cvTransform(4, 4, CV_32FC1);
@@ -443,11 +460,12 @@ namespace cv {
             cv::Vec3f tVec = cvTransform(cv::Rect(3, 0, 1, 3));
             cv::Vec3f rVec;
             cv::Mat rotMat = cvTransform(cv::Rect(0, 0, 3, 3));
+            cv::transpose(rotMat, rotMat);
             cv::Rodrigues(rotMat, rVec);
             //cv::transpose(rotMat, rotMat);
             //std::cout << "R = " << rotMat << std::endl;
             //std::cout << "t = " << tVec << std::endl;
-            delta_pose_estimate.set(tVec, rVec);
+            delta_pose_estimate.set(-tVec, rVec);
             return true;
         }
 
@@ -466,7 +484,7 @@ namespace cv {
             //cv::rectangle(rgb_result, rectVal, cv::Scalar(0, 255, 0), 3);
             //rgbd_img.computeNormals();
             rgbd_img.invalidate_NaN_Neighbors();
-            
+
             cv::Rect roi(MARGIN_X, MARGIN_Y, rgbd_img.getWidth() - 2 * MARGIN_X, rgbd_img.getHeight() - 2 * MARGIN_Y);
             cv::Size imgSize(rgbd_img.getWidth(), rgbd_img.getHeight());
             cv::Size tileSize(BLOCKSIZE, BLOCKSIZE);
@@ -543,7 +561,7 @@ namespace cv {
             if (quadTree->numElements() < 50) {
                 return; // not enough information to use this image
             }
-            
+
             if (prev_quadTree && train_shapeMapPtr) {
                 cv::rgbd::ShapeMap& train_shapeMap = *train_shapeMapPtr;
                 int descriptor_matching_timeBudget_ms = 20;
@@ -554,10 +572,24 @@ namespace cv {
                         descriptor_matching_timeBudget_ms, rgb_result);
                 // Structures having a match are used to solve the following problems:
                 // 1. Localization -> (Range-based Odometry / Pose-change estimation)
+
                 if (!estimateDeltaPose(query_shapeMap, train_shapeMap, shapeMatches, delta_pose_estimate)) {
                     std::cout << "Could not estimate pose change from provided shape matches!" << std::endl;
                     return;
                 } else { // use pose estimate to update map
+                    cv::Matx44f dpose;
+                    //dpose.val[0*4+0] = 1.0;
+                    //dpose.val[1*4+1] = 1.0;
+                    dpose.val[0 * 4 + 0] = std::cos(CV_PI / 180);
+                    dpose.val[0 * 4 + 1] = -std::sin(CV_PI / 180);
+                    dpose.val[1 * 4 + 0] = std::sin(CV_PI / 180);
+                    dpose.val[1 * 4 + 1] = std::cos(CV_PI / 180);
+                    dpose.val[2 * 4 + 2] = 1.0;
+                    dpose.val[3 * 4 + 3] = 1.0;
+                    dpose.val[0 * 4 + 3] = 0.0;
+                    dpose.val[1 * 4 + 3] = 0.0;
+                    dpose.val[2 * 4 + 3] = -0.001;
+                    //delta_pose_estimate.set(dpose);
                     //cv::Matx44f pose = global_pose_estimate.getTransform();
                     //cv::Matx44f deltaPose = delta_pose_estimate.getTransform();
                     //cv::Matx44f new_pose = pose*deltaPose;

@@ -264,7 +264,7 @@ namespace cv {
 
             glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL);
 
-            glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+            glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
             glColor3f(0.0f, 0.0f, 0.0f);
 
             glMatrixMode(GL_PROJECTION);
@@ -304,6 +304,7 @@ namespace cv {
             }
             std::cout << "view = " << model2 << std::endl;
             glMatrixMode(GL_MODELVIEW);
+            glLineWidth(3.0);
             return 0;
         }
 
