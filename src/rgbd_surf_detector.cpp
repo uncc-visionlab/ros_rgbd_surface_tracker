@@ -102,13 +102,26 @@ namespace cv {
             return true;
         }
 
-        bool checkTilePlanar(const RgbdImage& rgbd_img, const cv::RectWithError& quad, float &avgDepth) {
+        bool checkTilePlanar(const RgbdImage& rgbd_img, const cv::RectWithError& quad,
+                float &avgDepth, std::vector<cv::Point2i>& recurseTileVec, int x_tile, int y_tile) {
             cv::Vec3f pts[5];
             rgbd_img.getPoint3f(quad.x, quad.y, pts[0][0], pts[0][1], pts[0][2]);
             rgbd_img.getPoint3f(quad.x + quad.width, quad.y, pts[1][0], pts[1][1], pts[1][2]);
             rgbd_img.getPoint3f(quad.x + quad.width, quad.y + quad.height, pts[2][0], pts[2][1], pts[2][2]);
             rgbd_img.getPoint3f(quad.x, quad.y + quad.height, pts[3][0], pts[3][1], pts[3][2]);
             rgbd_img.getPoint3f((quad.x + quad.width) >> 1, (quad.y + quad.height) >> 1, pts[4][0], pts[4][1], pts[4][2]);
+            if (!std::isnan(pts[0][2]) && !std::isnan(pts[4][2])) {
+                recurseTileVec.push_back(Point2i((x_tile << 1) + 0, (y_tile << 1) + 0));
+            }
+            if (!std::isnan(pts[1][2]) && !std::isnan(pts[4][2])) {
+                recurseTileVec.push_back(Point2i((x_tile << 1) + 1, (y_tile << 1) + 0));
+            }
+            if (!std::isnan(pts[3][2]) && !std::isnan(pts[4][2])) {
+                recurseTileVec.push_back(Point2i((x_tile << 1) + 0, (y_tile << 1) + 1));
+            }
+            if (!std::isnan(pts[2][2]) && !std::isnan(pts[4][2])) {
+                recurseTileVec.push_back(Point2i((x_tile << 1) + 1, (y_tile << 1) + 1));
+            }
             avgDepth = 0.25f * (pts[0][2] + pts[1][2] + pts[2][2] + pts[3][2]);
             //avgDepth = 0.20f * (pts[0][2] + pts[1][2] + pts[2][2] + pts[3][2] + pts[4][2]);
             if (std::isnan(avgDepth)) {
@@ -135,7 +148,7 @@ namespace cv {
             for (int y_tile = 0; y_tile < tileDims.height; ++y_tile) {
                 for (int x_tile = 0; x_tile < tileDims.width; ++x_tile) {
                     quadTree->setRect(x_tile, y_tile, quad);
-                    if (checkTilePlanar(rgbd_img, quad, avgDepth)) {
+                    if (checkTilePlanar(rgbd_img, quad, avgDepth, recurseTileVec, x_tile, y_tile)) {
                         std::vector<cv::Point3f> tile_data; // data for each tile in array of vectors
                         int numSamples = std::max((quad.width * quad.height) / 2, 3);
                         tile_data.reserve(numSamples);
@@ -170,10 +183,10 @@ namespace cv {
                             // not enough samples found in tile -> stop recursions
                         }
                     } else { // one or more tile corners is a NaN depth measurement -> subdivide
-                        recurseTileVec.push_back(Point2i((x_tile << 1) + 0, (y_tile << 1) + 0));
-                        recurseTileVec.push_back(Point2i((x_tile << 1) + 1, (y_tile << 1) + 0));
-                        recurseTileVec.push_back(Point2i((x_tile << 1) + 0, (y_tile << 1) + 1));
-                        recurseTileVec.push_back(Point2i((x_tile << 1) + 1, (y_tile << 1) + 1));
+                        //recurseTileVec.push_back(Point2i((x_tile << 1) + 0, (y_tile << 1) + 0));
+                        //recurseTileVec.push_back(Point2i((x_tile << 1) + 1, (y_tile << 1) + 0));
+                        //recurseTileVec.push_back(Point2i((x_tile << 1) + 0, (y_tile << 1) + 1));
+                        //recurseTileVec.push_back(Point2i((x_tile << 1) + 1, (y_tile << 1) + 1));
                     }
                 } // loop over tile columns
             } // loop over tile rows
@@ -191,7 +204,7 @@ namespace cv {
             float avgDepth;
             for (cv::Point2i tileIdx : subdivideTileVec) {
                 quadTree->setRect(tileIdx.x, tileIdx.y, quad);
-                if (checkTilePlanar(rgbd_img, quad, avgDepth)) {
+                if (checkTilePlanar(rgbd_img, quad, avgDepth, recurseTileVec, tileIdx.x, tileIdx.y)) {
                     std::vector<cv::Point3f> tile_data; // data for each tile in array of vectors
                     int numSamples = std::max((quad.width * quad.height) / 2, 3);
                     tile_data.reserve(numSamples);
@@ -225,10 +238,10 @@ namespace cv {
                         // not enough samples found in tile -> stop recursions
                     }
                 } else { // one or more tile corners is a NaN depth measurement -> subdivide
-                    recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 0, (tileIdx.y << 1) + 0));
-                    recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 1, (tileIdx.y << 1) + 0));
-                    recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 0, (tileIdx.y << 1) + 1));
-                    recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 1, (tileIdx.y << 1) + 1));
+                    //recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 0, (tileIdx.y << 1) + 0));
+                    //recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 1, (tileIdx.y << 1) + 0));
+                    //recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 0, (tileIdx.y << 1) + 1));
+                    //recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 1, (tileIdx.y << 1) + 1));
                 }
             } // loop over subdivision tiles
             return recurseTileVec;
