@@ -110,21 +110,21 @@ namespace cv {
             rgbd_img.getPoint3f(quad.x + quad.width, quad.y + quad.height, pts[2][0], pts[2][1], pts[2][2]);
             rgbd_img.getPoint3f(quad.x, quad.y + quad.height, pts[3][0], pts[3][1], pts[3][2]);
             rgbd_img.getPoint3f((quad.x + quad.width) >> 1, (quad.y + quad.height) >> 1, pts[4][0], pts[4][1], pts[4][2]);
-            if (!std::isnan(pts[0][2]) && !std::isnan(pts[4][2])) {
-                recurseTileVec.push_back(Point2i((x_tile << 1) + 0, (y_tile << 1) + 0));
-            }
-            if (!std::isnan(pts[1][2]) && !std::isnan(pts[4][2])) {
-                recurseTileVec.push_back(Point2i((x_tile << 1) + 1, (y_tile << 1) + 0));
-            }
-            if (!std::isnan(pts[3][2]) && !std::isnan(pts[4][2])) {
-                recurseTileVec.push_back(Point2i((x_tile << 1) + 0, (y_tile << 1) + 1));
-            }
-            if (!std::isnan(pts[2][2]) && !std::isnan(pts[4][2])) {
-                recurseTileVec.push_back(Point2i((x_tile << 1) + 1, (y_tile << 1) + 1));
-            }
-            avgDepth = 0.25f * (pts[0][2] + pts[1][2] + pts[2][2] + pts[3][2]);
-            //avgDepth = 0.20f * (pts[0][2] + pts[1][2] + pts[2][2] + pts[3][2] + pts[4][2]);
+            //avgDepth = 0.25f * (pts[0][2] + pts[1][2] + pts[2][2] + pts[3][2]);
+            avgDepth = 0.20f * (pts[0][2] + pts[1][2] + pts[2][2] + pts[3][2] + pts[4][2]);
             if (std::isnan(avgDepth)) {
+                if (!std::isnan(pts[0][2]) && !std::isnan(pts[4][2])) {
+                    recurseTileVec.push_back(Point2i((x_tile << 1) + 0, (y_tile << 1) + 0));
+                }
+                if (!std::isnan(pts[1][2]) && !std::isnan(pts[4][2])) {
+                    recurseTileVec.push_back(Point2i((x_tile << 1) + 1, (y_tile << 1) + 0));
+                }
+                if (!std::isnan(pts[3][2]) && !std::isnan(pts[4][2])) {
+                    recurseTileVec.push_back(Point2i((x_tile << 1) + 0, (y_tile << 1) + 1));
+                }
+                if (!std::isnan(pts[2][2]) && !std::isnan(pts[4][2])) {
+                    recurseTileVec.push_back(Point2i((x_tile << 1) + 1, (y_tile << 1) + 1));
+                }
                 return false;
             }
             //cv::Vec3f curvature_vec = 0.25f * (pts[0] + pts[1] + pts[2] + pts[3]) - pts[4];
