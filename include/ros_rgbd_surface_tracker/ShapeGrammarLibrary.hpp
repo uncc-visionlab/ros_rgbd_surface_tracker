@@ -135,7 +135,7 @@ public:
         cv::Mat r1, r2;
         cv::Rodrigues(this->rodrigues, r1);
         cv::Rodrigues(deltaPose.rodrigues, r2);
-        r1 = r1*r2.t();
+        r1 = r1 * r2.t();
         cv::Rodrigues(r1, this->rodrigues);
     }
 
@@ -451,6 +451,21 @@ namespace sg {
             planeSet.insert(surfaces[1]);
         }
 
+        float matchPlanes(Edge<_Tpl>::Ptr edgePtr, std::pair<Plane<float>::Ptr, Plane<float>::Ptr>* planePairs) {
+            float distance_A = surfaces[0]->matchDistance(edgePtr->surfaces[0])
+                    + surfaces[1]->matchDistance(edgePtr->surfaces[1]);
+            float distance_B = surfaces[0]->matchDistance(edgePtr->surfaces[1])
+                    + surfaces[1]->matchDistance(edgePtr->surfaces[0]);
+            if (distance_A < distance_B) {
+                planePairs[0] = {surfaces[0], edgePtr->surfaces[0]};
+                planePairs[1] = {surfaces[1], edgePtr->surfaces[1]};
+                return distance_A;
+            }
+            planePairs[0] = {surfaces[0], edgePtr->surfaces[1]};
+            planePairs[1] = {surfaces[1], edgePtr->surfaces[0]};
+            return distance_B;
+        }
+
         bool isConvex() {
             return _isConvex;
         }
@@ -673,6 +688,38 @@ namespace sg {
             edges[0]->getPlanes(planeSet);
             edges[1]->getPlanes(planeSet);
             assert(planeSet.size() == 3);
+        }
+
+        float matchPlanes(Corner<_Tpl>::Ptr cornerPtr, std::pair<Plane<float>::Ptr, Plane<float>::Ptr>* planePairs) {
+            std::unordered_set<Plane<float>::Ptr> planeSetA, planeSetB;
+            getPlanes(planeSetA);
+            cornerPtr->getPlanes(planeSetB);
+            Plane<float>::Ptr bestMatch[3];
+            int idxA = 0;
+            float distanceAB, minDistance, distance = 0;
+            for (auto plane_iterA = planeSetA.begin(); plane_iterA != planeSetA.end(); ++plane_iterA, ++idxA) {
+                minDistance = std::numeric_limits<float>::infinity();
+                for (auto plane_iterB = planeSetB.begin(); plane_iterB != planeSetB.end(); ++plane_iterB) {
+                    distanceAB = (*plane_iterA)->matchDistance(*plane_iterB);
+                    if (distanceAB < minDistance) {
+                        minDistance = distanceAB;
+                        bestMatch[idxA] = *plane_iterB;
+                    }
+                }
+                planePairs[idxA] = {*plane_iterA, bestMatch[idxA]};
+                distance += minDistance;
+            }
+            // This is a case of the "assignment problem" where we need to assign
+            // planes from cornerA to planes of cornerB and minimize cost/dissimilarity
+            // https://en.wikipedia.org/wiki/Assignment_problem
+            //
+            // if this assert fails then one must run the Hungarian algorithm  
+            // https://en.wikipedia.org/wiki/Hungarian_algorithm
+            // https://github.com/RoboJackets/hungarian
+            // or the Edmonds-Karp algorithm to find the optimal match
+            // http://www.sanfoundry.com/cpp-program-implement-edmonds-karp-algorithm/
+            assert(bestMatch[0] != bestMatch[1] && bestMatch[0] != bestMatch[2] && bestMatch[1] != bestMatch[2]);
+            return distance;
         }
 
         bool isConvex() {
