@@ -82,10 +82,21 @@ public:
         _position = position;
     }
 
-    cv::Mat getRotation() const {
+    cv::Mat getRotation_Mat() const {
         cv::Mat rotMat;
         cv::Rodrigues(rodrigues, rotMat);
         return rotMat;
+    }
+
+    cv::Matx33f getRotation_Matx33() const {
+        cv::Mat rotMat;
+        cv::Matx33f rotMatx;
+        cv::Rodrigues(rodrigues, rotMat);
+        float *rotmat = rotMat.ptr<float>(0, 0);
+        for (int i = 0; i < 9; ++i) {
+            rotMatx.val[i] = *rotmat++;
+        }
+        return rotMatx;
     }
 
     void set(const cv::Matx44f tform) {
@@ -106,7 +117,7 @@ public:
         this->position[2] = tform.val[11];
     }
 
-    void set(cv::Vec3f _rodrigues, cv::Vec3f _position) {
+    void set(cv::Vec3f _position, cv::Vec3f _rodrigues) {
         this->rodrigues = _rodrigues;
         this->position = _position;
     }
@@ -301,10 +312,13 @@ namespace sg {
             if (!planePtr) {
                 return std::numeric_limits<_Tpl>::infinity();
             }
-            cv::Vec<_Tpl, 4> errorVec(planePtr->x - this->x,
+            cv::Vec<_Tpl, 3> errorVec(planePtr->x - this->x,
                     planePtr->y - this->y,
-                    planePtr->z - this->z,
-                    planePtr->d - this->d);
+                    planePtr->z - this->z);
+            //cv::Vec<_Tpl, 4> errorVec(planePtr->x - this->x,
+            //        planePtr->y - this->y,
+            //        planePtr->z - this->z,
+            //        planePtr->d - this->d);
             return std::sqrt(errorVec.dot(errorVec));
         }
 
@@ -550,12 +564,18 @@ namespace sg {
             if (!edgePtr) {
                 return std::numeric_limits<_Tpl>::infinity();
             }
-            cv::Vec<_Tpl, 6> errorVec(edgePtr->v.x - this->v.x,
+            cv::Vec<_Tpl, 3> errorVec(edgePtr->v.x - this->v.x,
                     edgePtr->v.y - this->v.y,
-                    edgePtr->v.z - this->v.z,
-                    edgePtr->p0.x - this->p0.x,
-                    edgePtr->p0.y - this->p0.y,
-                    edgePtr->p0.z - this->p0.z);
+                    edgePtr->v.z - this->v.z);
+            //cv::Vec<_Tpl, 3> delta_start = edgePtr->getPoint(edgePtr->start) - this->getPoint(this->start);
+            //cv::Vec<_Tpl, 3> delta_end  = edgePtr->getPoint(edgePtr->end) - this->getPoint(this->end);
+            //cv::Vec<_Tpl, 3> errorVec = delta_start + delta_end;
+            //cv::Vec<_Tpl, 6> errorVec(edgePtr->v.x - this->v.x,
+            //        edgePtr->v.y - this->v.y,
+            //        edgePtr->v.z - this->v.z,
+            //        edgePtr->p0.x - this->p0.x,
+            //        edgePtr->p0.y - this->p0.y,
+            //        edgePtr->p0.z - this->p0.z);
             return std::sqrt(errorVec.dot(errorVec));
         }
 

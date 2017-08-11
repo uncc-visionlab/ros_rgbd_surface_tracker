@@ -194,24 +194,28 @@ corner_search_done:
         }
 
         float CORNER_MATCH_DISTANCE_THRESHOLD = 0.05f;
-        float EDGE_MATCH_DISTANCE_THRESHOLD = 0.05f;
-        float PLANE_MATCH_DISTANCE_THRESHOLD = 0.2f;
+        float EDGE_MATCH_DISTANCE_THRESHOLD = 0.2f; // shift in endpoints + shift in midpoint
+        float DIRECTION_MATCH_DISTANCE_THRESHOLD = 3 * cv::Plane3f::COPLANAR_COS_ANGLE_THRESHOLD; // 5 degrees
+        float PLANE_MATCH_DISTANCE_THRESHOLD = 1.5f;
 
-        void SurfaceDescriptorMatcher::match(const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
+        float SurfaceDescriptorMatcher::match(const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
                 const std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&query_shapeMap,
                 const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& prev_quadTree,
                 const std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>&train_shapeMap,
                 std::vector<cv::rgbd::ShapeMatch>& matches, std::vector<sg::Shape::Ptr>& newShapes, int timeBudget_ms,
-                cv::Mat& rgb_result, Pose camPose, cv::Mat mask) const {
-            cv::Vec3f position;
+                cv::Mat& rgb_result, const Pose& deltaPose, cv::Mat mask) const {
+            cv::Vec3f positionA, positionB, delta_position;
 
             sg::Shape::Ptr bestMatch;
             sg::Corner<float>::Ptr cornerPtrA, cornerPtrB;
             sg::Edge<float>::Ptr edgePtrA, edgePtrB;
             sg::Plane<float>::Ptr planePtrA, planePtrB;
 
-            cv::Matx44f camTransform = camPose.getTransform();
-            //std::cout << "camTransform = " << camTransform << std::endl;
+            cv::Matx33f deltaOrientation = deltaPose.getRotation_Matx33();
+            cv::Vec3f deltaTranslation;
+            deltaPose.getTranslation(deltaTranslation);
+            //std::cout << "deltaOrientation = " << deltaOrientation << std::endl;
+            //std::cout << "deltaTranslation = " << deltaTranslation << std::endl;
 
             bool timeBudgetExpired = false;
             int64 timeBudgetTicks = timeBudget_ms * cv::getTickFrequency() / 1000;
@@ -219,7 +223,7 @@ corner_search_done:
 
             // Search for matching edges and corners first between successive frames
             // these elements encode more information than planes
-            float distance, min_distance;
+            float distance, min_distance, total_error = 0;
             for (auto shapeType_iter = train_shapeMap.begin();
                     shapeType_iter != train_shapeMap.end(); ++shapeType_iter) {
                 const cv::rgbd::SurfaceType shapeType = (*shapeType_iter).first;
@@ -227,7 +231,7 @@ corner_search_done:
                 if (!(shapeType == cv::rgbd::PLANE)) { // planes are matches using sequential frame quadtrees
                     for (auto shape_iterA = shapeVec.begin(); shape_iterA != shapeVec.end(); ++shape_iterA) {
                         const sg::Shape::Ptr& shapeA = *shape_iterA;
-                        shapeA->getPose().getTranslation(position);
+                        shapeA->getPose().getTranslation(positionA);
                         if (shape_iterA + 1 != shapeVec.end()) {
                             bestMatch = nullptr;
                             min_distance = std::numeric_limits<float>::infinity();
@@ -237,7 +241,10 @@ corner_search_done:
                                     min_distance = std::numeric_limits<float>::infinity();
                                     for (auto shape_iterB = shape_iterA + 1; shape_iterB != shapeVec.end(); ++shape_iterB) {
                                         cornerPtrB = boost::static_pointer_cast<sg::Corner<float>>(*shape_iterB);
-                                        distance = cornerPtrA->matchDistance(cornerPtrB);
+                                        cornerPtrB->getPose().getTranslation(positionB);
+                                        delta_position = positionB - (deltaOrientation*positionA + deltaTranslation);
+                                        //distance = cornerPtrA->matchDistance(cornerPtrB);                                        
+                                        distance = std::sqrt(delta_position.dot(delta_position));
                                         if (distance < CORNER_MATCH_DISTANCE_THRESHOLD &&
                                                 distance < min_distance) {
                                             bestMatch = cornerPtrB;
@@ -249,8 +256,12 @@ corner_search_done:
                                     edgePtrA = boost::static_pointer_cast<sg::Edge<float>>(shapeA);
                                     for (auto shape_iterB = shape_iterA + 1; shape_iterB != shapeVec.end(); ++shape_iterB) {
                                         edgePtrB = boost::static_pointer_cast<sg::Edge<float>>(*shape_iterB);
-                                        distance = edgePtrA->matchDistance(edgePtrB);
+                                        edgePtrB->getPose().getTranslation(positionB);
+                                        delta_position = positionB - (deltaOrientation*positionA + deltaTranslation);
+                                        //distance = edgePtrA->matchDistance(edgePtrB);
+                                        distance = std::sqrt(delta_position.dot(delta_position));
                                         if (distance < EDGE_MATCH_DISTANCE_THRESHOLD &&
+                                                edgePtrB->v.dot(deltaOrientation*edgePtrB->v) > 1 - DIRECTION_MATCH_DISTANCE_THRESHOLD &&
                                                 distance < min_distance) {
                                             bestMatch = edgePtrB;
                                             min_distance = distance;
@@ -262,8 +273,12 @@ corner_search_done:
                                     planePtrA = boost::static_pointer_cast<sg::Plane<float>>(shapeA);
                                     for (auto shape_iterB = shape_iterA + 1; shape_iterB != shapeVec.end(); ++shape_iterB) {
                                         planePtrB = boost::static_pointer_cast<sg::Plane<float>>(*shape_iterB);
-                                        distance = planePtrA->matchDistance(planePtrB);
+                                        planePtrB->getPose().getTranslation(positionB);
+                                        delta_position = positionB - (deltaOrientation*positionA + deltaTranslation);
+                                        //distance = planePtrA->matchDistance(planePtrB); 
+                                        distance = std::sqrt(delta_position.dot(delta_position));
                                         if (distance < PLANE_MATCH_DISTANCE_THRESHOLD &&
+                                                planePtrB->dot(deltaOrientation*(*planePtrA)) > 1 - DIRECTION_MATCH_DISTANCE_THRESHOLD &&
                                                 distance < min_distance) {
                                             bestMatch = planePtrB;
                                             min_distance = distance;
@@ -278,7 +293,8 @@ corner_search_done:
                                 matchAB.distance = min_distance;
                                 matchAB.surfaceType = shapeType;
                                 // TODO: matching just planes for now....
-                                //matches.push_back(matchAB);
+                                matches.push_back(matchAB);
+                                total_error += matchAB.distance;                                
                             } else {
                                 newShapes.push_back(shapeA);
                             }
@@ -290,9 +306,9 @@ corner_search_done:
             timeBudgetExpired = (ticksNow - ticksStart) > timeBudgetTicks;
 
             // match planes directly out of the previous frame and current frame quadTrees
-            //cv::Rect rootCompareWindow(-2, -2, 5, 5);
+            cv::Rect rootCompareWindow(-2, -2, 5, 5);
             //cv::Rect rootCompareWindow(-1, -1, 3, 3);
-            cv::Rect rootCompareWindow(0, 0, 1, 1);
+            //cv::Rect rootCompareWindow(0, 0, 1, 1);
             int qX, qY, key, dLevel;
             int compareLevels[] = {0, 0};
             while (!timeBudgetExpired &&
@@ -306,15 +322,20 @@ corner_search_done:
                 for (auto it = dataA.begin(); it != dataA.end(); ++it) {
                     key = it->first;
                     qts[0]->keyToXY(key, qX, qY);
-                    sg::Plane<float>::Ptr planeA = it->second; // plane from first quadTree
+                    planePtrA = it->second; // plane from first quadTree
+                    planePtrA->getPose().getTranslation(positionA);
                     bestMatch = nullptr;
                     min_distance = std::numeric_limits<float>::infinity();
                     for (int dX = rootCompareWindow.x; dX < rootCompareWindow.x + rootCompareWindow.width; ++dX) {
                         for (int dY = rootCompareWindow.y; dY < rootCompareWindow.y + rootCompareWindow.height; ++dY) {
                             sg::Plane<float>::Ptr* planeB_ptr = qts[1]->get((qX << dLevel) + dX, (qY << dLevel) + dY);
                             if (planeB_ptr) {
-                                distance = planeA->matchDistance(*planeB_ptr);
+                                (*planeB_ptr)->getPose().getTranslation(positionB);
+                                delta_position = positionB - (deltaOrientation*positionA + deltaTranslation);
+                                //distance = planeA->matchDistance(*planeB_ptr);
+                                distance = std::sqrt(delta_position.dot(delta_position));
                                 if (distance < PLANE_MATCH_DISTANCE_THRESHOLD &&
+                                        planePtrA->dot(**planeB_ptr) > 1 - DIRECTION_MATCH_DISTANCE_THRESHOLD &&
                                         distance < min_distance) {
                                     bestMatch = *planeB_ptr;
                                     min_distance = distance;
@@ -324,15 +345,15 @@ corner_search_done:
                     } /* loop over candidate surface elements */
                     if (bestMatch) {
                         cv::rgbd::ShapeMatch matchAB;
-                        matchAB.query_shape = planeA;
+                        matchAB.query_shape = planePtrA;
                         matchAB.train_shape = bestMatch;
                         matchAB.distance = min_distance;
                         matchAB.surfaceType = cv::rgbd::PLANE;
                         //std::cout << matchAB.toString() << std::endl;
                         matches.push_back(matchAB);
+                        total_error += matchAB.distance;                                                        
                     }
                 }
-
 
                 ticksNow = cv::getTickCount();
                 timeBudgetExpired = (ticksNow - ticksStart) > timeBudgetTicks;
@@ -346,14 +367,16 @@ corner_search_done:
                     compareLevels[1]++;
                 }
             }
+search_done:
 
             std::cout << "Surface matcher time used = " << ((double) (ticksNow - ticksStart) / cv::getTickFrequency())
                     << " sec. time allocated = " << ((double) timeBudgetTicks / cv::getTickFrequency()) << " sec." << std::endl;
 
             static bool verbose = true;
             if (verbose) {
-                    std::cout << "Found " << matches.size() << " geometric matches." << std::endl;
+                std::cout << "Found " << matches.size() << " geometric matches." << std::endl;
             }
+            return total_error;
         }
     } /* namespace rgbd */
 } /* namespace cv */

@@ -70,13 +70,13 @@ namespace cv {
 
         class SurfaceDescriptorMatcher {
         public:
-            void match(const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
+            float match(const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
                     const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
                     const cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& prev_quadTree,
                     const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&train_shapeMap,
                     std::vector<cv::rgbd::ShapeMatch>& matches,
                     std::vector<sg::Shape::Ptr>& newShapes, int timeBudget_ms,
-                    cv::Mat& rgb_result, Pose camPose = Pose(), cv::Mat mask = cv::Mat()) const;
+                    cv::Mat& rgb_result, const Pose& camPose = Pose(), cv::Mat mask = cv::Mat()) const;
         }; /* class SurfaceDescriptorMatcher */
 
         class RgbdSurfaceTracker {

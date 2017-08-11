@@ -91,7 +91,7 @@ void ROS_RgbdSurfaceTracker::depthImageCallback(const sensor_msgs::ImageConstPtr
 }
 
 tf::Transform convertPoseToTFTransform(const Pose& pose) {
-    cv::Mat rotation = pose.getRotation();
+    cv::Mat rotation = pose.getRotation_Mat();
     cv::Vec3f translation;
     pose.getTranslation(translation);
     Eigen::Map<Eigen::Matrix3f> eigenRot((float *) rotation.data);

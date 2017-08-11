@@ -412,6 +412,7 @@ namespace cv {
             sg::Plane<float>::Ptr fixedPlanePtr, movingPlanePtr;
             std::vector<cv::Plane3f::Ptr> fixedPlanes;
             std::vector<cv::Plane3f::Ptr> movingPlanes;
+            std::pair<sg::Plane<float>::Ptr, sg::Plane<float>::Ptr> planePairs[3];
             for (auto match_iter = matches.begin(); match_iter != matches.end(); ++match_iter) {
                 const cv::rgbd::ShapeMatch& match = *match_iter;
                 sg::Shape::Ptr movingShape = match.query_shape;
@@ -420,14 +421,20 @@ namespace cv {
                     case SurfaceType::CORNER:
                         fixedCornerPtr = boost::static_pointer_cast<sg::Corner<float>>(movingShape);
                         movingCornerPtr = boost::static_pointer_cast<sg::Corner<float>>(fixedShape);
-                        fixedCornerPtr->getPlanes(fixedPlaneSet);
-                        movingCornerPtr->getPlanes(movingPlaneSet);
+                        fixedCornerPtr->matchPlanes(movingCornerPtr, planePairs);
+                        for (int idx = 0; idx < 3; ++idx) {
+                            fixedPlanes.push_back(planePairs[idx].first);
+                            movingPlanes.push_back(planePairs[idx].second);
+                        }
                         break;
                     case SurfaceType::EDGE:
                         fixedEdgePtr = boost::static_pointer_cast<sg::Edge<float>>(movingShape);
                         movingEdgePtr = boost::static_pointer_cast<sg::Edge<float>>(fixedShape);
-                        fixedEdgePtr->getPlanes(fixedPlaneSet);
-                        movingEdgePtr->getPlanes(movingPlaneSet);
+                        fixedEdgePtr->matchPlanes(movingEdgePtr, planePairs);
+                        for (int idx = 0; idx < 2; ++idx) {
+                            fixedPlanes.push_back(planePairs[idx].first);
+                            movingPlanes.push_back(planePairs[idx].second);
+                        }
                         break;
                     case cv::rgbd::PLANE:
                         fixedPlanePtr = boost::static_pointer_cast<sg::Plane<float>>(movingShape);
@@ -460,12 +467,12 @@ namespace cv {
             cv::Vec3f tVec = cvTransform(cv::Rect(3, 0, 1, 3));
             cv::Vec3f rVec;
             cv::Mat rotMat = cvTransform(cv::Rect(0, 0, 3, 3));
-            cv::transpose(rotMat, rotMat);
+            //cv::transpose(rotMat, rotMat);
             cv::Rodrigues(rotMat, rVec);
             //cv::transpose(rotMat, rotMat);
             //std::cout << "R = " << rotMat << std::endl;
             //std::cout << "t = " << tVec << std::endl;
-            delta_pose_estimate.set(-tVec, rVec);
+            delta_pose_estimate.set(tVec, rVec);
             return true;
         }
 
@@ -490,7 +497,7 @@ namespace cv {
             cv::Size tileSize(BLOCKSIZE, BLOCKSIZE);
             cv::QuadTree<sg::Plane<float>::Ptr>::Ptr quadTree(new QuadTree<sg::Plane<float>::Ptr>(imgSize, tileSize, roi));
 
-            int detector_timeBudget_ms = 15;
+            int detector_timeBudget_ms = 15 + glDraw.attrs.delta_budget_ms;
             surfdetector.detect(rgbd_img, quadTree, detector_timeBudget_ms, rgb_result);
 
             int descriptor_timeBudget_ms = 20;
@@ -563,20 +570,42 @@ namespace cv {
             }
 
             if (prev_quadTree && train_shapeMapPtr) {
+
                 cv::rgbd::ShapeMap& train_shapeMap = *train_shapeMapPtr;
-                int descriptor_matching_timeBudget_ms = 20;
-                std::vector<cv::rgbd::ShapeMatch> shapeMatches;
-                surfmatcher.match(quadTree, query_shapeMap,
-                        prev_quadTree, train_shapeMap,
-                        shapeMatches, newShapes,
-                        descriptor_matching_timeBudget_ms, rgb_result);
+                int descriptor_matching_timeBudget_ms = 50;
                 // Structures having a match are used to solve the following problems:
                 // 1. Localization -> (Range-based Odometry / Pose-change estimation)
+                int64 timeBudgetTicks = descriptor_matching_timeBudget_ms * cv::getTickFrequency() / 1000;
+                int64 ticksNow, ticksStart = cv::getTickCount();
+                bool validDeltaPoseEstimate = true, alignmentConverged = false, timeBudgetExpired = false;
+                int alignmentIterations = 0;
+                std::vector<cv::rgbd::ShapeMatch> shapeMatches;
+                delta_pose_estimate.set(cv::Vec3f(0, 0, 0), cv::Vec3f(0, 0, 0));
+                float error;                
+                while (!alignmentConverged && !timeBudgetExpired && validDeltaPoseEstimate && alignmentIterations < 1) {
+                    alignmentIterations++;
 
-                if (!estimateDeltaPose(query_shapeMap, train_shapeMap, shapeMatches, delta_pose_estimate)) {
-                    std::cout << "Could not estimate pose change from provided shape matches!" << std::endl;
-                    return;
-                } else { // use pose estimate to update map
+                    error = surfmatcher.match(quadTree, query_shapeMap,
+                            prev_quadTree, train_shapeMap,
+                            shapeMatches, newShapes,
+                            descriptor_matching_timeBudget_ms, rgb_result, delta_pose_estimate);
+                    std::cout << "Iteration " << alignmentIterations << " alignment error = " << error << std::endl;
+                    int idx = 0;
+                    //for (auto match_iter = shapeMatches.begin(); match_iter != shapeMatches.end();
+                    //        ++match_iter, ++idx) {
+                    //std::cout << "match[" << idx << "]=" << (*match_iter).toString() << std::endl;
+                    //}
+
+                    if (!estimateDeltaPose(query_shapeMap, train_shapeMap, shapeMatches, delta_pose_estimate)) {
+                        std::cout << "Could not estimate pose change from provided shape matches!" << std::endl;
+                        return;
+                    }
+                    shapeMatches.clear();
+                    ticksNow = cv::getTickCount();
+                    timeBudgetExpired = (ticksNow - ticksStart) > timeBudgetTicks;
+                }
+
+                if (validDeltaPoseEstimate) { // use pose estimate to update map
                     cv::Matx44f dpose;
                     //dpose.val[0*4+0] = 1.0;
                     //dpose.val[1*4+1] = 1.0;

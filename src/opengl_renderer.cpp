@@ -60,6 +60,12 @@ namespace cv {
             glMatrixMode(GL_MODELVIEW);
             
             switch (key) {
+                case '=':
+                    attrs.delta_budget_ms += 2;
+                    break;
+                case '-':
+                    attrs.delta_budget_ms -= 2;
+                    break;
                 case 'a':
                     glTranslatef(+0.2f, 0.0f, 0.0f);
                     break;

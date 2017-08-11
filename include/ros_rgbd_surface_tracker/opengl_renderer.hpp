@@ -30,11 +30,12 @@ namespace cv {
             bool showPointcloudNormals;
             bool showDetections;
             int specialKey;
+            int delta_budget_ms;
 
             OpenGLRenderAttributes() : showWireframe(false),
             showPointcloud(true),
             showPointcloudNormals(false),
-            showDetections(true) {
+            showDetections(true), delta_budget_ms(0) {
             }
 
         };

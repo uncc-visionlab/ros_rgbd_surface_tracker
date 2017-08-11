@@ -192,13 +192,19 @@ namespace cv {
             line.v = this->cross(planeB);
             //double detB = (planeA.x * planeB.y - planeB.x * planeA.y);
             //double detA = line.v.z;
+            //std::cout << "detA " << detA << " detB " << detB << std::endl;
             if (line.v.z == 0) {
                 return false;
             }
-            //std::cout << "detA " << detA << " detB " << detB << std::endl;
             line.p0.x = (_Tpl) (-planeB.y * this->d + this->y * planeB.d) / line.v.z;
             line.p0.y = (_Tpl) (planeB.x * this->d - this->x * planeB.d) / line.v.z;
             line.p0.z = 0;
+            //if (line.v.x == 0) {
+            //    return false;
+            //}
+            //line.p0.x = 0;
+            //line.p0.y = (_Tpl) (planeB.z * this->d - this->z * planeB.d) / line.v.x;
+            //line.p0.z = (_Tpl) (-planeB.y * this->d + this->y * planeB.d) / line.v.x;
             return true;
         }
 
