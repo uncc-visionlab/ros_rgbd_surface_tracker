@@ -370,6 +370,10 @@ namespace cv {
             return uv;
         }
 
+        cv::Point3_<_Tpl> getClosestPointToOrigin() {
+            return cv::Point3_<_Tpl>(-this->d * (*this));
+        }
+
         std::string toString() {
             std::ostringstream stringStream;
             stringStream << "(" << this->x << ", " << this->y
@@ -748,7 +752,7 @@ namespace cv {
         int numLevels() {
             return _numLevels;
         }
-        
+
     };
 
     template<typename T>
@@ -782,7 +786,7 @@ namespace cv {
 
         virtual ~QuadTreeLevel() {
         }
-        
+
         int numTiles() {
             return tileDims.width * tileDims.height;
         }
@@ -793,7 +797,7 @@ namespace cv {
             }
             return data.size() + child->numElements();
         }
-        
+
         void setRect(int index, cv::Rect& r) {
             r.y = index / tileDims.width;
             r.x = index - r.y * tileDims.width;

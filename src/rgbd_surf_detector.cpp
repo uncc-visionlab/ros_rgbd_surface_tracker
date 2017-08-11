@@ -98,10 +98,11 @@ namespace cv {
             plane_uv_texcoords[3] = cv::Vec2f(((float) imgTile.x) / rgbdImg.getWidth(),
                     1.0f - ((float) imgTile.y + imgTile.height) / (float) rgbdImg.getHeight());
             plane_ptr->addTexCoords(plane_uv_texcoords);
-            cv::Vec3f planePt_ortho = -plane_ptr->d*(*plane_ptr);
-            cv::Vec3f inPlanePt = meanPos - meanPos.dot(*plane_ptr) * (meanPos - planePt_ortho);
-            //plane_ptr->setPose(Pose(inPlanePt, cv::Vec3f(plane_ptr->x, plane_ptr->y, plane_ptr->z)));
-            plane_ptr->setPose(Pose(meanPos, cv::Vec3f(plane_ptr->x, plane_ptr->y, plane_ptr->z)));
+            cv::Vec3f planePt2meanPos = meanPos - (cv::Vec3f) plane_ptr->getClosestPointToOrigin();
+            cv::Vec3f inPlanePt = meanPos - planePt2meanPos.dot(*plane_ptr) * (cv::Vec3f)(*plane_ptr);
+            //std::cout << "inPlanePt " << inPlanePt << " meanPos " << meanPos << " eval(inPlanePt) " << plane_ptr->evaluate(inPlanePt) << std::endl;
+            plane_ptr->setPose(Pose(inPlanePt, cv::Vec3f(plane_ptr->x, plane_ptr->y, plane_ptr->z)));
+            //plane_ptr->setPose(Pose(meanPos, cv::Vec3f(plane_ptr->x, plane_ptr->y, plane_ptr->z)));
             return true;
         }
 

@@ -104,14 +104,14 @@ tf::Transform convertPoseToTFTransform(const Pose& pose) {
 }
 
 void ROS_RgbdSurfaceTracker::updateSurfaces(const sensor_msgs::ImageConstPtr& depth_msg,
-        cv::rgbd::RgbdImage& rgbd_img, cv::Mat & rgb_result) {
-    
+        cv::rgbd::RgbdImage& rgbd_img, cv::Mat& rgb_result) {
+
     rgbdSurfTracker.updateSurfaces(rgbd_img, rgb_result);
 
     PlaneVisualizationData* vis_data = rgbdSurfTracker.getPlaneVisualizationData();
     plane_vis.clearMarkerList();
     plane_vis.publishTriangleMesh(*vis_data, depth_msg->header.stamp);
-    
+
     Pose pose = rgbdSurfTracker.getPose();
     tf::Transform pose_transformTF = convertPoseToTFTransform(pose);
     tf::StampedTransform pose_stampedTF(pose_transformTF, frame_time,
@@ -143,8 +143,8 @@ void ROS_RgbdSurfaceTracker::updateSurfaces(const sensor_msgs::ImageConstPtr& de
         }
         pubPose_w_cov.publish(pose_msg);
     }
-    
-    if (pubOdom_w_cov.getNumSubscribers() > 0) {        
+
+    if (pubOdom_w_cov.getNumSubscribers() > 0) {
         Pose delta_pose = rgbdSurfTracker.getDeltaPose();
         tf::Transform delta_pose_transformTF = convertPoseToTFTransform(delta_pose);
         tf::StampedTransform delta_pose_stampedTF(delta_pose_transformTF, frame_time,

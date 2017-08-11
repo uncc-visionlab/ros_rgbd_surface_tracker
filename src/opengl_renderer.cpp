@@ -26,7 +26,7 @@ namespace cv {
     namespace rgbd {
 
         char fname[] = "output.pnm";
-        
+
         void OpenGLRenderer::initFrame(void) {
             //  Clear screen and Z-buffer
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -47,7 +47,7 @@ namespace cv {
             frameIndex++;
             // enable to view images when offscreen rendering is being used
             if (false && offscreen && frameIndex % 10 == 0) {
-                saveWindow(fname);
+                saveWindowImage(fname);
             }
             glutMainLoopEvent();
         }
@@ -58,7 +58,7 @@ namespace cv {
 
         void OpenGLRenderer::callbackKeyboard(unsigned char key, int x, int y) {
             glMatrixMode(GL_MODELVIEW);
-            
+
             switch (key) {
                 case '=':
                     attrs.delta_budget_ms += 2;
@@ -97,7 +97,7 @@ namespace cv {
                     break;
 
                 case 'S' - '@': /* ^S */
-                    saveWindow(fname);
+                    saveWindowImage(fname);
                     break;
 
                 case '\x08': /* backspace */
@@ -194,17 +194,26 @@ namespace cv {
             }
         }
 
-        void OpenGLRenderer::saveWindow(const char *file_name) {
+        void OpenGLRenderer::saveWindowImage(const char *file_name) {
             std::cout << "Saving frame to file: " << std::string(file_name) << "." << std::endl;
-            int width = glutGet(GLUT_WINDOW_WIDTH);
-            int height = glutGet(GLUT_WINDOW_HEIGHT);
+            int width, height;
+            getWindowDimensions(width, height);
             char pixels[3 * width * height];
             if (pixels) {
-                glPixelStorei(GL_PACK_ALIGNMENT, 1);
-                glReadPixels(0, 0, width, height,
-                        GL_RGB, GL_UNSIGNED_BYTE, (GLvoid *) pixels);
+                getWindowImage(pixels, width, height);
                 writeRawPNM(file_name, pixels, width, height);
             }
+        }
+
+        void OpenGLRenderer::getWindowDimensions(int& width, int& height) {
+            width = glutGet(GLUT_WINDOW_WIDTH);
+            height = glutGet(GLUT_WINDOW_HEIGHT);
+        }
+
+        void OpenGLRenderer::getWindowImage(char *pixels, const int& width, const int& height) {
+            glPixelStorei(GL_PACK_ALIGNMENT, 1);
+            glReadPixels(0, 0, width, height,
+                    GL_RGB, GL_UNSIGNED_BYTE, (GLvoid *) pixels);
         }
 
         int OpenGLRenderer::init(int width, int height, bool _offscreen) {

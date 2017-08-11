@@ -476,7 +476,7 @@ namespace cv {
             return true;
         }
 
-        void RgbdSurfaceTracker::updateSurfaces(cv::rgbd::RgbdImage& rgbd_img, cv::Mat & rgb_result) {
+        void RgbdSurfaceTracker::updateSurfaces(cv::rgbd::RgbdImage& rgbd_img, cv::Mat& rgb_result) {
 
 #ifdef PROFILE_CALLGRIND
             CALLGRIND_TOGGLE_COLLECT;
@@ -581,8 +581,9 @@ namespace cv {
                 int alignmentIterations = 0;
                 std::vector<cv::rgbd::ShapeMatch> shapeMatches;
                 delta_pose_estimate.set(cv::Vec3f(0, 0, 0), cv::Vec3f(0, 0, 0));
-                float error;                
-                while (!alignmentConverged && !timeBudgetExpired && validDeltaPoseEstimate && alignmentIterations < 1) {
+                float error;
+                while (!alignmentConverged && !timeBudgetExpired && validDeltaPoseEstimate 
+                        && alignmentIterations < 1) {
                     alignmentIterations++;
 
                     error = surfmatcher.match(quadTree, query_shapeMap,
@@ -591,15 +592,56 @@ namespace cv {
                             descriptor_matching_timeBudget_ms, rgb_result, delta_pose_estimate);
                     std::cout << "Iteration " << alignmentIterations << " alignment error = " << error << std::endl;
                     int idx = 0;
-                    //for (auto match_iter = shapeMatches.begin(); match_iter != shapeMatches.end();
-                    //        ++match_iter, ++idx) {
-                    //std::cout << "match[" << idx << "]=" << (*match_iter).toString() << std::endl;
-                    //}
+                    //                    for (auto match_iter = shapeMatches.begin(); match_iter != shapeMatches.end();
+                    //                            ++match_iter, ++idx) {
+                    //                        std::cout << "match[" << idx << "]=" << (*match_iter).toString() << std::endl;
+                    //                    }
+
 
                     if (!estimateDeltaPose(query_shapeMap, train_shapeMap, shapeMatches, delta_pose_estimate)) {
                         std::cout << "Could not estimate pose change from provided shape matches!" << std::endl;
-                        return;
+                        //return;
                     }
+
+                    // START VISUALIZE POSE ESTIMATION CODE
+                    cv::Mat cur_oglImage;
+                    bool showMatches = false;
+                    if (showMatches) {
+                        cv::Size glWinSize;
+                        glDraw.getWindowDimensions(glWinSize.width, glWinSize.height);
+                        cur_oglImage = cv::Mat::zeros(glWinSize, CV_8UC3);
+                        glDraw.getWindowImage(cur_oglImage.ptr<char>(0, 0), glWinSize.width, glWinSize.height);
+                        cv::flip(cur_oglImage, cur_oglImage, 0);
+                        cv::cvtColor(cur_oglImage, cur_oglImage, cv::COLOR_BGR2RGB);
+                        //cv::imshow("RenderedImage", cur_oglImage);
+
+                        if (prev_oglImage.rows == cur_oglImage.rows && prev_oglImage.cols == cur_oglImage.cols) {
+                            int stripWidth = 10;
+                            cv::Mat side_by_side = cv::Mat::zeros(cur_oglImage.rows, 2 * cur_oglImage.cols + stripWidth, CV_8UC3);
+                            cv::Mat leftImg = side_by_side(cv::Rect(0, 0, prev_oglImage.cols, prev_oglImage.rows));
+                            prev_oglImage.copyTo(leftImg);
+                            cv::Mat middleImg = side_by_side(cv::Rect(prev_oglImage.cols, 0, stripWidth, prev_oglImage.rows));
+                            middleImg.setTo(cv::Scalar(0, 0, 0));
+                            cv::Mat rightImg = side_by_side(cv::Rect(prev_oglImage.cols + stripWidth, 0, prev_oglImage.cols, prev_oglImage.rows));
+                            cur_oglImage.copyTo(rightImg);
+
+                            cv::Vec3f positionA, positionB;
+                            cv::Point2f position_projA, position_projB;
+                            for (auto match_iter = shapeMatches.begin(); match_iter != shapeMatches.end();
+                                    ++match_iter) {
+                                match_iter->train_shape->getPose().getTranslation(positionA);
+                                match_iter->query_shape->getPose().getTranslation(positionB);
+                                position_projA = rgbd_img.project(positionA);
+                                position_projB = rgbd_img.project(positionB);
+                                position_projB.x += stripWidth + prev_oglImage.cols;
+                                cv::line(side_by_side, position_projA, position_projB, cv::Scalar(255, 255, 0), 1);
+                            }
+                            cv::imshow("Prev (Left) and Current (Right) Rendered images", side_by_side);
+                        }
+                        prev_oglImage = cur_oglImage.clone();
+                    }
+                    // END VISUALIZE POSE ESTIMATION CODE
+
                     shapeMatches.clear();
                     ticksNow = cv::getTickCount();
                     timeBudgetExpired = (ticksNow - ticksStart) > timeBudgetTicks;

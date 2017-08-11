@@ -350,8 +350,8 @@ corner_search_done:
                         matchAB.distance = min_distance;
                         matchAB.surfaceType = cv::rgbd::PLANE;
                         //std::cout << matchAB.toString() << std::endl;
-                        matches.push_back(matchAB);
-                        total_error += matchAB.distance;                                                        
+                        //matches.push_back(matchAB);
+                        //total_error += matchAB.distance;                                                        
                     }
                 }
 

@@ -149,6 +149,9 @@ namespace cv {
 
             Pose delta_pose_estimate;
             Pose global_pose_estimate;
+            
+            // for debugging pose estimation
+            cv::Mat prev_oglImage;
 
         }; /* class RgbdSurfaceTracker */
     } /* namespace rgbd */

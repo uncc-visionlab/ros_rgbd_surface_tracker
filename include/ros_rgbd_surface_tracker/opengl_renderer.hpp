@@ -89,7 +89,11 @@ namespace cv {
 
             void callbackDisplay(void);
 
-            static void saveWindow(const char *file_name);
+            static void getWindowDimensions(int& width, int& height);
+            
+            static void getWindowImage(char *pixels, const int& width, const int& height);
+            
+            static void saveWindowImage(const char *file_name);
 
             static void writeRawPNM(const char *fname, char *pixels, int w, int h);
 
