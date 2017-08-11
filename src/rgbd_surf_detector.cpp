@@ -100,7 +100,8 @@ namespace cv {
             plane_ptr->addTexCoords(plane_uv_texcoords);
             cv::Vec3f planePt_ortho = -plane_ptr->d*(*plane_ptr);
             cv::Vec3f inPlanePt = meanPos - meanPos.dot(*plane_ptr) * (meanPos - planePt_ortho);
-            plane_ptr->setPose(Pose(inPlanePt, cv::Vec3f(plane_ptr->x, plane_ptr->y, plane_ptr->z)));
+            //plane_ptr->setPose(Pose(inPlanePt, cv::Vec3f(plane_ptr->x, plane_ptr->y, plane_ptr->z)));
+            plane_ptr->setPose(Pose(meanPos, cv::Vec3f(plane_ptr->x, plane_ptr->y, plane_ptr->z)));
             return true;
         }
 
