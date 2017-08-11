@@ -69,23 +69,23 @@ std::vector<std::array<T, N>> random_plusplus(const std::vector<std::array<T, N>
 	// Using a very simple PRBS generator, parameters selected according to
 	// https://en.wikipedia.org/wiki/Linear_congruential_generator#Parameters_in_common_use
 	std::random_device rand_device;
-	std::linear_congruential_engine<uint64_t, 6364136223846793005, 1442695040888963407, UINT64_MAX> rand_engine(
-		rand_device());
-
-	// Select first mean at random from the set
-	{
-		std::uniform_int_distribution<input_size_t> uniform_generator(0, data.size() - 1);
-		means.push_back(data[uniform_generator(rand_engine)]);
-	}
-
-	for (uint32_t count = 1; count < k; ++count) {
-		// Calculate the distance to the closest mean for each data point
-		auto distances = details::closest_distance(means, data, k);
-		// Pick a random point weighted by the distance from existing means
-		// TODO: This might convert floating point weights to ints, distorting the distribution for small weights
-		std::discrete_distribution<input_size_t> generator(distances.begin(), distances.end());
-		means.push_back(data[generator(rand_engine)]);
-	}
+//	std::linear_congruential_engine<uint64_t, 6364136223846793005, 1442695040888963407, UINT64_MAX> rand_engine(
+//		rand_device());
+//
+//	// Select first mean at random from the set
+//	{
+//		std::uniform_int_distribution<input_size_t> uniform_generator(0, data.size() - 1);
+//		means.push_back(data[uniform_generator(rand_engine)]);
+//	}
+//
+//	for (uint32_t count = 1; count < k; ++count) {
+//		// Calculate the distance to the closest mean for each data point
+//		auto distances = details::closest_distance(means, data, k);
+//		// Pick a random point weighted by the distance from existing means
+//		// TODO: This might convert floating point weights to ints, distorting the distribution for small weights
+//		std::discrete_distribution<input_size_t> generator(distances.begin(), distances.end());
+//		means.push_back(data[generator(rand_engine)]);
+//	}
 	return means;
 }
 
