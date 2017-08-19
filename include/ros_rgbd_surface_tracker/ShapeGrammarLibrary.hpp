@@ -90,9 +90,13 @@ public:
 
     cv::Matx33f getRotation_Matx33() const {
         cv::Mat rotMat;
-        cv::Matx33f rotMatx;
         cv::Rodrigues(rodrigues, rotMat);
-        float *rotmat = rotMat.ptr<float>(0, 0);
+        return cvtMat_to_Matx33(rotMat);
+    }
+
+    static cv::Matx33f cvtMat_to_Matx33(const cv::Mat& rotMat) {
+        cv::Matx33f rotMatx;
+        const float *rotmat = rotMat.ptr<float>(0, 0);
         for (int i = 0; i < 9; ++i) {
             rotMatx.val[i] = *rotmat++;
         }
@@ -120,6 +124,11 @@ public:
     void set(cv::Vec3f _position, cv::Vec3f _rodrigues) {
         this->rodrigues = _rodrigues;
         this->position = _position;
+    }
+
+    void set(cv::Vec3f _position, cv::Mat _rotMat) {
+        this->position = _position;
+        cv::Rodrigues(_rotMat, this->rodrigues);
     }
 
     cv::Matx44f getTransform() const {

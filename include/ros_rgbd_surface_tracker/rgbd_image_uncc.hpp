@@ -43,6 +43,12 @@ namespace cv {
                 std::vector<cv::Plane3f::Ptr>& fixed_planes,
                 Eigen::Matrix4f& transformation_matrix);
 
+        void benchmarkPointAlignment();
+
+        float minimizePointToPointError(std::vector<cv::Point3f>& fixed_points,
+                std::vector<cv::Point3f>& moving_points,
+                Pose& delta_pose);
+
         // Comment in/out CACHE_INVERSE to enable/disable caching of 
         // depth matrix inverses for explicit normal estimation. 
         // When active a significant speedup is obtained.
@@ -270,6 +276,42 @@ namespace cv {
                     }
                 } while (data.size() < numSamples && ++numIterations < 3 * numSamples);
                 return (data.size() == numSamples) ? true : false;
+            }
+
+            RgbdImage reproject(Pose camera_pose) {
+                RgbdImage newImg;
+                newImg.width = width;
+                newImg.height = height;
+                newImg.cameraMatrix = cameraMatrix.clone();
+                newImg.cx = cx;
+                newImg.cy = cy;
+                newImg.inv_f = inv_f;
+                float fNaN = std::numeric_limits<float>::quiet_NaN();
+                newImg.img_Z = cv::Mat(height, width, CV_32F, cv::Scalar(fNaN));
+                newImg.img_I = cv::Mat(height, width, CV_8UC3, cv::Scalar(0, 0, 0));
+                newImg.iptr = newImg.img_I.ptr<uchar>(0, 0);
+                newImg.zptr = newImg.img_Z.ptr<float>(0, 0);
+                istep = (int) (newImg.img_I.step / newImg.img_I.elemSize1());
+                zstep = (int) (newImg.img_Z.step / newImg.img_Z.elemSize1());
+                cv::Vec3f t;
+                camera_pose.getTranslation(t);
+                cv::Matx33f R = camera_pose.getRotation_Matx33();
+                float *cur_z_ptr;
+                Point3f p3d;
+                Point2f p2d;
+                for (int y = 0; y < height; ++y) {
+                    cur_z_ptr = img_Z.ptr<float>(y, 0);
+                    for (int x = 0; x < width; ++x, ++cur_z_ptr) {
+                        if (!std::isnan(*cur_z_ptr)) {
+                            getPoint3f(x, y, p3d);
+                            p3d =  R * (cv::Vec3f) p3d + t;
+                            p2d = project(p3d);
+                            newImg.img_Z.at<float>(p2d.y, p2d.x) = p3d.z;
+                            newImg.img_I.at<Vec3b>(p2d.y, p2d.x) = img_I.at<Vec3b>(y, x);
+                        }
+                    }
+                }
+                return newImg;
             }
 
             bool getTileData_Uniform(int x0, int y0,

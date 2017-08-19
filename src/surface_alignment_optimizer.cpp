@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 #include <boost/make_shared.hpp>
 
 #include <Eigen/Dense>
@@ -322,9 +317,9 @@ namespace cv {
                 std::vector<cv::Plane3f::Ptr>& moving_planes,
                 std::vector<cv::Plane3f::Ptr>& fixed_planes,
                 Eigen::Matrix4f& transformation_matrix) {
-            
+
             int result = 0;
-            
+
             if (fixed_planes.size() == 0 || moving_planes.size() == 0 ||
                     fixed_planes.size() != moving_planes.size()) {
                 result = -1;
@@ -347,17 +342,17 @@ namespace cv {
                             (plane_tgt->d - plane_src->d)*(plane_tgt->d - plane_src->d);
 
                     //if (norm < OUTLIER_THRESHOLD || true) {
-                        //std::cout << *plane_src << ", " << *plane_tgt << std::endl;
+                    //std::cout << *plane_src << ", " << *plane_tgt << std::endl;
 
-                        normalsCovMat(0, 0) += plane_tgt->x * plane_src->x;
-                        normalsCovMat(0, 1) += plane_tgt->x * plane_src->y;
-                        normalsCovMat(0, 2) += plane_tgt->x * plane_src->z;
-                        normalsCovMat(1, 0) += plane_tgt->y * plane_src->x;
-                        normalsCovMat(1, 1) += plane_tgt->y * plane_src->y;
-                        normalsCovMat(1, 2) += plane_tgt->y * plane_src->z;
-                        normalsCovMat(2, 0) += plane_tgt->z * plane_src->x;
-                        normalsCovMat(2, 1) += plane_tgt->z * plane_src->y;
-                        normalsCovMat(2, 2) += plane_tgt->z * plane_src->z;
+                    normalsCovMat(0, 0) += plane_tgt->x * plane_src->x;
+                    normalsCovMat(0, 1) += plane_tgt->x * plane_src->y;
+                    normalsCovMat(0, 2) += plane_tgt->x * plane_src->z;
+                    normalsCovMat(1, 0) += plane_tgt->y * plane_src->x;
+                    normalsCovMat(1, 1) += plane_tgt->y * plane_src->y;
+                    normalsCovMat(1, 2) += plane_tgt->y * plane_src->z;
+                    normalsCovMat(2, 0) += plane_tgt->z * plane_src->x;
+                    normalsCovMat(2, 1) += plane_tgt->z * plane_src->y;
+                    normalsCovMat(2, 2) += plane_tgt->z * plane_src->z;
 
                     //}
 
@@ -374,17 +369,17 @@ namespace cv {
             Eigen::Matrix3d R = v * u.transpose();
             //std::cout << "singular values = " << svd.singularValues() << std::endl;
             //std::cout << "det(R) = " << R.determinant() << std::endl;
-            
+
             float detR = R.determinant();
-            
+
             if (detR < 0) {
-//                std::cout << "|R| = " << detR << ", fixing...\n";
-//                Eigen::Matrix3d eye_with_neg = Eigen::Matrix3d::Identity();
-//                eye_with_neg(2, 2) = -1;
-//                R = v*eye_with_neg*u.transpose();
+                //                std::cout << "|R| = " << detR << ", fixing...\n";
+                //                Eigen::Matrix3d eye_with_neg = Eigen::Matrix3d::Identity();
+                //                eye_with_neg(2, 2) = -1;
+                //                R = v*eye_with_neg*u.transpose();
                 result = 1; //R contains reflection!
             }
-            
+
             normalsCovMat.setZero();
 
             for (int indexA = 0; indexA < fixed_planes.size(); indexA++) {
@@ -399,7 +394,7 @@ namespace cv {
                     plane_src_coeffs.head(3) = R.transpose() * plane_src_coeffs.head(3);
                     plane_src = boost::make_shared<cv::Plane3f>(plane_src_coeffs(0), plane_src_coeffs(1), plane_src_coeffs(2), plane_src_coeffs(3));
                     //plane_src->convertHessianNormalForm();
-                    
+
                     float norm = (plane_tgt->x - plane_src->x)*(plane_tgt->x - plane_src->x) +
                             (plane_tgt->y - plane_src->y)*(plane_tgt->y - plane_src->y) +
                             (plane_tgt->z - plane_src->z)*(plane_tgt->z - plane_src->z) +
@@ -407,22 +402,22 @@ namespace cv {
 
                     //if (norm < OUTLIER_THRESHOLD || true) {
 
-                        normalsCovMat(0, 0) += plane_tgt->x * plane_tgt->x + plane_src->x * plane_src->x;
-                        normalsCovMat(1, 1) += plane_tgt->y * plane_tgt->y + plane_src->y * plane_src->y;
-                        normalsCovMat(2, 2) += plane_tgt->z * plane_tgt->z + plane_src->z * plane_src->z;
+                    normalsCovMat(0, 0) += plane_tgt->x * plane_tgt->x + plane_src->x * plane_src->x;
+                    normalsCovMat(1, 1) += plane_tgt->y * plane_tgt->y + plane_src->y * plane_src->y;
+                    normalsCovMat(2, 2) += plane_tgt->z * plane_tgt->z + plane_src->z * plane_src->z;
 
-                        normalsCovMat(0, 1) += plane_tgt->x * plane_tgt->y + plane_src->x * plane_src->y;
-                        normalsCovMat(0, 2) += plane_tgt->x * plane_tgt->z + plane_src->x * plane_src->z;
-                        normalsCovMat(1, 2) += plane_tgt->y * plane_tgt->z + plane_src->y * plane_src->z;
+                    normalsCovMat(0, 1) += plane_tgt->x * plane_tgt->y + plane_src->x * plane_src->y;
+                    normalsCovMat(0, 2) += plane_tgt->x * plane_tgt->z + plane_src->x * plane_src->z;
+                    normalsCovMat(1, 2) += plane_tgt->y * plane_tgt->z + plane_src->y * plane_src->z;
 
-                        double d_diff = plane_src->d - plane_tgt->d;
+                    double d_diff = plane_src->d - plane_tgt->d;
 
-                        deltaDt_NA(0) += d_diff * plane_src->x;
-                        deltaDt_NA(1) += d_diff * plane_src->y;
-                        deltaDt_NA(2) += d_diff * plane_src->z;
-                        deltaDt_NB(0) += d_diff * plane_tgt->x;
-                        deltaDt_NB(1) += d_diff * plane_tgt->y;
-                        deltaDt_NB(2) += d_diff * plane_tgt->z;
+                    deltaDt_NA(0) += d_diff * plane_src->x;
+                    deltaDt_NA(1) += d_diff * plane_src->y;
+                    deltaDt_NA(2) += d_diff * plane_src->z;
+                    deltaDt_NB(0) += d_diff * plane_tgt->x;
+                    deltaDt_NB(1) += d_diff * plane_tgt->y;
+                    deltaDt_NB(2) += d_diff * plane_tgt->z;
 
                     //}
                 }
@@ -443,7 +438,7 @@ namespace cv {
             transformation_matrix.topLeftCorner(3, 3) = R.cast<float>();
             transformation_matrix.block<3, 1>(0, 3) = t.cast<float>();
             transformation_matrix(3, 3) = 1.0f;
-            
+
             return result;
             //                    std::cout << "Estimated Transform:\n" << transformation_matrix << "\n";
             //                    
@@ -454,6 +449,83 @@ namespace cv {
             //                    tf::Quaternion tf_quat(quat.x(), quat.y(), quat.z(), quat.w());
             //                    tf::Transform xform(tf_quat,
             //                            tf::Vector3(translation[0], translation[1], translation[2]));
+        }
+
+        float minimizePointToPointError(std::vector<cv::Point3f>& fixed_points,
+                std::vector<cv::Point3f>& moving_points,
+                Pose& delta_pose) {
+            int result = 0;
+
+            if (fixed_points.size() == 0 || moving_points.size() == 0 ||
+                    fixed_points.size() != moving_points.size()) {
+                result = -1;
+                return result;
+            }
+
+            float errorIn = 0;
+            cv::Vec3f errorVecIn;
+            for (int pairIdx = 0; pairIdx < moving_points.size(); ++pairIdx) {
+                errorVecIn = (cv::Vec3f)fixed_points[pairIdx] - (cv::Vec3f) moving_points[pairIdx];
+                errorIn += std::sqrt(errorVecIn.dot(errorVecIn));
+            }
+            std::cout << "errorIn = " << errorIn << std::endl;
+
+            cv::Vec3f fixed_mean(0, 0, 0), moving_mean(0, 0, 0);
+            for (int pairIdx = 0; pairIdx < moving_points.size(); ++pairIdx) {
+                fixed_mean += (cv::Vec3f) fixed_points[pairIdx];
+                moving_mean += (cv::Vec3f) moving_points[pairIdx];
+            }
+            fixed_mean *= 1.0f / fixed_points.size();
+            moving_mean *= 1.0f / moving_points.size();
+            //vc::Vec3f zero_ctr_movingpt, zero_ctr_fixedpt;
+            cv::Mat covMat = cv::Mat::zeros(3, 3, CV_32F);
+            for (int pairIdx = 0; pairIdx < moving_points.size(); ++pairIdx) {
+                float *covMat_ptr = covMat.ptr<float>(0, 0);
+                //zero_ctr_movingpt = (cv::Vec3f) moving_points[pairIdx] - moving_mean;
+                //zero_ctr_fixedpt = (cv::Vec3f) fixed_points[pairIdx] - moving_mean;
+                //for (int mpt_dim_idx = 0; mpt_dim_idx < 3; ++mpt_dim_idx) {
+                //    for (int fpt_dim_idx = 0; fpt_dim_idx < 3; ++fpt_dim_idx) {
+                //        *covMat_ptr++ += (zero_ctr_movingpt[mpt_dim_idx])*(zero_ctr_fixedpt[fpt_dim_idx]);
+                //    }
+                //}
+                *covMat_ptr++ += (moving_points[pairIdx].x - moving_mean[0])*(fixed_points[pairIdx].x - fixed_mean[0]);
+                *covMat_ptr++ += (moving_points[pairIdx].x - moving_mean[0])*(fixed_points[pairIdx].y - fixed_mean[1]);
+                *covMat_ptr++ += (moving_points[pairIdx].x - moving_mean[0])*(fixed_points[pairIdx].z - fixed_mean[2]);
+                *covMat_ptr++ += (moving_points[pairIdx].y - moving_mean[1])*(fixed_points[pairIdx].x - fixed_mean[0]);
+                *covMat_ptr++ += (moving_points[pairIdx].y - moving_mean[1])*(fixed_points[pairIdx].y - fixed_mean[1]);
+                *covMat_ptr++ += (moving_points[pairIdx].y - moving_mean[1])*(fixed_points[pairIdx].z - fixed_mean[2]);
+                *covMat_ptr++ += (moving_points[pairIdx].z - moving_mean[2])*(fixed_points[pairIdx].x - fixed_mean[0]);
+                *covMat_ptr++ += (moving_points[pairIdx].z - moving_mean[2])*(fixed_points[pairIdx].y - fixed_mean[1]);
+                *covMat_ptr += (moving_points[pairIdx].z - moving_mean[2])*(fixed_points[pairIdx].z - fixed_mean[2]);
+            }
+            //std::cout << "covMat = " << covMat << std::endl;
+            cv::Mat w, u, vt;
+            cv::SVDecomp(covMat, w, u, vt, cv::SVD::FULL_UV);
+            cv::Mat R = u * vt;
+            //std::cout << "u = " << u << std::endl;
+            //std::cout << "vt = " << vt << std::endl;
+            //std::cout << "R = " << R << std::endl;
+            if (cv::determinant(R) < 0) {
+                cv::Mat fixReflection = (Mat_<float>(3, 3) << 1, 0, 0, 0, 1, 0, 0, 0, -1);
+                R = u * fixReflection * vt;
+                result = 1;
+            }
+            cv::Matx33f iR33f = Pose::cvtMat_to_Matx33(R.t());
+            //std::cout << "iR33f = " << iR33f << std::endl;
+            //std::cout << "fixed_mean = " << fixed_mean << std::endl;
+            //std::cout << "moving_mean = " << moving_mean << std::endl;
+            cv::Vec3f t = fixed_mean - iR33f * moving_mean;
+            //std::cout << "t = " << t << std::endl;
+
+            float error = 0;
+            cv::Vec3f errorVec;
+            for (int pairIdx = 0; pairIdx < moving_points.size(); ++pairIdx) {
+                errorVec = (cv::Vec3f)fixed_points[pairIdx] - ((cv::Vec3f)(iR33f * moving_points[pairIdx]) + t);
+                error += std::sqrt(errorVec.dot(errorVec));
+            }
+            std::cout << "errorOut = " << error << std::endl;
+            delta_pose.set(t, R);
+            return error;
         }
 
         void planeListAlignmentEigen(
@@ -531,6 +603,20 @@ namespace cv {
 
             }
 
+        }
+
+        void benchmarkPointAlignment() {
+            std::vector<cv::Point3f> fixedPts = {cv::Point3f(-0.4274, 0.7586, -0.2772),
+                cv::Point3f(-1.0350, 0.6493, 0.0538),
+                cv::Point3f(1.7751, -1.4690, 1.3040),
+                cv::Point3f(-2.3125, -2.3650, -0.1002)};
+            std::vector<cv::Point3f> movingPts = {cv::Point3f(-0.9662, -1.0617, 0.0316),
+                cv::Point3f(-1.2795, -1.6596, -0.1554),
+                cv::Point3f(-1.4948, 1.0347, -2.7323),
+                cv::Point3f(-4.4956, -1.5442, -0.7760)};
+            Pose delta_pose;
+            minimizePointToPointError(fixedPts, movingPts, delta_pose);
+            std::cout << "delta_pose = " << delta_pose.toString() << std::endl;
         }
 
         void benchmarkPlaneListAlignment(cv::rgbd::RgbdImage& rgbd_img, RgbdSurfaceTracker& surface_tracker,

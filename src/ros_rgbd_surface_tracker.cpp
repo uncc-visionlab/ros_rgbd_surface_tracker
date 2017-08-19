@@ -97,6 +97,7 @@ tf::Transform convertPoseToTFTransform(const Pose& pose) {
     Eigen::Map<Eigen::Matrix3f> eigenRot((float *) rotation.data);
     //std::cout << "rotation = " << rotation << std::endl;
     eigenRot.transposeInPlace();
+    translation = -translation;
     //std::cout << "eigenRot = " << eigenRot << std::endl;
     Eigen::Quaternionf quat(eigenRot);
     return tf::Transform(tf::Quaternion(quat.x(), quat.y(), quat.z(), quat.w()),

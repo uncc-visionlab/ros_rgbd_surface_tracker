@@ -77,6 +77,10 @@ namespace cv {
                     std::vector<cv::rgbd::ShapeMatch>& matches,
                     std::vector<sg::Shape::Ptr>& newShapes, int timeBudget_ms,
                     cv::Mat& rgb_result, const Pose& camPose = Pose(), cv::Mat mask = cv::Mat()) const;
+
+            float matchError(std::vector<cv::rgbd::ShapeMatch>& matches,
+                    Pose& deltaPose) const;
+
         }; /* class SurfaceDescriptorMatcher */
 
         class RgbdSurfaceTracker {
@@ -107,20 +111,27 @@ namespace cv {
             void clusterDetections(std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
                     cv::Mat& rgb_result);
 
-            bool estimateDeltaPose(const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
+            bool estimateDeltaPoseIterativeClosestPlane(
+                    const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
+                    const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&train_shapeMap,
+                    const std::vector<cv::rgbd::ShapeMatch>& matches,
+                    Pose& delta_pose_estimate);
+
+            bool estimateDeltaPoseIterativeClosestPoint(
+                    const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
                     const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&train_shapeMap,
                     const std::vector<cv::rgbd::ShapeMatch>& matches,
                     Pose& delta_pose_estimate);
 
             void updateSurfaces(cv::rgbd::RgbdImage& rgbd_img, cv::Mat& rgb_result);
-            
+
             Pose getPose() {
                 return global_pose_estimate;
             }
 
             Pose getDeltaPose() {
                 return delta_pose_estimate;
-            }            
+            }
 
             void callback(cv::Mat& _ocv_rgbframe, cv::Mat& _ocv_depthframe_float,
                     cv::Mat& _rgb_distortionCoeffs, cv::Mat& _rgb_cameraMatrix);
@@ -149,7 +160,7 @@ namespace cv {
 
             Pose delta_pose_estimate;
             Pose global_pose_estimate;
-            
+
             // for debugging pose estimation
             cv::Mat prev_oglImage;
 

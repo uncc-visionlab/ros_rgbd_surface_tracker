@@ -399,7 +399,7 @@ namespace cv {
             }
         }
 
-        bool RgbdSurfaceTracker::estimateDeltaPose(
+        bool RgbdSurfaceTracker::estimateDeltaPoseIterativeClosestPlane(
                 const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
                 const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&train_shapeMap,
                 const std::vector<cv::rgbd::ShapeMatch>& matches,
@@ -463,16 +463,71 @@ namespace cv {
             //std::cout << "eigen mat = " << eigenTransform << std::endl;
             eigenTransformMap = eigenTransform;
             //std::cout << "eigen mat mapped = " << eigenTransformMap << std::endl;
-            cv::transpose(cvTransform, cvTransform);
+            //cv::transpose(cvTransform, cvTransform);
             cv::Vec3f tVec = cvTransform(cv::Rect(3, 0, 1, 3));
             cv::Vec3f rVec;
             cv::Mat rotMat = cvTransform(cv::Rect(0, 0, 3, 3));
             //cv::transpose(rotMat, rotMat);
             cv::Rodrigues(rotMat, rVec);
             //cv::transpose(rotMat, rotMat);
-            //std::cout << "R = " << rotMat << std::endl;
-            //std::cout << "t = " << tVec << std::endl;
-            delta_pose_estimate.set(tVec, rVec);
+            std::cout << "R = " << rotMat << std::endl;
+            std::cout << "t = " << tVec << std::endl;
+            delta_pose_estimate.set(-tVec, rVec);
+            return true;
+        }
+
+        bool RgbdSurfaceTracker::estimateDeltaPoseIterativeClosestPoint(
+                const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&query_shapeMap,
+                const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&train_shapeMap,
+                const std::vector<cv::rgbd::ShapeMatch>& matches,
+                Pose& delta_pose_estimate) {
+            cv::Vec3f fixed_position, moving_position;
+            sg::Corner<float>::Ptr fixedCornerPtr, movingCornerPtr;
+            sg::Edge<float>::Ptr fixedEdgePtr, movingEdgePtr;
+            sg::Plane<float>::Ptr fixedPlanePtr, movingPlanePtr;
+            std::vector<cv::Point3f> fixedPoints;
+            std::vector<cv::Point3f> movingPoints;
+            std::pair<sg::Plane<float>::Ptr, sg::Plane<float>::Ptr> planePairs[3];
+            for (auto match_iter = matches.begin(); match_iter != matches.end(); ++match_iter) {
+                const cv::rgbd::ShapeMatch& match = *match_iter;
+                sg::Shape::Ptr movingShape = match.query_shape;
+                sg::Shape::Ptr fixedShape = match.train_shape;
+                switch (match.surfaceType) {
+                    case SurfaceType::CORNER:
+                        fixedCornerPtr = boost::static_pointer_cast<sg::Corner<float>>(movingShape);
+                        movingCornerPtr = boost::static_pointer_cast<sg::Corner<float>>(fixedShape);
+                        fixedCornerPtr->matchPlanes(movingCornerPtr, planePairs);
+                        for (int idx = 0; idx < 3; ++idx) {
+                            planePairs[idx].first->getPose().getTranslation(fixed_position);
+                            planePairs[idx].second->getPose().getTranslation(moving_position);
+                            fixedPoints.push_back(fixed_position);
+                            movingPoints.push_back(moving_position);
+                        }
+                        break;
+                    case SurfaceType::EDGE:
+                        fixedEdgePtr = boost::static_pointer_cast<sg::Edge<float>>(movingShape);
+                        movingEdgePtr = boost::static_pointer_cast<sg::Edge<float>>(fixedShape);
+                        fixedEdgePtr->matchPlanes(movingEdgePtr, planePairs);
+                        for (int idx = 0; idx < 2; ++idx) {
+                            planePairs[idx].first->getPose().getTranslation(fixed_position);
+                            planePairs[idx].second->getPose().getTranslation(moving_position);
+                            fixedPoints.push_back(fixed_position);
+                            movingPoints.push_back(moving_position);
+                        }
+                        break;
+                    case cv::rgbd::PLANE:
+                        fixedPlanePtr = boost::static_pointer_cast<sg::Plane<float>>(movingShape);
+                        movingPlanePtr = boost::static_pointer_cast<sg::Plane<float>>(fixedShape);
+                        fixedPlanePtr->getPose().getTranslation(fixed_position);
+                        movingPlanePtr->getPose().getTranslation(moving_position);
+                        fixedPoints.push_back(fixed_position);
+                        movingPoints.push_back(moving_position);
+                        break;
+                }
+            }
+            float error = minimizePointToPointError(fixedPoints, movingPoints, delta_pose_estimate);
+            //std::cout << "error = " << error << std::endl;
+            //std::cout << "delta_pose = " << delta_pose_estimate.toString() << std::endl;
             return true;
         }
 
@@ -582,7 +637,8 @@ namespace cv {
                 std::vector<cv::rgbd::ShapeMatch> shapeMatches;
                 delta_pose_estimate.set(cv::Vec3f(0, 0, 0), cv::Vec3f(0, 0, 0));
                 float error;
-                while (!alignmentConverged && !timeBudgetExpired && validDeltaPoseEstimate 
+                //benchmarkPointAlignment();
+                while (!alignmentConverged && !timeBudgetExpired && validDeltaPoseEstimate
                         && alignmentIterations < 1) {
                     alignmentIterations++;
 
@@ -590,19 +646,20 @@ namespace cv {
                             prev_quadTree, train_shapeMap,
                             shapeMatches, newShapes,
                             descriptor_matching_timeBudget_ms, rgb_result, delta_pose_estimate);
+
                     std::cout << "Iteration " << alignmentIterations << " alignment error = " << error << std::endl;
-                    int idx = 0;
-                    //                    for (auto match_iter = shapeMatches.begin(); match_iter != shapeMatches.end();
-                    //                            ++match_iter, ++idx) {
-                    //                        std::cout << "match[" << idx << "]=" << (*match_iter).toString() << std::endl;
-                    //                    }
+                    //int idx = 0;
 
-
-                    if (!estimateDeltaPose(query_shapeMap, train_shapeMap, shapeMatches, delta_pose_estimate)) {
-                        std::cout << "Could not estimate pose change from provided shape matches!" << std::endl;
-                        //return;
-                    }
-
+                    //if (!estimateDeltaPose(query_shapeMap, train_shapeMap, shapeMatches, delta_pose_estimate)) {
+                    //    std::cout << "Could not estimate pose change from provided shape matches!" << std::endl;
+                    //return;
+                    //}
+                    estimateDeltaPoseIterativeClosestPoint(query_shapeMap, train_shapeMap, shapeMatches, delta_pose_estimate);
+                    Pose identity(cv::Vec3f(0, 0, 0), cv::Vec3f(0, 0, 0));
+                    //float error1 = surfmatcher.matchError(shapeMatches, identity);
+                    //float error2 = surfmatcher.matchError(shapeMatches, delta_pose_estimate);
+                    //std::cout << "Iteration " << alignmentIterations << " alignment error = " << error
+                    //        << " error1 = " << error1 << " error2 = " << error2 << std::endl;
                     // START VISUALIZE POSE ESTIMATION CODE
                     cv::Mat cur_oglImage;
                     bool showMatches = false;
@@ -627,12 +684,15 @@ namespace cv {
 
                             cv::Vec3f positionA, positionB;
                             cv::Point2f position_projA, position_projB;
+                            cv::Matx33f deltaOrientation = delta_pose_estimate.getRotation_Matx33();
+                            cv::Vec3f deltaTranslation;
+                            delta_pose_estimate.getTranslation(deltaTranslation);
                             for (auto match_iter = shapeMatches.begin(); match_iter != shapeMatches.end();
                                     ++match_iter) {
                                 match_iter->train_shape->getPose().getTranslation(positionA);
                                 match_iter->query_shape->getPose().getTranslation(positionB);
                                 position_projA = rgbd_img.project(positionA);
-                                position_projB = rgbd_img.project(positionB);
+                                position_projB = rgbd_img.project(deltaOrientation * positionB + deltaTranslation);
                                 position_projB.x += stripWidth + prev_oglImage.cols;
                                 cv::line(side_by_side, position_projA, position_projB, cv::Scalar(255, 255, 0), 1);
                             }
@@ -644,7 +704,7 @@ namespace cv {
 
                     shapeMatches.clear();
                     ticksNow = cv::getTickCount();
-                    timeBudgetExpired = (ticksNow - ticksStart) > timeBudgetTicks;
+                    //timeBudgetExpired = (ticksNow - ticksStart) > timeBudgetTicks;
                 }
 
                 if (validDeltaPoseEstimate) { // use pose estimate to update map
