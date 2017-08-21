@@ -13,6 +13,7 @@ set( CMAKE_CXX_FLAGS "-std=c++11 -DCMAKE_BUILD_TYPE=Debug")
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED
   roscpp
+  rosbag # for main_bagfile_driver
   cmake_modules
   cv_bridge
   eigen_conversions
@@ -233,6 +234,21 @@ target_link_libraries(opengl_iothread
 
 add_library(marchingcubes src/marchingsource.cpp)
 target_link_libraries(marchingcubes GL glut)
+
+add_executable(main_bagfile_driver src/main_bagfile_driver.cpp 
+    src/rgbd_tracker_uncc.cpp
+    src/rgbd_image_uncc.cpp
+    src/rgbd_surf_detector.cpp
+    src/ShapeGrammarLibrary.cpp
+    src/surf_descriptor_proc.cpp
+    src/surface_alignment_optimizer.cpp
+    src/surface_fitting.cpp
+    src/opengl_renderer.cpp)
+
+target_link_libraries(main_bagfile_driver 
+    ${catkin_LIBRARIES}
+    ${Boost_LIBRARIES}
+    ${OpenCV_LIBS} GL GLU glut)
 
 #############
 ## Install ##

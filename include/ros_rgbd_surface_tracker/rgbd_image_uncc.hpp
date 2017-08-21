@@ -296,7 +296,7 @@ namespace cv {
                 cv::Vec3f t;
                 camera_pose.getTranslation(t);
                 cv::Matx33f R = camera_pose.getRotation_Matx33();
-                float *cur_z_ptr;
+                float *cur_z_ptr, *new_z_ptr;
                 Point3f p3d;
                 Point2f p2d;
                 for (int y = 0; y < height; ++y) {
@@ -304,10 +304,15 @@ namespace cv {
                     for (int x = 0; x < width; ++x, ++cur_z_ptr) {
                         if (!std::isnan(*cur_z_ptr)) {
                             getPoint3f(x, y, p3d);
-                            p3d =  R * (cv::Vec3f) p3d + t;
+                            p3d = R * (cv::Vec3f) p3d + t;
                             p2d = project(p3d);
-                            newImg.img_Z.at<float>(p2d.y, p2d.x) = p3d.z;
-                            newImg.img_I.at<Vec3b>(p2d.y, p2d.x) = img_I.at<Vec3b>(y, x);
+                            if (p2d.y >= 0 && p2d.y < height && p2d.x >= 0 && p2d.x < width) {
+                                new_z_ptr = newImg.img_Z.ptr<float>(p2d.y, p2d.x);
+                                if (std::isnan(*new_z_ptr) || *new_z_ptr > p3d.z) {
+                                    *new_z_ptr = p3d.z;
+                                    newImg.img_I.at<Vec3b>(p2d.y, p2d.x) = img_I.at<Vec3b>(y, x);
+                                }
+                            }
                         }
                     }
                 }
