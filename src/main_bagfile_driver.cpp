@@ -29,7 +29,7 @@
 
 #include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>
 
-#define LOCAL_DEBUG true
+#define LOCAL_DEBUG false
 
 class BagFileDriver {
     rosbag::Bag input_bag;
