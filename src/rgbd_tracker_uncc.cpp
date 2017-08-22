@@ -662,6 +662,21 @@ namespace cv {
                     //        << " error1 = " << error1 << " error2 = " << error2 << std::endl;
                     // START VISUALIZE POSE ESTIMATION CODE
                     cv::Mat cur_oglImage;
+                    bool showRGBD = true;
+                    if (showRGBD) {
+                        cv::Mat ocv_depth_img_vis;
+                        cv::convertScaleAbs(rgbd_img.getDepthImage(), ocv_depth_img_vis, 255.0f / 8.0f);
+                        cv::imshow("DEPTH", ocv_depth_img_vis);
+                        cv::imshow("RGB", rgbd_img.getRGBImage());
+                        RgbdImage rgbd_img_xformed;
+                        Pose test_pose(cv::Vec3f(0, 0, 0.2), cv::Vec3f(0, 0, 0.15));
+                        rgbd_img.reproject(test_pose, rgbd_img_xformed);                        
+                        cv::Mat ocv_depth_img_vis_xformed;
+                        cv::convertScaleAbs(rgbd_img_xformed.getDepthImage(), ocv_depth_img_vis_xformed, 255.0f / 8.0f);
+                        cv::imshow("DEPTH Transformed", ocv_depth_img_vis_xformed);
+                        cv::imshow("RGB Transformed", rgbd_img_xformed.getRGBImage());
+                        cv::waitKey(3);
+                    }
                     bool showMatches = false;
                     if (showMatches) {
                         cv::Size glWinSize;

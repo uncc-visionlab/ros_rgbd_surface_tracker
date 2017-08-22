@@ -33,7 +33,7 @@ namespace cv {
             for (int r = 0; r < getDepthImage().rows; ++r) {
                 const float *depth_ptr = getDepthImage().ptr<float>(r, 0);
                 cv::Vec3f *pts_ptr = pts.ptr<cv::Vec3f>(r, 0);
-                const uchar *rgb_ptr = getRGB().ptr<uchar>(r, 0);
+                const uchar *rgb_ptr = getRGBImage().ptr<uchar>(r, 0);
                 uchar *colors_ptr = colors.ptr<uchar>(r, 0);
                 for (int c = 0; c < getDepthImage().cols; ++c) {
                     (*pts_ptr)[0] = (c - cx) * inv_f * (*depth_ptr);

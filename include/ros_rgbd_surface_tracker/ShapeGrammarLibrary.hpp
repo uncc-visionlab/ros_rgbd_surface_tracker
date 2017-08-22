@@ -126,6 +126,11 @@ public:
         this->position = _position;
     }
 
+    void get(cv::Vec3f& _position, cv::Vec3f& _rodrigues) const {
+        _rodrigues = this->rodrigues;
+        _position = this->position;
+    }
+
     void set(cv::Vec3f _position, cv::Mat _rotMat) {
         this->position = _position;
         cv::Rodrigues(_rotMat, this->rodrigues);
