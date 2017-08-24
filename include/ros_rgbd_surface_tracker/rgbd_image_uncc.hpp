@@ -302,10 +302,16 @@ namespace cv {
                     cur_z_ptr = img_Z.ptr<float>(y, 0);
                     for (int x = 0; x < width; ++x, ++cur_z_ptr) {
                         if (!std::isnan(*cur_z_ptr)) {
+                            
                             getPoint3f(x, y, p3d);
+                            float zval = p3d.z;
                             p3d = R * (cv::Vec3f) p3d + t;
                             p2d = project(p3d);
-                            //computeTarget(x, y, p3d.z, camera_pose, p2dtest.x, p2dtest.y);
+                            std::cout << "p2d: " << p2d << std::endl;
+                            
+                            computeTarget(x, y, zval, camera_pose, p2dtest.x, p2dtest.y);
+                            std::cout << "p2d test: " << p2dtest << std::endl;
+                            
                             if (p2d.y >= 0 && p2d.y < height && p2d.x >= 0 && p2d.x < width) {
                                 new_z_ptr = newImg.img_Z.ptr<float>(p2d.y, p2d.x);
                                 if (std::isnan(*new_z_ptr) || *new_z_ptr > p3d.z) {
@@ -318,36 +324,30 @@ namespace cv {
                 }
             }
 
-            void computeTarget(float x_im, float y_im, float pz, const Pose pose,
+            void computeTarget(float x_im, float y_im, float z, const Pose pose,
                     float& x_im_prime, float& y_im_prime) {
+                
                 cv::Vec3f rVec, tVec;
-                float vx = 0, vy = 0, vz = 0, tx = 0, ty = 0, tz = 0, f = 0;
                 pose.get(tVec, rVec);
-                vx = rVec[0];
-                vy = rVec[1];
-                vz = rVec[2];
-                tx = tVec[0];
-                ty = tVec[1];
-                tz = tVec[2];
-                f = 1.0 / this->inv_f;
+                float vx = rVec[0];
+                float vy = rVec[1];
+                float vz = rVec[2];
+                float tx = tVec[0];
+                float ty = tVec[1];
+                float tz = tVec[2];
+                float f = 1.0 / this->inv_f;
+                
                 float vx_sq = vx*vx;
                 float vy_sq = vy*vy;
                 float vz_sq = vz*vz;
-                float mag = std::sqrt(vx_sq + vy_sq + vz * vz);
-                float cos_mag_m1 = cos(mag) - 1;
-                float sin_mag = sin(mag);
-                x_im_prime = cx + (f * (tx + pz * (vy * sin_mag - vx * vz * (cos_mag_m1))
-                        - (pz * (cx - x_im)*(vy_sq * (cos_mag_m1) + vz_sq * (cos_mag_m1) + 1)) / f
-                        + (pz * (vz * sin_mag + vx * vy * (cos_mag_m1))*(cy - y_im)) / f))
-                        / (tz + pz * (vx_sq * (cos_mag_m1) + vy_sq * (cos_mag_m1) + 1)
-                        + (pz * (vy * sin_mag + vx * vz * (cos_mag_m1))*(cx - x_im)) / f
-                        - (pz * (vx * sin_mag - vy * vz * (cos_mag_m1))*(cy - y_im)) / f);
-                y_im_prime = cy - (f * (pz * (vx * sin_mag + vy * vz * (cos_mag_m1)) - ty
-                        + (pz * (cy - y_im)*(vx_sq * (cos_mag_m1) + vz_sq * (cos_mag_m1) + 1)) / f
-                        + (pz * (vz * sin_mag - vx * vy * (cos_mag_m1))*(cx - x_im)) / f))
-                        / (tz + pz * (vx_sq * (cos_mag_m1) + vy_sq * (cos_mag_m1) + 1)
-                        + (pz * (vy * sin_mag + vx * vz * (cos_mag_m1))*(cx - x_im)) / f
-                        - (pz * (vx * sin_mag - vy * vz * (cos_mag_m1))*(cy - y_im)) / f);
+                float theta_sq = vx_sq + vy_sq + vz_sq;
+                float theta = std::sqrt(theta_sq);
+                float cos_theta_m1 = cos(theta) - 1;
+                float sin_theta = sin(theta);
+                
+                x_im_prime = cx + (f*(tx + z*((vy*sin_theta)/theta - (vx*vz*(cos_theta_m1))/theta_sq) - (z*(cx - x_im)*((vy_sq*(cos_theta_m1))/theta_sq + (vz_sq*(cos_theta_m1))/theta_sq + 1))/f + (z*((vz*sin_theta)/theta + (vx*vy*(cos_theta_m1))/theta_sq)*(cy - y_im))/f))/(tz + z*((vx_sq*(cos_theta_m1))/theta_sq + (vy_sq*(cos_theta_m1))/theta_sq + 1) + (z*((vy*sin_theta)/theta + (vx*vz*(cos_theta_m1))/theta_sq)*(cx - x_im))/f - (z*((vx*sin_theta)/theta - (vy*vz*(cos_theta_m1))/theta_sq)*(cy - y_im))/f);
+                y_im_prime = cy - (f*(z*((vx*sin_theta)/theta + (vy*vz*(cos_theta_m1))/theta_sq) - ty + (z*(cy - y_im)*((vx_sq*(cos_theta_m1))/theta_sq + (vz_sq*(cos_theta_m1))/theta_sq + 1))/f + (z*((vz*sin_theta)/theta - (vx*vy*(cos_theta_m1))/theta_sq)*(cx - x_im))/f))/(tz + z*((vx_sq*(cos_theta_m1))/theta_sq + (vy_sq*(cos_theta_m1))/theta_sq + 1) + (z*((vy*sin_theta)/theta + (vx*vz*(cos_theta_m1))/theta_sq)*(cx - x_im))/f - (z*((vx*sin_theta)/theta - (vy*vz*(cos_theta_m1))/theta_sq)*(cy - y_im))/f);
+            
             }
 
             bool getTileData_Uniform(int x0, int y0,
