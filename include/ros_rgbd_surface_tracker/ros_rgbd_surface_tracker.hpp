@@ -72,7 +72,7 @@ public:
             cv::Mat &distortionCoeffs, cv::Size &imSize);
 
     void updateSurfaces(const sensor_msgs::ImageConstPtr& depth_msg,
-            cv::rgbd::RgbdImage& rgbd_img, cv::Mat & rgb_result);
+            cv::rgbd::RgbdImage::Ptr rgbd_img_ptr, cv::Mat & rgb_result);
 
 private:
     // -------------------------

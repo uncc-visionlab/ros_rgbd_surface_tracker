@@ -48,9 +48,9 @@ namespace cv {
             float cy = _rgb_cameraMatrix.at<float>(1, 2);
             float fx = _rgb_cameraMatrix.at<float>(0, 0);
             float fy = _rgb_cameraMatrix.at<float>(1, 1);
-            cv::rgbd::RgbdImage rgbd_img(_ocv_rgbframe, _ocv_depthframe_float, cx, cy, fx);
+            cv::rgbd::RgbdImage::Ptr rgbd_img_ptr = cv::rgbd::RgbdImage::create(_ocv_rgbframe, _ocv_depthframe_float, cx, cy, fx);
             cv::Mat rgb_result = _ocv_rgbframe;
-            updateSurfaces(rgbd_img, rgb_result);
+            updateSurfaces(rgbd_img_ptr, rgb_result);
             cv::imshow("RGB Result", rgb_result);
             cv::waitKey(3);
         }
@@ -531,7 +531,66 @@ namespace cv {
             return true;
         }
 
-        void RgbdSurfaceTracker::updateSurfaces(cv::rgbd::RgbdImage& rgbd_img, cv::Mat& rgb_result) {
+        bool RgbdSurfaceTracker::estimateDeltaPoseReprojectionError(
+                const cv::rgbd::RgbdImage& fixedImg,
+                const cv::rgbd::RgbdImage& movingImg,
+                Pose& delta_pose_estimate) {
+
+            cv::Mat cameraMatrix = fixedImg.getCameraMatrix();
+            float fx = cameraMatrix.at<float>(0, 0);
+            float fy = cameraMatrix.at<float>(1, 1);
+            float cx = cameraMatrix.at<float>(0, 2);
+            float cy = cameraMatrix.at<float>(0, 2);
+            float inv_fx = 1.0f / fx;
+            float inv_fy = 1.0f / fy;
+
+            cv::Mat fixedImg_Dx;
+            const cv::Mat depthImg = fixedImg.getDepthImage();
+            cv::Sobel(depthImg, fixedImg_Dx, CV_32F, 1, 0, 3);
+            cv::Mat fixedImg_Dy;
+            cv::Sobel(depthImg, fixedImg_Dy, CV_32F, 0, 1, 3);
+            cv::Mat gradientImages(fixedImg.getWidth() * fixedImg.getHeight(), 6, CV_32F);
+            cv::Mat errorHessian(6, 6, CV_32F);
+
+            float *gradY_ptr, *gradX_ptr, *gradientImages_ptr;
+            float *errorHessian_ptr;
+            Point3f p3D;
+            for (int y = 0; y < fixedImg.getHeight(); ++y) {
+                gradX_ptr = fixedImg_Dx.ptr<float>(y, 0);
+                gradY_ptr = fixedImg_Dy.ptr<float>(y, 0);
+                for (int x = 0; x < fixedImg.getWidth(); ++x, ++gradX_ptr, ++gradY_ptr) {
+                    gradientImages_ptr = gradientImages.ptr<float>(y, x);
+                    fixedImg.getPoint3f(x, y, p3D);
+                    float inv_Z = 1.0f / p3D.z;
+                    float inv_Zsq = inv_Z*inv_Z;
+                    float gradX = *gradX_ptr, gradY = *gradY_ptr;
+                    float *gradientVec = gradientImages_ptr;
+                    *gradientImages_ptr++ = gradX * fx * inv_Z + gradY * 0;
+                    *gradientImages_ptr++ = gradX * 0 + gradY * fy * inv_Z;
+                    *gradientImages_ptr++ = -(gradX * fx * p3D.x + gradY * fy * p3D.y) * inv_Zsq;
+                    *gradientImages_ptr++ = -(gradX * fx * p3D.x * p3D.y + fy * (p3D.z * p3D.z + p3D.y * p3D.y)) * inv_Zsq;
+                    *gradientImages_ptr++ = +(gradX * fx * (p3D.z * p3D.z + p3D.x * p3D.x) + fy * p3D.x * p3D.y) * inv_Zsq;
+                    *gradientImages_ptr++ = (-gradX * fx * p3D.y + gradY * fy * p3D.x) * inv_Z;
+
+                    // compute upper triangular component this point contributes to the Hessian
+                    errorHessian_ptr = errorHessian.ptr<float>(0, 0);
+                    for (int row = 0; row < 6; ++row) {
+                        errorHessian_ptr += row;
+                        for (int col = row; col < 6; ++col, ++errorHessian_ptr) {
+                            *errorHessian_ptr += gradientVec[row] * gradientVec[col];
+                        }
+                    }
+                }
+            }
+            cv::completeSymm(errorHessian);
+
+
+            return true;
+        }
+
+        //void RgbdSurfaceTracker::updateSurfaces(cv::rgbd::RgbdImage& rgbd_img, cv::Mat& rgb_result) {
+
+        void RgbdSurfaceTracker::updateSurfaces(cv::rgbd::RgbdImage::Ptr rgbd_img_ptr, cv::Mat& rgb_result) {
 
 #ifdef PROFILE_CALLGRIND
             CALLGRIND_TOGGLE_COLLECT;
@@ -539,28 +598,28 @@ namespace cv {
             bool offscreen_rendering = false;
 
             if (!glDraw.initialized()) {
-                glDraw.init(rgbd_img.getWidth(), rgbd_img.getHeight(), offscreen_rendering);
+                glDraw.init(rgbd_img_ptr->getWidth(), rgbd_img_ptr->getHeight(), offscreen_rendering);
             }
 
             //cv::Rect rectVal(290, 200, 640 - 2 * 290, 480 - 2 * 200);
             //cv::rectangle(rgb_result, rectVal, cv::Scalar(0, 255, 0), 3);
             //rgbd_img.computeNormals();
-            rgbd_img.invalidate_NaN_Neighbors();
+            rgbd_img_ptr->invalidate_NaN_Neighbors();
 
-            cv::Rect roi(MARGIN_X, MARGIN_Y, rgbd_img.getWidth() - 2 * MARGIN_X, rgbd_img.getHeight() - 2 * MARGIN_Y);
-            cv::Size imgSize(rgbd_img.getWidth(), rgbd_img.getHeight());
+            cv::Rect roi(MARGIN_X, MARGIN_Y, rgbd_img_ptr->getWidth() - 2 * MARGIN_X, rgbd_img_ptr->getHeight() - 2 * MARGIN_Y);
+            cv::Size imgSize(rgbd_img_ptr->getWidth(), rgbd_img_ptr->getHeight());
             cv::Size tileSize(BLOCKSIZE, BLOCKSIZE);
             cv::QuadTree<sg::Plane<float>::Ptr>::Ptr quadTree(new QuadTree<sg::Plane<float>::Ptr>(imgSize, tileSize, roi));
 
             int detector_timeBudget_ms = 15 + glDraw.attrs.delta_budget_ms;
-            surfdetector.detect(rgbd_img, quadTree, detector_timeBudget_ms, rgb_result);
+            surfdetector.detect(*rgbd_img_ptr, quadTree, detector_timeBudget_ms, rgb_result);
 
             int descriptor_timeBudget_ms = 20;
 
             cv::rgbd::ShapeMap::Ptr query_shapeMapPtr = cv::rgbd::ShapeMap::create();
             cv::rgbd::ShapeMap& query_shapeMap = *query_shapeMapPtr;
 
-            surfdescriptor_extractor.compute(rgbd_img, quadTree, query_shapeMap,
+            surfdescriptor_extractor.compute(*rgbd_img_ptr, quadTree, query_shapeMap,
                     descriptor_timeBudget_ms, rgb_result);
 
             // Validate higher-order detections:
@@ -579,7 +638,7 @@ namespace cv {
             // 3. If points violate initial plane fitting criteria set the the corner as virtual
             //
             // We may want to keep virtual corners as they may be useful for odometry / loop closure
-            filterDetections(rgbd_img, quadTree, query_shapeMap, rgb_result);
+            filterDetections(*rgbd_img_ptr, quadTree, query_shapeMap, rgb_result);
 
             // Cluster detections:
             // Merge multiple detections of the same structure
@@ -598,14 +657,14 @@ namespace cv {
             glDraw.initFrame();
             if (glDraw.attrs.showPointcloud || glDraw.attrs.showPointcloudNormals) {
                 cv::Mat points, colors;
-                rgbd_img.getPointCloud(points, colors);
+                rgbd_img_ptr->getPointCloud(points, colors);
                 if (glDraw.attrs.showPointcloud) {
                     glDraw.renderPointCloud(points, colors);
                 }
                 if (glDraw.attrs.showPointcloudNormals) {
                     //glDraw.renderPointCloudNormals(points, rgbd_img.getNormals(),
                     //        0.2, 0.33, false);
-                    glDraw.renderPointCloudNormals(points, rgbd_img.getNormals());
+                    glDraw.renderPointCloudNormals(points, rgbd_img_ptr->getNormals());
                 }
             }
             if (glDraw.attrs.showDetections) {
@@ -654,6 +713,9 @@ namespace cv {
                     //    std::cout << "Could not estimate pose change from provided shape matches!" << std::endl;
                     //return;
                     //}
+                    if (prev_rgbd_img_ptr) {
+                        estimateDeltaPoseReprojectionError(*prev_rgbd_img_ptr, *rgbd_img_ptr, delta_pose_estimate);
+                    }
                     estimateDeltaPoseIterativeClosestPoint(query_shapeMap, train_shapeMap, shapeMatches, delta_pose_estimate);
                     Pose identity(cv::Vec3f(0, 0, 0), cv::Vec3f(0, 0, 0));
                     //float error1 = surfmatcher.matchError(shapeMatches, identity);
@@ -665,12 +727,12 @@ namespace cv {
                     bool showRGBD = true;
                     if (showRGBD) {
                         cv::Mat ocv_depth_img_vis;
-                        cv::convertScaleAbs(rgbd_img.getDepthImage(), ocv_depth_img_vis, 255.0f / 8.0f);
+                        cv::convertScaleAbs(rgbd_img_ptr->getDepthImage(), ocv_depth_img_vis, 255.0f / 8.0f);
                         cv::imshow("DEPTH", ocv_depth_img_vis);
-                        cv::imshow("RGB", rgbd_img.getRGBImage());
+                        cv::imshow("RGB", rgbd_img_ptr->getRGBImage());
                         RgbdImage rgbd_img_xformed;
                         Pose test_pose(cv::Vec3f(0, 0, 0.2), cv::Vec3f(0, 0, 0.15));
-                        rgbd_img.reproject(test_pose, rgbd_img_xformed);                        
+                        rgbd_img_ptr->reproject(test_pose, rgbd_img_xformed);
                         cv::Mat ocv_depth_img_vis_xformed;
                         cv::convertScaleAbs(rgbd_img_xformed.getDepthImage(), ocv_depth_img_vis_xformed, 255.0f / 8.0f);
                         cv::imshow("DEPTH Transformed", ocv_depth_img_vis_xformed);
@@ -706,8 +768,8 @@ namespace cv {
                                     ++match_iter) {
                                 match_iter->train_shape->getPose().getTranslation(positionA);
                                 match_iter->query_shape->getPose().getTranslation(positionB);
-                                position_projA = rgbd_img.project(positionA);
-                                position_projB = rgbd_img.project(deltaOrientation * positionB + deltaTranslation);
+                                position_projA = rgbd_img_ptr->project(positionA);
+                                position_projB = rgbd_img_ptr->project(deltaOrientation * positionB + deltaTranslation);
                                 position_projB.x += stripWidth + prev_oglImage.cols;
                                 cv::line(side_by_side, position_projA, position_projB, cv::Scalar(255, 255, 0), 1);
                             }
@@ -750,6 +812,7 @@ namespace cv {
             //addToMap(unmatched)
             world_map->insert(newShapes, global_pose_estimate);
 
+            prev_rgbd_img_ptr = rgbd_img_ptr;
             prev_quadTree = quadTree;
             train_shapeMapPtr = query_shapeMapPtr;
             //iterativeAlignment(rgbd_img, rgb_result);

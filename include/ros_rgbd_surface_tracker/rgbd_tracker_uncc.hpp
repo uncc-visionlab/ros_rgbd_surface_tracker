@@ -123,7 +123,13 @@ namespace cv {
                     const std::vector<cv::rgbd::ShapeMatch>& matches,
                     Pose& delta_pose_estimate);
 
-            void updateSurfaces(cv::rgbd::RgbdImage& rgbd_img, cv::Mat& rgb_result);
+            bool estimateDeltaPoseReprojectionError(
+                    const cv::rgbd::RgbdImage& fixedImg,
+                    const cv::rgbd::RgbdImage& movingImg,
+                    Pose& delta_pose_estimate);
+            
+            //void updateSurfaces(cv::rgbd::RgbdImage& rgbd_img, cv::Mat& rgb_result);
+            void updateSurfaces(cv::rgbd::RgbdImage::Ptr rgbd_img, cv::Mat& rgb_result);
 
             Pose getPose() {
                 return global_pose_estimate;
@@ -154,6 +160,7 @@ namespace cv {
             SurfaceDescriptorMatcher surfmatcher;
 
             cv::QuadTree<sg::Plane<float>::Ptr>::Ptr prev_quadTree;
+            cv::rgbd::RgbdImage::Ptr prev_rgbd_img_ptr;
             cv::rgbd::ShapeMap::Ptr train_shapeMapPtr;
 
             cv::rgbd::ShapeMap::Ptr world_map;

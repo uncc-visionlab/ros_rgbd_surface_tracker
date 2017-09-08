@@ -85,9 +85,10 @@ void ROS_RgbdSurfaceTracker::depthImageCallback(const sensor_msgs::ImageConstPtr
     float cy = cameraMatrix.at<float>(1, 2);
     float fx = cameraMatrix.at<float>(0, 0);
     float fy = cameraMatrix.at<float>(1, 1);
-    cv::rgbd::RgbdImage rgbd_img(_ocv_rgbframe, _ocv_depthframe_float, cx, cy, fx);
+    cv::rgbd::RgbdImage::Ptr rgbd_img_ptr = cv::rgbd::RgbdImage::create(_ocv_rgbframe, _ocv_depthframe_float, cx, cy, fx);
+
     cv::Mat rgb_result = _ocv_rgbframe.clone();
-    updateSurfaces(depth_msg, rgbd_img, rgb_result);
+    updateSurfaces(depth_msg, rgbd_img_ptr, rgb_result);
 }
 
 tf::Transform convertPoseToTFTransform(const Pose& pose) {
@@ -105,9 +106,9 @@ tf::Transform convertPoseToTFTransform(const Pose& pose) {
 }
 
 void ROS_RgbdSurfaceTracker::updateSurfaces(const sensor_msgs::ImageConstPtr& depth_msg,
-        cv::rgbd::RgbdImage& rgbd_img, cv::Mat& rgb_result) {
+        cv::rgbd::RgbdImage::Ptr rgbd_img_ptr, cv::Mat& rgb_result) {
 
-    rgbdSurfTracker.updateSurfaces(rgbd_img, rgb_result);
+    rgbdSurfTracker.updateSurfaces(rgbd_img_ptr, rgb_result);
 
     PlaneVisualizationData* vis_data = rgbdSurfTracker.getPlaneVisualizationData();
     plane_vis.clearMarkerList();
@@ -201,9 +202,9 @@ void ROS_RgbdSurfaceTracker::rgbdImageCallback(const sensor_msgs::ImageConstPtr&
     float cy = cameraMatrix.at<float>(1, 2);
     float fx = cameraMatrix.at<float>(0, 0);
     float fy = cameraMatrix.at<float>(1, 1);
-    cv::rgbd::RgbdImage rgbd_img(_ocv_rgbframe, _ocv_depthframe_float, cx, cy, fx);
+    cv::rgbd::RgbdImage::Ptr rgbd_img_ptr = cv::rgbd::RgbdImage::create(_ocv_rgbframe, _ocv_depthframe_float, cx, cy, fx);
     cv::Mat rgb_result = _ocv_rgbframe.clone();
-    updateSurfaces(depth_msg, rgbd_img, rgb_result);
+    updateSurfaces(depth_msg, rgbd_img_ptr, rgb_result);
 }
 
 void ROS_RgbdSurfaceTracker::createDepthImageFloat(cv::Mat& depth_frame) {
