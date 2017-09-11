@@ -27,7 +27,7 @@ namespace cv {
             return normalsComputer;
         }
 
-        void RgbdImage::getPointCloud(cv::Mat& pts, cv::Mat& colors) {
+        void RgbdImage::getPointCloud(cv::Mat& pts, cv::Mat& colors) const {
             pts.create(getDepthImage().size(), CV_32FC3);
             colors.create(getDepthImage().size(), CV_8UC3);
             for (int r = 0; r < getDepthImage().rows; ++r) {

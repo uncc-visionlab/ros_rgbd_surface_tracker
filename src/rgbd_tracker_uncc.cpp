@@ -584,7 +584,23 @@ namespace cv {
             }
             cv::completeSymm(errorHessian);
 
-
+            cv::Mat pts, colors;
+            movingImg.getPointCloud(pts, colors);
+            const cv::Vec3f *warpA_pt_ptr;
+            cv::Vec3f warped_pt;
+            cv::Matx33f rotMat = delta_pose_estimate.getRotation_Matx33();
+            cv::Vec3f translation;
+            delta_pose_estimate.getTranslation(translation);
+            const cv::Mat warpedDepthImg = movingImg.getDepthImage();            
+            unsigned char *warpA_colors_ptr;
+            for (int y = 0; y < fixedImg.getHeight(); ++y) {
+                warpA_pt_ptr = warpedDepthImg.ptr<cv::Vec3f>(y, 0);
+                for (int x = 0; x < fixedImg.getWidth(); ++x, ++gradX_ptr, ++gradY_ptr) {
+                    const cv::Vec3f& cpt = *warpA_pt_ptr;                   
+                    warped_pt = rotMat * cpt + translation;
+                    //gradientImages_ptr = gradientImages.ptr<float>(y, x);
+                }
+            }
             return true;
         }
 

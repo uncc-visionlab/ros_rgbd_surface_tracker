@@ -239,7 +239,7 @@ namespace cv {
                 return getPoint3f(ix, iy, p3.x, p3.y, p3.z);
             }
 
-            void getPointCloud(cv::Mat& pts, cv::Mat& colors);
+            void getPointCloud(cv::Mat& pts, cv::Mat& colors) const;
 
             bool getTileData_Random(int x0, int y0,
                     int loc_width, int loc_height,
@@ -490,7 +490,7 @@ namespace cv {
                 return img_Z;
             }
 
-            const cv::Mat getRGBImage() {
+            const cv::Mat getRGBImage() const {
                 return img_I;
             }
 
