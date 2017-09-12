@@ -555,29 +555,35 @@ namespace cv {
             float *gradY_ptr, *gradX_ptr, *gradientImages_ptr;
             float *errorHessian_ptr;
             Point3f p3D;
+            
             for (int y = 0; y < fixedImg.getHeight(); ++y) {
+                
                 gradX_ptr = fixedImg_Dx.ptr<float>(y, 0);
                 gradY_ptr = fixedImg_Dy.ptr<float>(y, 0);
+                
                 for (int x = 0; x < fixedImg.getWidth(); ++x, ++gradX_ptr, ++gradY_ptr) {
-                    gradientImages_ptr = gradientImages.ptr<float>(y, x);
-                    fixedImg.getPoint3f(x, y, p3D);
-                    float inv_Z = 1.0f / p3D.z;
-                    float inv_Zsq = inv_Z*inv_Z;
-                    float gradX = *gradX_ptr, gradY = *gradY_ptr;
-                    float *gradientVec = gradientImages_ptr;
-                    *gradientImages_ptr++ = gradX * fx * inv_Z + gradY * 0;
-                    *gradientImages_ptr++ = gradX * 0 + gradY * fy * inv_Z;
-                    *gradientImages_ptr++ = -(gradX * fx * p3D.x + gradY * fy * p3D.y) * inv_Zsq;
-                    *gradientImages_ptr++ = -(gradX * fx * p3D.x * p3D.y + fy * (p3D.z * p3D.z + p3D.y * p3D.y)) * inv_Zsq;
-                    *gradientImages_ptr++ = +(gradX * fx * (p3D.z * p3D.z + p3D.x * p3D.x) + fy * p3D.x * p3D.y) * inv_Zsq;
-                    *gradientImages_ptr++ = (-gradX * fx * p3D.y + gradY * fy * p3D.x) * inv_Z;
-
-                    // compute upper triangular component this point contributes to the Hessian
-                    errorHessian_ptr = errorHessian.ptr<float>(0, 0);
-                    for (int row = 0; row < 6; ++row) {
-                        errorHessian_ptr += row;
-                        for (int col = row; col < 6; ++col, ++errorHessian_ptr) {
-                            *errorHessian_ptr += gradientVec[row] * gradientVec[col];
+                    
+                    if (!std::isnan(depthImg.at<float>(y, x)) && !std::isnan(*gradX_ptr) && !std::isnan(*gradY_ptr)) {
+                        gradientImages_ptr = gradientImages.ptr<float>(y*fixedImg.getWidth() + x, 0);
+                        fixedImg.getPoint3f(x, y, p3D);
+                        float inv_Z = 1.0f / p3D.z;
+                        float inv_Zsq = inv_Z*inv_Z;
+                        float gradX = *gradX_ptr, gradY = *gradY_ptr;
+                        float *gradientVec = gradientImages_ptr;
+                        *gradientImages_ptr++ = gradX * fx * inv_Z + gradY * 0;
+                        *gradientImages_ptr++ = gradX * 0 + gradY * fy * inv_Z;
+                        *gradientImages_ptr++ = -(gradX * fx * p3D.x + gradY * fy * p3D.y) * inv_Zsq;
+                        *gradientImages_ptr++ = -(gradX * fx * p3D.x * p3D.y + fy * (p3D.z * p3D.z + p3D.y * p3D.y)) * inv_Zsq;
+                        *gradientImages_ptr++ = +(gradX * fx * (p3D.z * p3D.z + p3D.x * p3D.x) + fy * p3D.x * p3D.y) * inv_Zsq;
+                        *gradientImages_ptr++ = (-gradX * fx * p3D.y + gradY * fy * p3D.x) * inv_Z;
+                        
+                        // compute upper triangular component this point contributes to the Hessian
+                        errorHessian_ptr = errorHessian.ptr<float>(0, 0);
+                        for (int row = 0; row < 6; ++row) {
+                            errorHessian_ptr += row;
+                            for (int col = row; col < 6; ++col, ++errorHessian_ptr) {
+                                *errorHessian_ptr += gradientVec[row] * gradientVec[col];
+                            }
                         }
                     }
                 }
