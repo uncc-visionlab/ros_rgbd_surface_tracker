@@ -556,9 +556,8 @@ namespace cv {
             cv::Mat gradientImagesValid = cv::Mat::zeros(numPixels, 1, CV_8U);
             cv::Mat errorHessian(6, 6, CV_32F);
 
-            float *gradY_ptr, *gradX_ptr, *gradientImages_ptr;
             const float *depth_ptr;
-            float *errorHessian_ptr;
+            float *gradY_ptr, *gradX_ptr, *gradientImages_ptr, *errorHessian_ptr;
             Point3f p3D;
             for (int y = 0; y < height; ++y) {
                 depth_ptr = depthImg.ptr<float>(y, 0);
@@ -594,7 +593,7 @@ namespace cv {
             cv::completeSymm(errorHessian);
 
             cv::Mat pts, colors;
-            movingImg.getPointCloud(pts, colors);
+            fixedImg.getPointCloud(pts, colors);
             const cv::Vec3f *warpA_pt_ptr;
             cv::Vec3f warped_pt;
             cv::Matx33f rotMat = delta_pose_estimate.getRotation_Matx33();
@@ -604,21 +603,40 @@ namespace cv {
             unsigned char *warpA_colors_ptr;
             float depthVal, residual;
             Point2f p2d;
-            cv::Mat errorGrad;
+            cv::Mat errorGrad(6, 1, CV_32F);
+            float *errorGrad_ptr = errorGrad.ptr<float>(0, 0);
+
+            cv::Mat warpHessian = errorHessian.clone();
+            float *warpHessian_ptr;
+            bool pixelInHessian;
             for (int y = 0; y < height; ++y) {
                 warpA_pt_ptr = warpedDepthImg.ptr<cv::Vec3f>(y, 0);
                 for (int x = 0; x < width; ++x, ++warpA_pt_ptr) {
+                    pixelInHessian = false;
                     const cv::Vec3f& cpt = *warpA_pt_ptr;
+                    gradientImages_ptr = gradientImages.ptr<float>(p2d.y * width + p2d.x, 0);
                     if (!std::isnan(cpt[3])) {
                         warped_pt = rotMat * cpt + translation;
                         p2d.x = (warped_pt[0] / (warped_pt[2] * inv_fx)) + cx;
                         p2d.y = (warped_pt[1] / (warped_pt[2] * inv_fy)) + cy;
+                        p2d.x = std::round(p2d.x);
+                        p2d.y = std::round(p2d.y);
                         if (p2d.y >= 0 && p2d.y < height && p2d.x >= 0 && p2d.x < width) {
-                            depthVal = depthImg.at<float>(p2d.y, p2d.x);
-                            gradientImages_ptr = gradientImages.ptr<float>(p2d.y * width + p2d.x, 0);
-                            if (gradientImagesValid.at<uchar>(y * width + x, 0) == 1) {
+                            if (gradientImagesValid.at<uchar>(p2d.y * width + p2d.x, 0) == 1) {
+                                depthVal = depthImg.at<float>(p2d.y, p2d.x);
                                 residual = depthVal - warped_pt[2];
-                                //errorGrad =
+                                for (int i = 0; i < 6; ++i) {
+                                    errorGrad_ptr[i] += gradientImages_ptr[i] * residual;
+                                }
+                                pixelInHessian = true;
+                            }
+                        }
+                    }
+                    if (!pixelInHessian) {
+                        warpHessian_ptr = warpHessian.ptr<float>(0, 0);
+                        for (int row = 0; row < 6; ++row) {
+                            for (int col = row; col < 6; ++col, ++errorHessian_ptr) {
+                                *errorHessian_ptr -= gradientImages_ptr[row] * gradientImages_ptr[col];
                             }
                         }
                     }
@@ -626,7 +644,7 @@ namespace cv {
             }
             return true;
         }
-        
+
         void RgbdSurfaceTracker::updateSurfaces(cv::rgbd::RgbdImage::Ptr rgbd_img_ptr, cv::Mat& rgb_result) {
 
 #ifdef PROFILE_CALLGRIND

@@ -307,10 +307,10 @@ namespace cv {
                             float zval = p3d.z;
                             p3d = R * (cv::Vec3f) p3d + t;
                             p2d = project(p3d);
-                            std::cout << "p2d: " << p2d << std::endl;
+                            //std::cout << "p2d: " << p2d << std::endl;
 
-                            computeTarget(x, y, zval, camera_pose, p2dtest.x, p2dtest.y);
-                            std::cout << "p2d test: " << p2dtest << std::endl;
+                            //computeTarget(x, y, zval, camera_pose, p2dtest.x, p2dtest.y);
+                            //std::cout << "p2d test: " << p2dtest << std::endl;
 
                             if (p2d.y >= 0 && p2d.y < height && p2d.x >= 0 && p2d.x < width) {
                                 new_z_ptr = newImg.img_Z.ptr<float>(p2d.y, p2d.x);
