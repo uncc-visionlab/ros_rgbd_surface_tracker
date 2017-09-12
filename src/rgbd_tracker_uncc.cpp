@@ -626,7 +626,7 @@ namespace cv {
             }
             return true;
         }
-
+        
         void RgbdSurfaceTracker::updateSurfaces(cv::rgbd::RgbdImage::Ptr rgbd_img_ptr, cv::Mat& rgb_result) {
 
 #ifdef PROFILE_CALLGRIND
