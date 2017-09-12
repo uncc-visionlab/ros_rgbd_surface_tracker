@@ -544,27 +544,30 @@ namespace cv {
             float inv_fx = 1.0f / fx;
             float inv_fy = 1.0f / fy;
 
+            int width = fixedImg.getWidth();
+            int height = fixedImg.getHeight();
+            int numPixels = width*height;
             cv::Mat fixedImg_Dx;
             const cv::Mat depthImg = fixedImg.getDepthImage();
             cv::Sobel(depthImg, fixedImg_Dx, CV_32F, 1, 0, 3);
             cv::Mat fixedImg_Dy;
             cv::Sobel(depthImg, fixedImg_Dy, CV_32F, 0, 1, 3);
-            cv::Mat gradientImages(fixedImg.getWidth() * fixedImg.getHeight(), 6, CV_32F);
+            cv::Mat gradientImages(numPixels, 6, CV_32F);
+            cv::Mat gradientImagesValid = cv::Mat::zeros(numPixels, 1, CV_8U);
             cv::Mat errorHessian(6, 6, CV_32F);
 
             float *gradY_ptr, *gradX_ptr, *gradientImages_ptr;
+            const float *depth_ptr;
             float *errorHessian_ptr;
             Point3f p3D;
-            
-            for (int y = 0; y < fixedImg.getHeight(); ++y) {
-                
+            for (int y = 0; y < height; ++y) {
+                depth_ptr = depthImg.ptr<float>(y, 0);
                 gradX_ptr = fixedImg_Dx.ptr<float>(y, 0);
                 gradY_ptr = fixedImg_Dy.ptr<float>(y, 0);
-                
-                for (int x = 0; x < fixedImg.getWidth(); ++x, ++gradX_ptr, ++gradY_ptr) {
-                    
-                    if (!std::isnan(depthImg.at<float>(y, x)) && !std::isnan(*gradX_ptr) && !std::isnan(*gradY_ptr)) {
-                        gradientImages_ptr = gradientImages.ptr<float>(y*fixedImg.getWidth() + x, 0);
+                for (int x = 0; x < width; ++x, ++depth_ptr, ++gradX_ptr, ++gradY_ptr) {
+                    gradientImages_ptr = gradientImages.ptr<float>(y * width + x, 0);
+                    if (!std::isnan(*depth_ptr) && !std::isnan(*gradX_ptr) && !std::isnan(*gradY_ptr)) {
+                        gradientImagesValid.at<uchar>(y * width + x, 0) = 1;
                         fixedImg.getPoint3f(x, y, p3D);
                         float inv_Z = 1.0f / p3D.z;
                         float inv_Zsq = inv_Z*inv_Z;
@@ -576,7 +579,7 @@ namespace cv {
                         *gradientImages_ptr++ = -(gradX * fx * p3D.x * p3D.y + fy * (p3D.z * p3D.z + p3D.y * p3D.y)) * inv_Zsq;
                         *gradientImages_ptr++ = +(gradX * fx * (p3D.z * p3D.z + p3D.x * p3D.x) + fy * p3D.x * p3D.y) * inv_Zsq;
                         *gradientImages_ptr++ = (-gradX * fx * p3D.y + gradY * fy * p3D.x) * inv_Z;
-                        
+
                         // compute upper triangular component this point contributes to the Hessian
                         errorHessian_ptr = errorHessian.ptr<float>(0, 0);
                         for (int row = 0; row < 6; ++row) {
@@ -597,20 +600,32 @@ namespace cv {
             cv::Matx33f rotMat = delta_pose_estimate.getRotation_Matx33();
             cv::Vec3f translation;
             delta_pose_estimate.getTranslation(translation);
-            const cv::Mat warpedDepthImg = movingImg.getDepthImage();            
+            const cv::Mat warpedDepthImg = movingImg.getDepthImage();
             unsigned char *warpA_colors_ptr;
-            for (int y = 0; y < fixedImg.getHeight(); ++y) {
+            float depthVal, residual;
+            Point2f p2d;
+            cv::Mat errorGrad;
+            for (int y = 0; y < height; ++y) {
                 warpA_pt_ptr = warpedDepthImg.ptr<cv::Vec3f>(y, 0);
-                for (int x = 0; x < fixedImg.getWidth(); ++x, ++gradX_ptr, ++gradY_ptr) {
-                    const cv::Vec3f& cpt = *warpA_pt_ptr;                   
-                    warped_pt = rotMat * cpt + translation;
-                    //gradientImages_ptr = gradientImages.ptr<float>(y, x);
+                for (int x = 0; x < width; ++x, ++warpA_pt_ptr) {
+                    const cv::Vec3f& cpt = *warpA_pt_ptr;
+                    if (!std::isnan(cpt[3])) {
+                        warped_pt = rotMat * cpt + translation;
+                        p2d.x = (warped_pt[0] / (warped_pt[2] * inv_fx)) + cx;
+                        p2d.y = (warped_pt[1] / (warped_pt[2] * inv_fy)) + cy;
+                        if (p2d.y >= 0 && p2d.y < height && p2d.x >= 0 && p2d.x < width) {
+                            depthVal = depthImg.at<float>(p2d.y, p2d.x);
+                            gradientImages_ptr = gradientImages.ptr<float>(p2d.y * width + p2d.x, 0);
+                            if (gradientImagesValid.at<uchar>(y * width + x, 0) == 1) {
+                                residual = depthVal - warped_pt[2];
+                                //errorGrad =
+                            }
+                        }
+                    }
                 }
             }
             return true;
         }
-
-        //void RgbdSurfaceTracker::updateSurfaces(cv::rgbd::RgbdImage& rgbd_img, cv::Mat& rgb_result) {
 
         void RgbdSurfaceTracker::updateSurfaces(cv::rgbd::RgbdImage::Ptr rgbd_img_ptr, cv::Mat& rgb_result) {
 
@@ -738,7 +753,7 @@ namespace cv {
                     if (prev_rgbd_img_ptr) {
                         estimateDeltaPoseReprojectionError(*prev_rgbd_img_ptr, *rgbd_img_ptr, delta_pose_estimate);
                     }
-                    estimateDeltaPoseIterativeClosestPoint(query_shapeMap, train_shapeMap, shapeMatches, delta_pose_estimate);
+                    //estimateDeltaPoseIterativeClosestPoint(query_shapeMap, train_shapeMap, shapeMatches, delta_pose_estimate);
                     Pose identity(cv::Vec3f(0, 0, 0), cv::Vec3f(0, 0, 0));
                     //float error1 = surfmatcher.matchError(shapeMatches, identity);
                     //float error2 = surfmatcher.matchError(shapeMatches, delta_pose_estimate);
