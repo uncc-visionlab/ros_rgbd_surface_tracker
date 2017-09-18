@@ -278,7 +278,7 @@ namespace cv {
                 return (data.size() == numSamples) ? true : false;
             }
 
-            void reproject(Pose camera_pose, RgbdImage& newImg) {
+            void reproject(Pose camera_pose, RgbdImage& newImg) const {
                 newImg.width = width;
                 newImg.height = height;
                 newImg.cameraMatrix = cameraMatrix.clone();
@@ -290,12 +290,13 @@ namespace cv {
                 newImg.img_I = cv::Mat(height, width, CV_8UC3, cv::Scalar(0, 0, 0));
                 newImg.iptr = newImg.img_I.ptr<uchar>(0, 0);
                 newImg.zptr = newImg.img_Z.ptr<float>(0, 0);
-                istep = (int) (newImg.img_I.step / newImg.img_I.elemSize1());
-                zstep = (int) (newImg.img_Z.step / newImg.img_Z.elemSize1());
+                newImg.istep = (int) (newImg.img_I.step / newImg.img_I.elemSize1());
+                newImg.zstep = (int) (newImg.img_Z.step / newImg.img_Z.elemSize1());
                 cv::Vec3f t;
                 camera_pose.getTranslation(t);
                 cv::Matx33f R = camera_pose.getRotation_Matx33();
-                float *cur_z_ptr, *new_z_ptr;
+                const float *cur_z_ptr;
+                float *new_z_ptr;
                 Point3f p3d;
                 Point2f p2d, p2dtest;
                 for (int y = 0; y < height; ++y) {
@@ -311,7 +312,8 @@ namespace cv {
 
                             //computeTarget(x, y, zval, camera_pose, p2dtest.x, p2dtest.y);
                             //std::cout << "p2d test: " << p2dtest << std::endl;
-
+                            p2d.x = std::round(p2d.x);
+                            p2d.y = std::round(p2d.y);
                             if (p2d.y >= 0 && p2d.y < height && p2d.x >= 0 && p2d.x < width) {
                                 new_z_ptr = newImg.img_Z.ptr<float>(p2d.y, p2d.x);
                                 if (std::isnan(*new_z_ptr) || *new_z_ptr > p3d.z) {

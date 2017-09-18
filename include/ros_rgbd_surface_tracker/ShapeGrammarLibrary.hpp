@@ -136,6 +136,30 @@ public:
         cv::Rodrigues(_rotMat, this->rodrigues);
     }
 
+    void getTransform(cv::Matx44f& tform) {
+        cv::Mat rotMat = getRotation_Mat();
+        float *rotmat = rotMat.ptr<float>(0, 0);
+        for (int i = 0, j = 3; i < 11; ++i) {
+            tform.val[i] = *rotmat++;
+            if ((i + 1) % j == 0) {
+                j += 4;
+                i++;
+            }
+        }
+        tform.val[3] = this->position[0];
+        tform.val[7] = this->position[1];
+        tform.val[11] = this->position[2];
+    }
+
+    void compose(Pose &transform) {
+        cv::Matx44f xform1 = getTransform();
+        cv::Matx44f xform2 = transform.getTransform();
+        //std::cout << "xform1 = " << xform1 << std::endl;
+        //std::cout << "xform2 = " << xform2 << std::endl;
+        //std::cout << "xform1*xform2 = " << xform1*xform2 << std::endl;
+        set(xform1*xform2);
+    }
+    
     cv::Matx44f getTransform() const {
         static cv::Mat rotMat;
         cv::Matx44f tform;

@@ -29,7 +29,7 @@
 
 #include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>
 
-#define LOCAL_DEBUG false
+#define LOCAL_DEBUG true
 
 class BagFileDriver {
     rosbag::Bag input_bag;
@@ -131,8 +131,37 @@ public:
                 }
             }
         } else if (depth_image_msg->encoding == sensor_msgs::image_encodings::TYPE_32FC1) {
-            depth_frame = cv_depthimg_ptr->image;
+            depth_frame = cv_depthimg_ptr->image.clone();
         }
+    }
+
+    void convert_TUMDE_Depth(cv::Mat& depth_frame) {
+        std::cout << "Stamp = " << depth_image_msg->header.stamp << std::endl;
+        // Convert Kinect depth image from image-of-shorts (mm) to image-of-floats (m)
+        ROS_DEBUG("Converting TUM DE Kinect-style depth image to floating point depth image.");
+        int width = cv_depthimg_ptr->image.cols;
+        int height = cv_depthimg_ptr->image.rows;
+        float bad_point = std::numeric_limits<float>::quiet_NaN();
+        const float* uint_depthvals;
+        float* float_depthvals;
+        int numVals = 0;
+        float avgDepth = 0;
+        for (int row = 0; row < height; ++row) {
+            float_depthvals = depth_frame.ptr<float>(row, 0);
+            uint_depthvals = cv_depthimg_ptr->image.ptr<float>(row, 0);
+            for (int col = 0; col < width; ++col, ++uint_depthvals, ++float_depthvals) {
+                if (std::isnan(*uint_depthvals)) {
+                    *float_depthvals = bad_point;
+                } else { // mm to m for kinect
+                    //*float_depthvals = (*uint_depthvals) * 0.0002f;
+                    *float_depthvals = (*uint_depthvals) * 1.0f;
+                    avgDepth += (*float_depthvals);
+                    numVals++;
+                }
+            }
+        }
+        avgDepth /= numVals;
+        std::cout << "avgDepth = " << avgDepth << std::endl;
     }
 
     void cameraInfoToCVMats(const sensor_msgs::CameraInfoConstPtr &cam_info,
@@ -178,6 +207,7 @@ public:
         cameraInfoToCVMats(camera_info_msg, false, cameraMatrix, distortionCoeffs, imSize);
 
         cv::Mat _ocv_depthframe_float(cv_depthimg_ptr->image.size(), CV_32F);
+        //convert_TUMDE_Depth(_ocv_depthframe_float);
         createDepthImageFloat(_ocv_depthframe_float);
 
         cv_rgbimg_ptr = cv_bridge::toCvShare(rgb_image_msg, sensor_msgs::image_encodings::BGR8);
@@ -211,8 +241,8 @@ int main(int argc, char **argv) {
     boost::function<void (cv::Mat&, cv::Mat&, cv::Mat&, cv::Mat&) > callback(
             boost::bind(&cv::rgbd::RgbdSurfaceTracker::callback, &rgbdSurfTracker, _1, _2, _3, _4));
 
-    bagReader.setCallback(callback);    
-    
+    bagReader.setCallback(callback);
+
     std::vector<std::string> topics;
     topics.push_back(std::string("/camera/rgb/image_color"));
     //topics.push_back(std::string("/camera/rgb/input_image"));
