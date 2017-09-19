@@ -672,29 +672,29 @@ namespace cv {
                                     //std::cout << "HERE" << std::endl;
                                 }
                             }
-                            if (!std::isnan(iwarpVal)) {
-                                //if (!std::isnan(*warpA_ptr)) {
-                                gradientImages_ptr = gradientImages.ptr<float>(y * width + x, 0);
-                                residual = *depth_ptr - iwarpVal;
-                                totalError += residual*residual;
-                                for (int i = 0; i < 6; ++i) {
-                                    errorGrad_ptr[i] += gradientImages_ptr[i] * residual;
+                                if (!std::isnan(iwarpVal)) {
+                                    //if (!std::isnan(*warpA_ptr)) {
+                                    gradientImages_ptr = gradientImages.ptr<float>(y * width + x, 0);
+                                    residual = *depth_ptr - iwarpVal;
+                                    totalError += residual*residual;
+                                    for (int i = 0; i < 6; ++i) {
+                                        errorGrad_ptr[i] += gradientImages_ptr[i] * residual;
+                                    }
+                                    pixelInHessian = true;
+                                    numEquations++;
+                                    //}
                                 }
-                                pixelInHessian = true;
-                                numEquations++;
-                                //}
-                            }
-                            if (!pixelInHessian) {
-                                curHessian_ptr = curHessian.ptr<float>(0, 0);
-                                for (int row = 0; row < 6; ++row) {
-                                    for (int col = 0; col < 6; ++col, ++curHessian_ptr) {
-                                        *curHessian_ptr -= gradientImages_ptr[row] * gradientImages_ptr[col];
+                                if (!pixelInHessian) {
+                                    curHessian_ptr = curHessian.ptr<float>(0, 0);
+                                    for (int row = 0; row < 6; ++row) {
+                                        for (int col = 0; col < 6; ++col, ++curHessian_ptr) {
+                                            *curHessian_ptr -= gradientImages_ptr[row] * gradientImages_ptr[col];
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                }
                 cv::invert(curHessian, icurHessian);
                 cv::Mat delta_pose;
                 
@@ -712,29 +712,35 @@ namespace cv {
         }
         
         bool RgbdSurfaceTracker::estimateDeltaPoseReprojectionErrorParallel(
-                const cv::rgbd::RgbdImage& fixed_img,
-                const cv::rgbd::RgbdImage& moving_img,
+                const cv::rgbd::RgbdImage& fixed_img,  // template T(x)
+                const cv::rgbd::RgbdImage& moving_img, 
                 Pose& delta_pose_estimate) {
-
+            
             const cv::Mat& camera_matrix = fixed_img.getCameraMatrix();
             const float& fx = camera_matrix.at<float>(0, 0);
             const float& fy = camera_matrix.at<float>(1, 1);
             const float& cx = camera_matrix.at<float>(0, 2);
-            const float& cy = camera_matrix.at<float>(0, 2);
+            const float& cy = camera_matrix.at<float>(1, 2);
             float inv_fx = 1.0f / fx;
             float inv_fy = 1.0f / fy;
             
             int width = fixed_img.getWidth();
             int height = fixed_img.getHeight();
-            cv::Mat fixed_img_Dx, fixed_img_Dy;
-            const cv::Mat& depth_img = fixed_img.getDepthImage();
-            cv::Sobel(depth_img, fixed_img_Dx, CV_32F, 1, 0, 3);
-            cv::Sobel(depth_img, fixed_img_Dy, CV_32F, 0, 1, 3);
+            const cv::Mat& template_img = fixed_img.getDepthImage();
+            cv::Mat template_img_dx, template_img_dy;
+//            cv::Sobel(depth_img, fixed_img_Dx, CV_32F, 1, 0, 3);
+//            cv::Sobel(depth_img, fixed_img_Dy, CV_32F, 0, 1, 3);
+            cv::Mat cdiffX = (Mat_<float>(1,3) << -0.5f, 0, 0.5f);
+            cv::filter2D(template_img, template_img_dx, -1, cdiffX);
+            cv::Mat cdiffY = (Mat_<float>(3,1) << -0.5f, 0, 0.5f);
+            cv::filter2D(template_img, template_img_dy, -1, cdiffY);
             cv::Mat gradient_images(width*height, 6, CV_32F);
             cv::Mat gradient_images_valid = cv::Mat::zeros(width*height, 1, CV_8U);
             cv::Mat error_hessian = cv::Mat::zeros(6, 6, CV_32F);
             
-            depth_img.forEach<float>(
+            std::cout << "--- IC Image Alignment (parallel) ---\n";
+            
+            template_img.forEach<float>(
                 // lambda
                 [&](const float& depth, const int * position) {
                     
@@ -742,8 +748,8 @@ namespace cv {
                     int x = position[1];
                     int index = y*width + x; // cv::Mat stored in row major order
                     
-                    float& gradX = ((float *)fixed_img_Dx.data)[index];
-                    float& gradY = ((float *)fixed_img_Dy.data)[index];
+                    float& gradX = ((float *)template_img_dx.data)[index];
+                    float& gradY = ((float *)template_img_dy.data)[index];
                     uchar& pixel_valid = gradient_images_valid.data[index];
                     
                     if (!std::isnan(depth) && !std::isnan(gradX) && !std::isnan(gradY)) {
@@ -772,28 +778,34 @@ namespace cv {
                     int index = y*width + x;
                     
                     uchar& pixel_valid = gradient_images_valid.data[index];
-                    float * gradient_images_ptr = gradient_images.ptr<float>(index);
+                    float * gradient_vec = gradient_images.ptr<float>(index);
                     
                     if (pixel_valid) {
                         // compute upper triangular component this point contributes to the Hessian
                         float * error_hessian_ptr = error_hessian.ptr<float>(0, 0);
                         for (int row = 0; row < 6; ++row) {
-                            error_hessian_ptr += row;
+                            error_hessian_ptr += row;                
                             for (int col = row; col < 6; ++col, ++error_hessian_ptr) {
-                                *error_hessian_ptr += gradient_images_ptr[row] * gradient_images_ptr[col];
+                                *error_hessian_ptr += gradient_vec[row] * gradient_vec[col];
                             }
                         }
                     }
                 }
             }
             cv::completeSymm(error_hessian);
+            std::cout << "Error Hessian (parallel):\n" << error_hessian << std::endl;
+            std::cout << "Valid template pixels (parallel): " << cv::sum(gradient_images_valid)[0] << std::endl;
             
             cv::Mat ptcloud, colors;
-            fixed_img.getPointCloud(ptcloud, colors);
+            moving_img.getPointCloud(ptcloud, colors);
             cv::Matx33f rotation = delta_pose_estimate.getRotation_Matx33();
             cv::Vec3f translation;
             delta_pose_estimate.getTranslation(translation);
-            const cv::Mat& warped_depth_img = moving_img.getDepthImage();
+//            cv::Vec3f itranslation;
+//            cv::Matx33f irotation = rotation.t();
+//            itranslation = -irotation*translation;
+            
+            const cv::Mat& moving_depth_img = moving_img.getDepthImage();
             
             cv::Mat in_hessian = cv::Mat::zeros(width*height, 1, CV_8U);
             cv::Mat residuals = cv::Mat::zeros(width*height, 1, CV_32F);
@@ -802,29 +814,30 @@ namespace cv {
                 // lambda
                 [&](Vec3f& pt, const int * position) {
                     
-                    int y = position[0];
-                    int x = position[1];
-                    
                     if (!std::isnan(pt[2])) {
                         
-                        cv::Vec3f warped_pt = rotation*pt + translation;
+                        int y = position[0];
+                        int x = position[1];
+                        
+                        cv::Vec3f transformed_pt = rotation*pt + translation;
                         
                         cv::Point2i p2D( // project transformed point into image
-                            std::round((warped_pt[0] / (warped_pt[2] * inv_fx)) + cx),  // x 
-                            std::round((warped_pt[1] / (warped_pt[2] * inv_fy)) + cy)   // y
+                            std::round((transformed_pt[0] / (transformed_pt[2] * inv_fx)) + cx),  // x 
+                            std::round((transformed_pt[1] / (transformed_pt[2] * inv_fy)) + cy)   // y
                         );
 
                         if (p2D.y >= 0 && p2D.y < height && p2D.x >= 0 && p2D.x < width) {
                             
-                            int index_p2D = p2D.y*width + p2D.x;
-                            uchar& pixel_valid = gradient_images_valid.data[index_p2D];
+                            int index_warp = p2D.y*width + p2D.x;
+                            uchar& pixel_valid_in_template = gradient_images_valid.data[index_warp];
+                            float& warped_depth_value = ((float *)moving_depth_img.data)[index_warp]; // I(w(p))
                             
-                            if (pixel_valid) {
+                            if (pixel_valid_in_template && !std::isnan(warped_depth_value)) {
                                 
-                                in_hessian.data[index_p2D] = true;
-                                const float& depth_at_p2D = ((float *)depth_img.data)[index_p2D];
-                                float& this_residual = ((float *)residuals.data)[index_p2D];
-                                this_residual = depth_at_p2D - warped_pt[2];
+                                in_hessian.data[index_warp] = true;
+                                const float& template_value = ((float *)template_img.data)[index_warp];
+                                float& this_residual = ((float *)residuals.data)[index_warp];
+                                this_residual = warped_depth_value - template_value;
                                 
 //                                float * gradient_images_ptr = gradient_images.ptr<float>(p2D.y, p2D.x, 0);
 //                                for (int i = 0; i < 6; ++i) {
@@ -842,7 +855,12 @@ namespace cv {
                 
             );
             
-            cv::Mat warp_hessian = error_hessian.clone();
+            cv::Mat squared_errors;
+            cv::pow(residuals, 2, squared_errors);
+            std::cout << "Nonzero residuals (parallel): " << cv::countNonZero(residuals) << std::endl;
+            std::cout << "Total Error (parallel): " << cv::sum(squared_errors)[0] << std::endl;
+            
+            cv::Mat current_hessian = error_hessian.clone();
             cv::Mat error_grad = cv::Mat::zeros(6, 1, CV_32F);
             float * error_grad_ptr = error_grad.ptr<float>(0, 0);
             
@@ -851,31 +869,47 @@ namespace cv {
                 
                 for (int x = 0; x < width; ++x) {//, ++in_hessian_ptr) {
                     int index = y*width + x;
-                    uchar& pixel_in_hessian = in_hessian.data[index];
-                    float * gradient_images_ptr = gradient_images.ptr<float>(index, 0);
+                    uchar& pixel_valid = gradient_images_valid.data[index];
                     
-                    // fix logic here
-                    if (pixel_in_hessian) {
-                        // add pixel's contribution to gradient vector
-                        float& residual = ((float *)residuals.data)[index];
-                        for (int i = 0; i < 6; ++i) {
-                            error_grad_ptr[i] += residual*gradient_images_ptr[i]; 
-                        }
+                    if (pixel_valid) {
                         
-                    } else {
-                        // subtract this pixel's contribution to the hessian
-                        float * warp_hessian_ptr = warp_hessian.ptr<float>(0, 0);
-                        for (int row = 0; row < 6; ++row) {
-                            warp_hessian_ptr += row;
-                            for (int col = row; col < 6; ++col, ++warp_hessian_ptr) {
-                                *warp_hessian_ptr -= gradient_images_ptr[row] * gradient_images_ptr[col];
+                        uchar& pixel_in_hessian = in_hessian.data[index];
+                        float * gradient_vec = gradient_images.ptr<float>(index, 0);
+                        
+                        if (pixel_in_hessian) {
+                            // add pixel's contribution to gradient vector
+                            float& residual = ((float *)residuals.data)[index];
+                            for (int i = 0; i < 6; ++i) {
+                                error_grad_ptr[i] += residual*gradient_vec[i]; 
+                            }
+
+                        } else {
+                            // subtract this pixel's contribution to the hessian
+                            float * current_hessian_ptr = current_hessian.ptr<float>(0, 0);
+                            for (int row = 0; row < 6; ++row) {
+                                current_hessian_ptr += row;
+                                for (int col = row; col < 6; ++col, ++current_hessian_ptr) {
+                                    *current_hessian_ptr -= gradient_vec[row] * gradient_vec[col];
+                                }
                             }
                         }
                     }
-                    
                 }
-                
             }
+            cv::completeSymm(current_hessian);
+            
+            cv::Mat delta_pose;
+            cv::solve(current_hessian, error_grad, delta_pose);
+            //cv::Mat delta_pose = current_hessian.inv()*error_grad;
+            
+//            cv::Mat inverse_delta_pose = 
+            
+            std::cout << "Error gradient vector (parallel): " << error_grad.t() << std::endl;
+            std::cout << "Current Hessian (parallel):\n" << current_hessian << std::endl;
+            std::cout << "Delta pose estimate (parallel): " << delta_pose.t() << std::endl;
+            
+            // update parameters via composition
+            
             
             return true;
         }
