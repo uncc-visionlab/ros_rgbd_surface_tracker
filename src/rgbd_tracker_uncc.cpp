@@ -798,117 +798,141 @@ namespace cv {
             
             cv::Mat ptcloud, colors;
             moving_img.getPointCloud(ptcloud, colors);
-            cv::Matx33f rotation = delta_pose_estimate.getRotation_Matx33();
-            cv::Vec3f translation;
-            delta_pose_estimate.getTranslation(translation);
-//            cv::Vec3f itranslation;
-//            cv::Matx33f irotation = rotation.t();
-//            itranslation = -irotation*translation;
+            bool iterate = true;
+            int iterations = 0;
             
-            const cv::Mat& moving_depth_img = moving_img.getDepthImage();
+            cv::Mat delta_pose_cv(6, 1, CV_32F);
+            cv::Mat last_delta_pose_cv(6, 1, CV_32F);
+            last_delta_pose_cv.setTo(std::numeric_limits<float>::infinity());
             
-            cv::Mat in_hessian = cv::Mat::zeros(width*height, 1, CV_8U);
-            cv::Mat residuals = cv::Mat::zeros(width*height, 1, CV_32F);
+            while (iterate) {
             
-            ptcloud.forEach<cv::Vec3f>(
-                // lambda
-                [&](Vec3f& pt, const int * position) {
-                    
-                    if (!std::isnan(pt[2])) {
-                        
-                        int y = position[0];
-                        int x = position[1];
-                        
-                        cv::Vec3f transformed_pt = rotation*pt + translation;
-                        
-                        cv::Point2i p2D( // project transformed point into image
-                            std::round((transformed_pt[0] / (transformed_pt[2] * inv_fx)) + cx),  // x 
-                            std::round((transformed_pt[1] / (transformed_pt[2] * inv_fy)) + cy)   // y
-                        );
+                cv::Matx33f rotation = delta_pose_estimate.getRotation_Matx33();
+                cv::Vec3f translation;
+                delta_pose_estimate.getTranslation(translation);
 
-                        if (p2D.y >= 0 && p2D.y < height && p2D.x >= 0 && p2D.x < width) {
-                            
-                            int index_warp = p2D.y*width + p2D.x;
-                            uchar& pixel_valid_in_template = gradient_images_valid.data[index_warp];
-                            float& warped_depth_value = ((float *)moving_depth_img.data)[index_warp]; // I(w(p))
-                            
-                            if (pixel_valid_in_template && !std::isnan(warped_depth_value)) {
-                                
-                                in_hessian.data[index_warp] = true;
-                                const float& template_value = ((float *)template_img.data)[index_warp];
-                                float& this_residual = ((float *)residuals.data)[index_warp];
-                                this_residual = warped_depth_value - template_value;
-                                
-//                                float * gradient_images_ptr = gradient_images.ptr<float>(p2D.y, p2D.x, 0);
-//                                for (int i = 0; i < 6; ++i) {
-//                                    // concurrent writes here
-//                                    error_grad_ptr[i] += residual*gradient_images_ptr[i]; 
-//                                }
-                                
+                const cv::Mat& moving_depth_img = moving_img.getDepthImage();
+
+                cv::Mat in_hessian = cv::Mat::zeros(width*height, 1, CV_8U);
+                cv::Mat residuals = cv::Mat::zeros(width*height, 1, CV_32F);
+
+                ptcloud.forEach<cv::Vec3f>(
+                    // lambda
+                    [&](Vec3f& pt, const int * position) {
+
+                        if (!std::isnan(pt[2])) {
+
+                            int y = position[0];
+                            int x = position[1];
+
+                            cv::Vec3f transformed_pt = rotation*pt + translation;
+
+                            cv::Point2i p2D( // project transformed point into image
+                                std::round((transformed_pt[0] / (transformed_pt[2] * inv_fx)) + cx),  // x 
+                                std::round((transformed_pt[1] / (transformed_pt[2] * inv_fy)) + cy)   // y
+                            );
+
+                            if (p2D.y >= 0 && p2D.y < height && p2D.x >= 0 && p2D.x < width) {
+
+                                int index_warp = p2D.y*width + p2D.x;
+                                uchar& pixel_valid_in_template = gradient_images_valid.data[index_warp];
+                                float& warped_depth_value = ((float *)moving_depth_img.data)[index_warp]; // I(w(p))
+
+                                if (pixel_valid_in_template && !std::isnan(warped_depth_value)) {
+
+                                    in_hessian.data[index_warp] = true;
+                                    const float& template_value = ((float *)template_img.data)[index_warp];
+                                    float& this_residual = ((float *)residuals.data)[index_warp];
+                                    this_residual = warped_depth_value - template_value;
+
+    //                                float * gradient_images_ptr = gradient_images.ptr<float>(p2D.y, p2D.x, 0);
+    //                                for (int i = 0; i < 6; ++i) {
+    //                                    // concurrent writes here
+    //                                    error_grad_ptr[i] += residual*gradient_images_ptr[i]; 
+    //                                }
+
+                                }
+
                             }
-                            
+
                         }
 
                     }
-                    
-                }
-                
-            );
-            
-            cv::Mat squared_errors;
-            cv::pow(residuals, 2, squared_errors);
-            std::cout << "Nonzero residuals (parallel): " << cv::countNonZero(residuals) << std::endl;
-            std::cout << "Total Error (parallel): " << cv::sum(squared_errors)[0] << std::endl;
-            
-            cv::Mat current_hessian = error_hessian.clone();
-            cv::Mat error_grad = cv::Mat::zeros(6, 1, CV_32F);
-            float * error_grad_ptr = error_grad.ptr<float>(0, 0);
-            
-            for (int y = 0; y < height; ++y) {
-                //uchar * in_hessian_ptr = in_hessian.ptr(y);
-                
-                for (int x = 0; x < width; ++x) {//, ++in_hessian_ptr) {
-                    int index = y*width + x;
-                    uchar& pixel_valid = gradient_images_valid.data[index];
-                    
-                    if (pixel_valid) {
-                        
-                        uchar& pixel_in_hessian = in_hessian.data[index];
-                        float * gradient_vec = gradient_images.ptr<float>(index, 0);
-                        
-                        if (pixel_in_hessian) {
-                            // add pixel's contribution to gradient vector
-                            float& residual = ((float *)residuals.data)[index];
-                            for (int i = 0; i < 6; ++i) {
-                                error_grad_ptr[i] += residual*gradient_vec[i]; 
-                            }
 
-                        } else {
-                            // subtract this pixel's contribution to the hessian
-                            float * current_hessian_ptr = current_hessian.ptr<float>(0, 0);
-                            for (int row = 0; row < 6; ++row) {
-                                current_hessian_ptr += row;
-                                for (int col = row; col < 6; ++col, ++current_hessian_ptr) {
-                                    *current_hessian_ptr -= gradient_vec[row] * gradient_vec[col];
+                );
+
+                cv::Mat squared_errors;
+                cv::pow(residuals, 2, squared_errors);
+                float error = cv::sum(squared_errors)[0];
+                float avg_error = error/cv::countNonZero(residuals);
+                std::cout << "Total Error (parallel): " << error << std::endl;
+                std::cout << "Avg Error (error/#residuals): " << avg_error << std::endl;
+                
+
+                cv::Mat current_hessian = error_hessian.clone();
+                cv::Mat error_grad = cv::Mat::zeros(6, 1, CV_32F);
+                float * error_grad_ptr = error_grad.ptr<float>(0, 0);
+
+                for (int y = 0; y < height; ++y) {
+                    //uchar * in_hessian_ptr = in_hessian.ptr(y);
+
+                    for (int x = 0; x < width; ++x) {//, ++in_hessian_ptr) {
+                        int index = y*width + x;
+                        uchar& pixel_valid = gradient_images_valid.data[index];
+
+                        if (pixel_valid) {
+
+                            uchar& pixel_in_hessian = in_hessian.data[index];
+                            float * gradient_vec = gradient_images.ptr<float>(index, 0);
+
+                            if (pixel_in_hessian) {
+                                // add pixel's contribution to gradient vector
+                                float& residual = ((float *)residuals.data)[index];
+                                for (int i = 0; i < 6; ++i) {
+                                    error_grad_ptr[i] += residual*gradient_vec[i]; 
+                                }
+
+                            } else {
+                                // subtract this pixel's contribution to the hessian
+                                float * current_hessian_ptr = current_hessian.ptr<float>(0, 0);
+                                for (int row = 0; row < 6; ++row) {
+                                    current_hessian_ptr += row;
+                                    for (int col = row; col < 6; ++col, ++current_hessian_ptr) {
+                                        *current_hessian_ptr -= gradient_vec[row] * gradient_vec[col];
+                                    }
                                 }
                             }
                         }
                     }
                 }
+                cv::completeSymm(current_hessian);
+
+                cv::solve(current_hessian, error_grad, delta_pose_cv);
+                //cv::Mat delta_pose_cv = current_hessian.inv()*error_grad;
+                
+                
+
+//                std::cout << "Error gradient vector (parallel): " << error_grad.t() << std::endl;
+//                std::cout << "Current Hessian (parallel):\n" << current_hessian << std::endl;
+//                std::cout << "Delta pose update (parallel): " << delta_pose_cv.t() << std::endl;
+
+                // invert incremental transformation
+                float *delta_pose_cv_ptr = delta_pose_cv.ptr<float>(0, 0);
+                Pose this_delta_pose(cv::Vec3f(-delta_pose_cv_ptr[0], -delta_pose_cv_ptr[1], -delta_pose_cv_ptr[2]), 
+                        cv::Vec3f(delta_pose_cv_ptr[3], delta_pose_cv_ptr[4], delta_pose_cv_ptr[5]));
+                this_delta_pose.setPosition(
+                    -this_delta_pose.getRotation_Matx33()*cv::Vec3f(delta_pose_cv_ptr[3], delta_pose_cv_ptr[4], delta_pose_cv_ptr[5]));
+
+                // update parameters via composition
+                delta_pose_estimate.compose(this_delta_pose); 
+                std::cout << "Delta pose estimate (parallel): " << delta_pose_estimate.toString() << std::endl;
+                iterations++;
+                
+                if (cv::norm(delta_pose_cv - last_delta_pose_cv) < 1e-5)
+                    iterate = false;
+                
+                last_delta_pose_cv = delta_pose_cv.clone();
             }
-            cv::completeSymm(current_hessian);
-            
-            cv::Mat delta_pose;
-            cv::solve(current_hessian, error_grad, delta_pose);
-            //cv::Mat delta_pose = current_hessian.inv()*error_grad;
-            
-//            cv::Mat inverse_delta_pose = 
-            
-            std::cout << "Error gradient vector (parallel): " << error_grad.t() << std::endl;
-            std::cout << "Current Hessian (parallel):\n" << current_hessian << std::endl;
-            std::cout << "Delta pose estimate (parallel): " << delta_pose.t() << std::endl;
-            
-            // update parameters via composition
             
             
             return true;
@@ -1039,7 +1063,7 @@ namespace cv {
                     //}
                     if (prev_rgbd_img_ptr) {
                         estimateDeltaPoseReprojectionError(*prev_rgbd_img_ptr, *rgbd_img_ptr, delta_pose_estimate);
-                        //estimateDeltaPoseReprojectionErrorParallel(*prev_rgbd_img_ptr, *rgbd_img_ptr, delta_pose_estimate);
+                        estimateDeltaPoseReprojectionErrorParallel(*prev_rgbd_img_ptr, *rgbd_img_ptr, delta_pose_estimate);
                     }
                     //estimateDeltaPoseIterativeClosestPoint(query_shapeMap, train_shapeMap, shapeMatches, delta_pose_estimate);
                     Pose identity(cv::Vec3f(0, 0, 0), cv::Vec3f(0, 0, 0));

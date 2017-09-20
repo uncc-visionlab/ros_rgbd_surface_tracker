@@ -135,6 +135,10 @@ public:
         this->position = _position;
         cv::Rodrigues(_rotMat, this->rodrigues);
     }
+    
+    void setPosition(cv::Vec3f _position) {
+        this->position = _position;
+    }
 
     void getTransform(cv::Matx44f& tform) {
         cv::Mat rotMat = getRotation_Mat();
@@ -178,7 +182,7 @@ public:
         tform.val[15] = 1.0f;
         return tform;
     }
-
+    
     void update(const Pose& deltaPose) {
         this->position -= deltaPose.position;
         cv::Mat r1, r2;
