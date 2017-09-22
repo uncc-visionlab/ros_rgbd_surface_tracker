@@ -714,7 +714,8 @@ namespace cv {
         bool RgbdSurfaceTracker::estimateDeltaPoseReprojectionErrorParallel(
                 const cv::rgbd::RgbdImage& fixed_img,  // template T(x)
                 const cv::rgbd::RgbdImage& moving_img, 
-                Pose& delta_pose_estimate) {
+                Pose& delta_pose_estimate,
+                int max_iterations) {
             
             const cv::Mat& camera_matrix = fixed_img.getCameraMatrix();
             const float& fx = camera_matrix.at<float>(0, 0);
@@ -728,8 +729,6 @@ namespace cv {
             int height = fixed_img.getHeight();
             const cv::Mat& template_img = fixed_img.getDepthImage();
             cv::Mat template_img_dx, template_img_dy;
-//            cv::Sobel(depth_img, fixed_img_Dx, CV_32F, 1, 0, 3);
-//            cv::Sobel(depth_img, fixed_img_Dy, CV_32F, 0, 1, 3);
             cv::Mat cdiffX = (Mat_<float>(1,3) << -0.5f, 0, 0.5f);
             cv::filter2D(template_img, template_img_dx, -1, cdiffX);
             cv::Mat cdiffY = (Mat_<float>(3,1) << -0.5f, 0, 0.5f);
@@ -793,17 +792,18 @@ namespace cv {
                 }
             }
             cv::completeSymm(error_hessian);
-            std::cout << "Error Hessian (parallel):\n" << error_hessian << std::endl;
-            std::cout << "Valid template pixels (parallel): " << cv::sum(gradient_images_valid)[0] << std::endl;
+//            std::cout << "Error Hessian (parallel):\n" << error_hessian << std::endl;
+//            std::cout << "Valid template pixels (parallel): " << cv::sum(gradient_images_valid)[0] << std::endl;
             
             cv::Mat ptcloud, colors;
             moving_img.getPointCloud(ptcloud, colors);
             bool iterate = true;
             int iterations = 0;
+            float initial_error;
+            float last_error = std::numeric_limits<float>::infinity();
+            float error;
             
-            cv::Mat delta_pose_cv(6, 1, CV_32F);
-            cv::Mat last_delta_pose_cv(6, 1, CV_32F);
-            last_delta_pose_cv.setTo(std::numeric_limits<float>::infinity());
+            cv::Mat param_update(6, 1, CV_32F);
             
             while (iterate) {
             
@@ -845,12 +845,6 @@ namespace cv {
                                     float& this_residual = ((float *)residuals.data)[index_warp];
                                     this_residual = warped_depth_value - template_value;
 
-    //                                float * gradient_images_ptr = gradient_images.ptr<float>(p2D.y, p2D.x, 0);
-    //                                for (int i = 0; i < 6; ++i) {
-    //                                    // concurrent writes here
-    //                                    error_grad_ptr[i] += residual*gradient_images_ptr[i]; 
-    //                                }
-
                                 }
 
                             }
@@ -863,12 +857,13 @@ namespace cv {
 
                 cv::Mat squared_errors;
                 cv::pow(residuals, 2, squared_errors);
-                float error = cv::sum(squared_errors)[0];
-                float avg_error = error/cv::countNonZero(residuals);
-                std::cout << "Total Error (parallel): " << error << std::endl;
-                std::cout << "Avg Error (error/#residuals): " << avg_error << std::endl;
+                error = cv::sum(squared_errors)[0];
                 
-
+                if (iterations < 1)
+                    initial_error = error;
+//                float avg_error = error/cv::countNonZero(residuals);
+                std::cout << "Iteration " << iterations << " Error: " << error << std::endl;
+                
                 cv::Mat current_hessian = error_hessian.clone();
                 cv::Mat error_grad = cv::Mat::zeros(6, 1, CV_32F);
                 float * error_grad_ptr = error_grad.ptr<float>(0, 0);
@@ -907,35 +902,40 @@ namespace cv {
                 }
                 cv::completeSymm(current_hessian);
 
-                cv::solve(current_hessian, error_grad, delta_pose_cv);
-                //cv::Mat delta_pose_cv = current_hessian.inv()*error_grad;
+                cv::solve(current_hessian, error_grad, param_update);
                 
+                if(!cv::checkRange(param_update)) // check for NaNs
+                    return false;
                 
-
 //                std::cout << "Error gradient vector (parallel): " << error_grad.t() << std::endl;
 //                std::cout << "Current Hessian (parallel):\n" << current_hessian << std::endl;
 //                std::cout << "Delta pose update (parallel): " << delta_pose_cv.t() << std::endl;
 
                 // invert incremental transformation
-                float *delta_pose_cv_ptr = delta_pose_cv.ptr<float>(0, 0);
-                Pose this_delta_pose(cv::Vec3f(-delta_pose_cv_ptr[0], -delta_pose_cv_ptr[1], -delta_pose_cv_ptr[2]), 
-                        cv::Vec3f(delta_pose_cv_ptr[3], delta_pose_cv_ptr[4], delta_pose_cv_ptr[5]));
-                this_delta_pose.setPosition(
-                    -this_delta_pose.getRotation_Matx33()*cv::Vec3f(delta_pose_cv_ptr[3], delta_pose_cv_ptr[4], delta_pose_cv_ptr[5]));
+                float *param_update_ptr = param_update.ptr<float>(0, 0);
+                Pose delta_pose_update(cv::Vec3f(-param_update_ptr[0], -param_update_ptr[1], -param_update_ptr[2]), 
+                        cv::Vec3f(param_update_ptr[3], param_update_ptr[4], param_update_ptr[5]));
+                delta_pose_update.setPosition(
+                    -delta_pose_update.getRotation_Matx33()*cv::Vec3f(param_update_ptr[3], param_update_ptr[4], param_update_ptr[5]));
 
                 // update parameters via composition
-                delta_pose_estimate.compose(this_delta_pose); 
-                std::cout << "Delta pose estimate (parallel): " << delta_pose_estimate.toString() << std::endl;
+                delta_pose_estimate.compose(delta_pose_update); 
+//                std::cout << "Delta pose estimate (parallel): " << delta_pose_estimate.toString() << std::endl;
                 iterations++;
-                
-                if (cv::norm(delta_pose_cv - last_delta_pose_cv) < 1e-5)
+
+                if (((iterations > 1) && (cv::norm(param_update) < 1e-3)) || iterations > max_iterations)
                     iterate = false;
                 
-                last_delta_pose_cv = delta_pose_cv.clone();
+                last_error = error;
+                
             }
             
+            std::cout << "Delta pose estimate: " << delta_pose_estimate.toString() << std::endl;
             
-            return true;
+            if (error < initial_error)
+                return true;
+            else
+                return false;
         }
 
         void RgbdSurfaceTracker::updateSurfaces(cv::rgbd::RgbdImage::Ptr rgbd_img_ptr, cv::Mat& rgb_result) {
@@ -1054,17 +1054,18 @@ namespace cv {
                             shapeMatches, newShapes,
                             descriptor_matching_timeBudget_ms, rgb_result, delta_pose_estimate);
 
-                    std::cout << "Iteration " << alignmentIterations << " alignment error = " << error << std::endl;
+                    if (prev_rgbd_img_ptr) {
+                        int max_iterations = 20;
+                        //estimateDeltaPoseReprojectionError(*prev_rgbd_img_ptr, *rgbd_img_ptr, delta_pose_estimate);
+                        alignmentConverged = estimateDeltaPoseReprojectionErrorParallel(*prev_rgbd_img_ptr, *rgbd_img_ptr, delta_pose_estimate, max_iterations);
+                    }
+                    //std::cout << "Iteration " << alignmentIterations << " alignment error = " << error << std::endl;
                     //int idx = 0;
 
                     //if (!estimateDeltaPose(query_shapeMap, train_shapeMap, shapeMatches, delta_pose_estimate)) {
                     //    std::cout << "Could not estimate pose change from provided shape matches!" << std::endl;
                     //return;
                     //}
-                    if (prev_rgbd_img_ptr) {
-                        estimateDeltaPoseReprojectionError(*prev_rgbd_img_ptr, *rgbd_img_ptr, delta_pose_estimate);
-                        estimateDeltaPoseReprojectionErrorParallel(*prev_rgbd_img_ptr, *rgbd_img_ptr, delta_pose_estimate);
-                    }
                     //estimateDeltaPoseIterativeClosestPoint(query_shapeMap, train_shapeMap, shapeMatches, delta_pose_estimate);
                     Pose identity(cv::Vec3f(0, 0, 0), cv::Vec3f(0, 0, 0));
                     //float error1 = surfmatcher.matchError(shapeMatches, identity);
@@ -1130,28 +1131,28 @@ namespace cv {
 
                     shapeMatches.clear();
                     ticksNow = cv::getTickCount();
-                    //timeBudgetExpired = (ticksNow - ticksStart) > timeBudgetTicks;
+                    timeBudgetExpired = (ticksNow - ticksStart) > timeBudgetTicks;
                 }
 
                 if (validDeltaPoseEstimate) { // use pose estimate to update map
-                    cv::Matx44f dpose;
+                    //cv::Matx44f dpose;
                     //dpose.val[0*4+0] = 1.0;
                     //dpose.val[1*4+1] = 1.0;
-                    dpose.val[0 * 4 + 0] = std::cos(CV_PI / 180);
-                    dpose.val[0 * 4 + 1] = -std::sin(CV_PI / 180);
-                    dpose.val[1 * 4 + 0] = std::sin(CV_PI / 180);
-                    dpose.val[1 * 4 + 1] = std::cos(CV_PI / 180);
-                    dpose.val[2 * 4 + 2] = 1.0;
-                    dpose.val[3 * 4 + 3] = 1.0;
-                    dpose.val[0 * 4 + 3] = 0.0;
-                    dpose.val[1 * 4 + 3] = 0.0;
-                    dpose.val[2 * 4 + 3] = -0.001;
+                    //dpose.val[0 * 4 + 0] = std::cos(CV_PI / 180);
+                    //dpose.val[0 * 4 + 1] = -std::sin(CV_PI / 180);
+                    //dpose.val[1 * 4 + 0] = std::sin(CV_PI / 180);
+                    //dpose.val[1 * 4 + 1] = std::cos(CV_PI / 180);
+                    //dpose.val[2 * 4 + 2] = 1.0;
+                    //dpose.val[3 * 4 + 3] = 1.0;
+                    //dpose.val[0 * 4 + 3] = 0.0;
+                    //dpose.val[1 * 4 + 3] = 0.0;
+                    //dpose.val[2 * 4 + 3] = -0.001;
                     //delta_pose_estimate.set(dpose);
                     //cv::Matx44f pose = global_pose_estimate.getTransform();
                     //cv::Matx44f deltaPose = delta_pose_estimate.getTransform();
                     //cv::Matx44f new_pose = pose*deltaPose;
                     //global_pose_estimate.set(new_pose);
-                    global_pose_estimate.update(delta_pose_estimate);
+                    global_pose_estimate.compose(delta_pose_estimate);
                     // Mapping -> Structure estimation                   
                     world_map->update(quadTree, query_shapeMap,
                             prev_quadTree, train_shapeMap,
