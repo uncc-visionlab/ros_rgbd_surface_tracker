@@ -963,9 +963,8 @@ namespace cv {
             int height = rgbd_img1.getHeight();
             const cv::Mat& depth_img1 = rgbd_img1.getDepthImage();
             const cv::Mat& depth_img2 = rgbd_img2.getDepthImage();
-            cv::Mat warped_depth_img2(height, width, CV_32F);
-            warped_depth_img2.setTo(std::numeric_limits<float>::quiet_NaN());
             
+            cv::Mat warped_depth_img2(height, width, CV_32F);
             cv::Mat ptcloud1, colors;
             rgbd_img1.getPointCloud(ptcloud1, colors);
             
@@ -980,11 +979,12 @@ namespace cv {
             int iterations = 0;
             
             while (iterate) {
-            
+                
                 cv::Matx33f rotation = delta_pose_estimate.getRotation_Matx33();
                 cv::Vec3f translation;
                 delta_pose_estimate.getTranslation(translation);
 
+                warped_depth_img2.setTo(std::numeric_limits<float>::quiet_NaN());
                 cv::Mat residuals = cv::Mat::zeros(width*height, 1, CV_32F);
                 cv::Mat residuals_valid = cv::Mat::zeros(width*height, 1, CV_8U);
 
@@ -1062,7 +1062,7 @@ namespace cv {
                         uchar& pixel_valid = gradient_images_valid.data[index];
                         uchar& residual_valid = residuals_valid.data[index];
 
-                        if (residual_valid && !std::isnan(gradX) && !std::isnan(gradY)) {
+                        if (residual_valid && !std::isnan(pt[2]) && !std::isnan(gradX) && !std::isnan(gradY)) {
 
                             pixel_valid = true;
                             float inv_depth = 1.0f / pt[2];
@@ -1115,8 +1115,8 @@ namespace cv {
                 }
                 cv::completeSymm(error_hessian);
 
-                std::cout << "Error gradient: " << error_grad.t() << std::endl;
-                std::cout << "Hessian: " << error_hessian << std::endl;
+//                std::cout << "Error gradient: " << error_grad.t() << std::endl;
+//                std::cout << "Hessian: " << error_hessian << std::endl;
 
                 cv::Mat param_update(6, 1, CV_32F);
                 cv::solve(error_hessian, error_grad, param_update);
@@ -1265,10 +1265,10 @@ namespace cv {
                         && alignmentIterations < 1) {
                     alignmentIterations++;
 
-                    error = surfmatcher.match(quadTree, query_shapeMap,
-                            prev_quadTree, train_shapeMap,
-                            shapeMatches, newShapes,
-                            descriptor_matching_timeBudget_ms, rgb_result, delta_pose_estimate);
+//                    error = surfmatcher.match(quadTree, query_shapeMap,
+//                            prev_quadTree, train_shapeMap,
+//                            shapeMatches, newShapes,
+//                            descriptor_matching_timeBudget_ms, rgb_result, delta_pose_estimate);
 
                     if (prev_rgbd_img_ptr) {
                         int max_iterations = 100;
