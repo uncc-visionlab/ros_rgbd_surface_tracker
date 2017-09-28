@@ -837,14 +837,14 @@ namespace cv {
                                 int index_warp = p2D.y*width + p2D.x;
                                 uchar& pixel_valid_in_template = gradient_images_valid.data[index_warp];
                                 float& warped_depth_value = ((float *)moving_depth_img.data)[index_warp]; // I(w(p))
-
-                                if (pixel_valid_in_template && !std::isnan(warped_depth_value)) {
+                                
+                                if (pixel_valid_in_template && !std::isnan(transformed_pt[2])) {
 
                                     in_hessian.data[index_warp] = true;
                                     const float& template_value = ((float *)template_img.data)[index_warp];
                                     float& this_residual = ((float *)residuals.data)[index_warp];
-                                    this_residual = warped_depth_value - template_value;
-
+                                    this_residual = (transformed_pt[2] - template_value);
+                                    
                                 }
 
                             }
@@ -869,9 +869,8 @@ namespace cv {
                 float * error_grad_ptr = error_grad.ptr<float>(0, 0);
 
                 for (int y = 0; y < height; ++y) {
-                    //uchar * in_hessian_ptr = in_hessian.ptr(y);
 
-                    for (int x = 0; x < width; ++x) {//, ++in_hessian_ptr) {
+                    for (int x = 0; x < width; ++x) {
                         int index = y*width + x;
                         uchar& pixel_valid = gradient_images_valid.data[index];
 
@@ -904,8 +903,10 @@ namespace cv {
 
                 cv::solve(current_hessian, error_grad, param_update);
                 
-                if(!cv::checkRange(param_update)) // check for NaNs
+                if(!cv::checkRange(param_update)) { // check for NaNs
+                    std::cout << "Invalid values in parameter update: " << param_update.t() << std::endl;
                     return false;
+                }
                 
 //                std::cout << "Error gradient vector (parallel): " << error_grad.t() << std::endl;
 //                std::cout << "Current Hessian (parallel):\n" << current_hessian << std::endl;
@@ -919,11 +920,11 @@ namespace cv {
                     -delta_pose_update.getRotation_Matx33()*cv::Vec3f(param_update_ptr[3], param_update_ptr[4], param_update_ptr[5]));
 
                 // update parameters via composition
-                delta_pose_estimate.compose(delta_pose_update); 
+                delta_pose_estimate.compose(delta_pose_update);
 //                std::cout << "Delta pose estimate (parallel): " << delta_pose_estimate.toString() << std::endl;
                 iterations++;
 
-                if (((iterations > 1) && (cv::norm(param_update) < 1e-3)) || iterations > max_iterations)
+                if (std::abs(last_error - error) < .5)// || (iterations > max_iterations))// || ((iterations > 1) && (cv::norm(param_update, cv::NormTypes::NORM_L2SQR) < 1e-5)))
                     iterate = false;
                 
                 last_error = error;
@@ -932,11 +933,114 @@ namespace cv {
             
             std::cout << "Delta pose estimate: " << delta_pose_estimate.toString() << std::endl;
             
-            if (error < initial_error)
+            if (error <= initial_error)
                 return true;
             else
                 return false;
         }
+        
+        bool RgbdSurfaceTracker::estimateDeltaPoseReprojectionErrorFC(
+                const cv::rgbd::RgbdImage& rgbd_img1, // T(x)
+                const cv::rgbd::RgbdImage& rgbd_img2, // I(x)
+                Pose& delta_pose_estimate,
+                int max_iterations) {
+            
+            const cv::Mat& camera_matrix = rgbd_img1.getCameraMatrix();
+            const float& fx = camera_matrix.at<float>(0, 0);
+            const float& fy = camera_matrix.at<float>(1, 1);
+            const float& cx = camera_matrix.at<float>(0, 2);
+            const float& cy = camera_matrix.at<float>(1, 2);
+            float inv_fx = 1.0f / fx;
+            float inv_fy = 1.0f / fy;
+            
+            int width = rgbd_img1.getWidth();
+            int height = rgbd_img1.getHeight();
+            const cv::Mat& depth_img1 = rgbd_img1.getDepthImage();
+            const cv::Mat& depth_img2 = rgbd_img2.getDepthImage();
+            cv::Mat warped_depth_img2(height, width, CV_32F);
+            warped_depth_img2.setTo(std::numeric_limits<float>::quiet_NaN());
+            
+            
+            cv::Mat depth_img2_valid = cv::Mat::zeros(height, width, CV_32F);
+            cv::Mat warped_depth_img2_valid = cv::Mat::zeros(height, width, CV_32F);
+            
+            cv::Matx33f rotation = delta_pose_estimate.getRotation_Matx33();
+            cv::Vec3f translation;
+            delta_pose_estimate.getTranslation(translation);
+            
+            cv::Mat residuals(width*height, 1, CV_32F);
+            
+            depth_img2.forEach<float>(
+                // lambda
+                [&](const float& depth, const int * position) {
+                    
+                    int y = position[0];
+                    int x = position[1];
+                    int index = y*width + x; // cv::Mat stored in row major order
+                    
+                    if (!std::isnan(depth)) {
+                        depth_img2_valid.data[index] = true;
+                        cv::Vec3f pt;
+                        rgbd_img2.getPoint3f(x, y, pt);
+                        cv::Vec3f transformed_pt = rotation*pt + translation;
+                        cv::Point2i warped_pt = rgbd_img2.project(static_cast<cv::Point3f>(transformed_pt));
+                        int warped_index = warped_pt.y*width + warped_pt.x;
+                        warped_depth_img2_valid.data[warped_index] = true;
+                        ((float *)warped_depth_img2.data)[warped_index] = warped_pt[2];
+                        
+                        float& depth1_at_warped_pt = ((float *)depth_img1.data)[warped_index];
+                        float& this_residual = ((float *)residuals.data)[warped_index];
+                        this_residual = depth1_at_warped_pt - transformed_pt[2];
+                        
+                    }
+                    
+                }
+            );
+                
+            cv::Mat warped_depth_img2_dx, warped_depth_img2_dx;
+            cv::Mat cdiffX = (Mat_<float>(1,3) << -0.5f, 0, 0.5f);
+            cv::filter2D(depth_img1, warped_depth_img2_dx, -1, cdiffX);
+            cv::Mat cdiffY = (Mat_<float>(3,1) << -0.5f, 0, 0.5f);
+            cv::filter2D(depth_img1, warped_depth_img2_dx, -1, cdiffY);
+            cv::Mat gradient_images(width*height, 6, CV_32F);
+            cv::Mat gradient_images_valid = cv::Mat::zeros(width*height, 1, CV_8U);
+            cv::Mat error_hessian = cv::Mat::zeros(6, 6, CV_32F);
+            
+            warped_depth_img2.forEach<float>(
+                // lambda
+                [&](const float& depth, const int * position) {
+                    
+                    int y = position[0];
+                    int x = position[1];
+                    int index = y*width + x; // cv::Mat stored in row major order
+                    
+                    float& gradX = ((float *)warped_depth_img2_dx.data)[index];
+                    float& gradY = ((float *)warped_depth_img2_dx.data)[index];
+                    uchar& pixel_valid = gradient_images_valid.data[index];
+                    uchar& depth_valid = warped_depth_img2_valid.data[index];
+                    
+                    if (depth_valid && !std::isnan(gradX) && !std::isnan(gradY)) {
+                        
+                        pixel_valid = true;
+                        Point3f p3D;
+                        rgbd_img1.getPoint3f(x, y, p3D);
+                        float inv_depth = 1.0f / p3D.z;
+                        float inv_depth_sq = inv_depth*inv_depth;
+                        
+                        float * gradient_vec = gradient_images.ptr<float>(index);
+                        gradient_vec[0] = gradX * fx * inv_depth + gradY * 0;
+                        gradient_vec[1] = gradX * 0 + gradY * fy * inv_depth;
+                        gradient_vec[2] = -(gradX * fx * p3D.x + gradY * fy * p3D.y) * inv_depth_sq;
+                        gradient_vec[3] = -(gradX * fx * p3D.x * p3D.y + fy * (p3D.z * p3D.z + p3D.y * p3D.y)) * inv_depth_sq;
+                        gradient_vec[4] = +(gradX * fx * (p3D.z * p3D.z + p3D.x * p3D.x) + fy * p3D.x * p3D.y) * inv_depth_sq;
+                        gradient_vec[5] = (-gradX * fx * p3D.y + gradY * fy * p3D.x) * inv_depth;
+                        
+                    }
+                }
+            );
+
+        }
+        
 
         void RgbdSurfaceTracker::updateSurfaces(cv::rgbd::RgbdImage::Ptr rgbd_img_ptr, cv::Mat& rgb_result) {
 
@@ -1055,9 +1159,10 @@ namespace cv {
                             descriptor_matching_timeBudget_ms, rgb_result, delta_pose_estimate);
 
                     if (prev_rgbd_img_ptr) {
-                        int max_iterations = 20;
+                        int max_iterations = 100;
                         //estimateDeltaPoseReprojectionError(*prev_rgbd_img_ptr, *rgbd_img_ptr, delta_pose_estimate);
-                        alignmentConverged = estimateDeltaPoseReprojectionErrorParallel(*prev_rgbd_img_ptr, *rgbd_img_ptr, delta_pose_estimate, max_iterations);
+                        alignmentConverged = estimateDeltaPoseReprojectionErrorFC(*prev_rgbd_img_ptr, *rgbd_img_ptr, delta_pose_estimate, max_iterations);
+                        validDeltaPoseEstimate = alignmentConverged;
                     }
                     //std::cout << "Iteration " << alignmentIterations << " alignment error = " << error << std::endl;
                     //int idx = 0;
@@ -1153,6 +1258,7 @@ namespace cv {
                     //cv::Matx44f new_pose = pose*deltaPose;
                     //global_pose_estimate.set(new_pose);
                     global_pose_estimate.compose(delta_pose_estimate);
+                    std::cout << "global pose: " << global_pose_estimate.toString() << std::endl;
                     // Mapping -> Structure estimation                   
                     world_map->update(quadTree, query_shapeMap,
                             prev_quadTree, train_shapeMap,
@@ -1161,7 +1267,7 @@ namespace cv {
             }
             //addToMap(unmatched)
             world_map->insert(newShapes, global_pose_estimate);
-
+            
             prev_rgbd_img_ptr = rgbd_img_ptr;
             prev_quadTree = quadTree;
             train_shapeMapPtr = query_shapeMapPtr;

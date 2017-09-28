@@ -238,7 +238,11 @@ namespace cv {
             bool getPoint3f(const int ix, const int iy, Point3f& p3) const {
                 return getPoint3f(ix, iy, p3.x, p3.y, p3.z);
             }
-
+            
+            bool getPoint3f(const int ix, const int iy, Vec3f& v) const {
+                return getPoint3f(ix, iy, v[0], v[1], v[2]);
+            }
+            
             void getPointCloud(cv::Mat& pts, cv::Mat& colors) const;
 
             bool getTileData_Random(int x0, int y0,
