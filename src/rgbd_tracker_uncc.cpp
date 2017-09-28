@@ -986,7 +986,7 @@ namespace cv {
                         cv::Point2i warped_pt = rgbd_img2.project(static_cast<cv::Point3f>(transformed_pt));
                         int warped_index = warped_pt.y*width + warped_pt.x;
                         warped_depth_img2_valid.data[warped_index] = true;
-                        ((float *)warped_depth_img2.data)[warped_index] = warped_pt[2];
+                        ((float *)warped_depth_img2.data)[warped_index] = transformed_pt[2];
                         
                         float& depth1_at_warped_pt = ((float *)depth_img1.data)[warped_index];
                         float& this_residual = ((float *)residuals.data)[warped_index];
@@ -997,11 +997,11 @@ namespace cv {
                 }
             );
                 
-            cv::Mat warped_depth_img2_dx, warped_depth_img2_dx;
+            cv::Mat warped_depth_img2_dx, warped_depth_img2_dy;
             cv::Mat cdiffX = (Mat_<float>(1,3) << -0.5f, 0, 0.5f);
             cv::filter2D(depth_img1, warped_depth_img2_dx, -1, cdiffX);
             cv::Mat cdiffY = (Mat_<float>(3,1) << -0.5f, 0, 0.5f);
-            cv::filter2D(depth_img1, warped_depth_img2_dx, -1, cdiffY);
+            cv::filter2D(depth_img1, warped_depth_img2_dy, -1, cdiffY);
             cv::Mat gradient_images(width*height, 6, CV_32F);
             cv::Mat gradient_images_valid = cv::Mat::zeros(width*height, 1, CV_8U);
             cv::Mat error_hessian = cv::Mat::zeros(6, 6, CV_32F);
@@ -1015,7 +1015,7 @@ namespace cv {
                     int index = y*width + x; // cv::Mat stored in row major order
                     
                     float& gradX = ((float *)warped_depth_img2_dx.data)[index];
-                    float& gradY = ((float *)warped_depth_img2_dx.data)[index];
+                    float& gradY = ((float *)warped_depth_img2_dy.data)[index];
                     uchar& pixel_valid = gradient_images_valid.data[index];
                     uchar& depth_valid = warped_depth_img2_valid.data[index];
                     
