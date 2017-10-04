@@ -15,7 +15,9 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
+#include <ros_rgbd_surface_tracker/rgbd_tracker.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>
+#include <ros_rgbd_surface_tracker/rgbd_tracker_dvo.hpp>
 
 using namespace openni;
 using namespace std;
@@ -426,9 +428,10 @@ int main(int argc, char **argv) {
     OpenNI2Driver openni2_drvr;
 
     // hook up driver to surface tracking class
-    cv::rgbd::RgbdSurfaceTracker rgbdSurfTracker;
+    //RgbdCameraTracker::Ptr rgbdCameraTrackerPtr = cv::rgbd::RgbdSurfaceTracker::create();
+    RgbdCameraTracker::Ptr rgbdCameraTrackerPtr = dvo_ros::DVOCameraDenseTracker::create();    
     boost::function<void (cv::Mat&, cv::Mat&, cv::Mat&, cv::Mat&) > callback(
-            boost::bind(&cv::rgbd::RgbdSurfaceTracker::callback, &rgbdSurfTracker, _1, _2, _3, _4));
+            boost::bind(&RgbdCameraTracker::callback, rgbdCameraTrackerPtr, _1, _2, _3, _4));
 
     openni2_drvr.setCallback(callback);
     openni2_drvr.initialize();

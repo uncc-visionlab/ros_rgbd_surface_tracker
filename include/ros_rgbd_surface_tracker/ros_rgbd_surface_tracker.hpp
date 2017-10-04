@@ -31,6 +31,7 @@
 //#include <tf/transform_listener.h>
 #include <tf/transform_broadcaster.h>
 
+#include <ros_rgbd_surface_tracker/rgbd_tracker.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>
 #include <ros_rgbd_surface_tracker/ros_plane_visualizer.hpp>
 
@@ -51,6 +52,8 @@ public:
         plane_vis.setFrameID(parent_frame_id_str);
         plane_vis.setMaxPlanes(1);
         image_pub = it.advertise("result", 1);
+        rgbdCameraTrackerPtr =  cv::rgbd::RgbdSurfaceTracker::create();
+        //rgbdCameraTrackerPtr =  dvo_ros::DVOCameraDenseTracker::create();    
     };
 
     virtual ~ROS_RgbdSurfaceTracker() {
@@ -71,8 +74,7 @@ public:
             bool useRectifiedParameters, cv::Mat &cameraMatrix,
             cv::Mat &distortionCoeffs, cv::Size &imSize);
 
-    void updateSurfaces(const sensor_msgs::ImageConstPtr& depth_msg,
-            cv::rgbd::RgbdImage::Ptr rgbd_img_ptr, cv::Mat & rgb_result);
+    void publishResults(const sensor_msgs::ImageConstPtr& depth_msg, cv::Mat & rgb_result);
 
 private:
     // -------------------------
@@ -115,7 +117,7 @@ private:
     image_transport::ImageTransport it;
     image_transport::Publisher image_pub;
 
-    cv::rgbd::RgbdSurfaceTracker rgbdSurfTracker;
+    RgbdCameraTracker::Ptr rgbdCameraTrackerPtr;
 
     ros_plane_visualizer plane_vis;
 

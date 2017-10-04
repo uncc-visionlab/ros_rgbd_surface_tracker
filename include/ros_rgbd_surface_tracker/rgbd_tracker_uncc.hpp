@@ -22,6 +22,7 @@
 
 #include <opencv2/core.hpp>
 
+#include <ros_rgbd_surface_tracker/rgbd_tracker.hpp>
 #include <ros_rgbd_surface_tracker/opengl_renderer.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_tracker_datatypes.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
@@ -83,7 +84,7 @@ namespace cv {
 
         }; /* class SurfaceDescriptorMatcher */
 
-        class RgbdSurfaceTracker {
+        class RgbdSurfaceTracker : public RgbdCameraTracker {
         public:
             static OpenGLRenderer glDraw;
             typedef boost::shared_ptr<RgbdSurfaceTracker> Ptr;
@@ -94,6 +95,10 @@ namespace cv {
 
             virtual ~RgbdSurfaceTracker() {
             };
+
+            static RgbdSurfaceTracker::Ptr create() {
+                return RgbdSurfaceTracker::Ptr(boost::make_shared<RgbdSurfaceTracker>());
+            }
 
             // validate edge and corner features with geometric measurements center on feature location
             void filterDetections(const cv::rgbd::RgbdImage& rgbd_img,

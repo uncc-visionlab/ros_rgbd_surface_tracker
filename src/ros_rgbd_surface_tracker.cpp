@@ -81,14 +81,10 @@ void ROS_RgbdSurfaceTracker::depthImageCallback(const sensor_msgs::ImageConstPtr
     cv::Mat _ocv_depthframe_float(cv_depthimg_ptr->image.size(), CV_32F);
     createDepthImageFloat(_ocv_depthframe_float);
     static cv::Mat _ocv_rgbframe = cv::Mat(_ocv_depthframe_float.size(), CV_8UC3, cv::Scalar(127, 127, 127));
-    float cx = cameraMatrix.at<float>(0, 2);
-    float cy = cameraMatrix.at<float>(1, 2);
-    float fx = cameraMatrix.at<float>(0, 0);
-    float fy = cameraMatrix.at<float>(1, 1);
-    cv::rgbd::RgbdImage::Ptr rgbd_img_ptr = cv::rgbd::RgbdImage::create(_ocv_rgbframe, _ocv_depthframe_float, cx, cy, fx);
+    rgbdCameraTrackerPtr->callback(_ocv_rgbframe, _ocv_depthframe_float, distortionCoeffs, cameraMatrix);
 
     cv::Mat rgb_result = _ocv_rgbframe.clone();
-    updateSurfaces(depth_msg, rgbd_img_ptr, rgb_result);
+    publishResults(depth_msg, rgb_result);
 }
 
 tf::Transform convertPoseToTFTransform(const Pose& pose) {
@@ -105,16 +101,15 @@ tf::Transform convertPoseToTFTransform(const Pose& pose) {
             tf::Vector3(translation[0], translation[1], translation[2]));
 }
 
-void ROS_RgbdSurfaceTracker::updateSurfaces(const sensor_msgs::ImageConstPtr& depth_msg,
-        cv::rgbd::RgbdImage::Ptr rgbd_img_ptr, cv::Mat& rgb_result) {
+void ROS_RgbdSurfaceTracker::publishResults(const sensor_msgs::ImageConstPtr& depth_msg, cv::Mat& rgb_result) {
 
-    rgbdSurfTracker.updateSurfaces(rgbd_img_ptr, rgb_result);
+    //    rgbdSurfTracker.updateSurfaces(rgbd_img_ptr, rgb_result);
 
-    PlaneVisualizationData* vis_data = rgbdSurfTracker.getPlaneVisualizationData();
-    plane_vis.clearMarkerList();
-    plane_vis.publishTriangleMesh(*vis_data, depth_msg->header.stamp);
+    //    PlaneVisualizationData* vis_data = rgbdSurfTracker.getPlaneVisualizationData();
+    //    plane_vis.clearMarkerList();
+    //    plane_vis.publishTriangleMesh(*vis_data, depth_msg->header.stamp);
 
-    Pose pose = rgbdSurfTracker.getPose();
+    Pose pose = rgbdCameraTrackerPtr->getPose();
     tf::Transform pose_transformTF = convertPoseToTFTransform(pose);
     tf::StampedTransform pose_stampedTF(pose_transformTF, frame_time,
             parent_frame_id_str, rgbd_frame_id_str);
@@ -147,7 +142,7 @@ void ROS_RgbdSurfaceTracker::updateSurfaces(const sensor_msgs::ImageConstPtr& de
     }
 
     if (pubOdom_w_cov.getNumSubscribers() > 0) {
-        Pose delta_pose = rgbdSurfTracker.getDeltaPose();
+        Pose delta_pose = rgbdCameraTrackerPtr->getDeltaPose();
         tf::Transform delta_pose_transformTF = convertPoseToTFTransform(delta_pose);
         tf::StampedTransform delta_pose_stampedTF(delta_pose_transformTF, frame_time,
                 parent_frame_id_str, rgbd_frame_id_str);
@@ -198,13 +193,10 @@ void ROS_RgbdSurfaceTracker::rgbdImageCallback(const sensor_msgs::ImageConstPtr&
     createDepthImageFloat(_ocv_depthframe_float);
 
     cv::Mat _ocv_rgbframe = cv_rgbimg_ptr->image.clone();
-    float cx = cameraMatrix.at<float>(0, 2);
-    float cy = cameraMatrix.at<float>(1, 2);
-    float fx = cameraMatrix.at<float>(0, 0);
-    float fy = cameraMatrix.at<float>(1, 1);
-    cv::rgbd::RgbdImage::Ptr rgbd_img_ptr = cv::rgbd::RgbdImage::create(_ocv_rgbframe, _ocv_depthframe_float, cx, cy, fx);
+    rgbdCameraTrackerPtr->callback(_ocv_rgbframe, _ocv_depthframe_float, distortionCoeffs, cameraMatrix);
+
     cv::Mat rgb_result = _ocv_rgbframe.clone();
-    updateSurfaces(depth_msg, rgbd_img_ptr, rgb_result);
+    publishResults(depth_msg, rgb_result);
 }
 
 void ROS_RgbdSurfaceTracker::createDepthImageFloat(cv::Mat& depth_frame) {

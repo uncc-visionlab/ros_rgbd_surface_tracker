@@ -26,6 +26,8 @@ find_package(catkin REQUIRED
   tf
   tf2
   tf2_ros
+
+  dvo_core
 )
 
 ## System dependencies are found with CMake's conventions

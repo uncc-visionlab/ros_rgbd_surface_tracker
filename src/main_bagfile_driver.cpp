@@ -27,7 +27,9 @@
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
 
+#include <ros_rgbd_surface_tracker/rgbd_tracker.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>
+#include <ros_rgbd_surface_tracker/rgbd_tracker_dvo.hpp>
 
 #define LOCAL_DEBUG true
 
@@ -236,10 +238,10 @@ int main(int argc, char **argv) {
             << ": " << argv[1] << " for reading ...." << std::endl;
     BagFileDriver bagReader(argv[1]);
 
-    // hook up driver to surface tracking class
-    cv::rgbd::RgbdSurfaceTracker rgbdSurfTracker;
+    //RgbdCameraTracker::Ptr rgbdCameraTrackerPtr = cv::rgbd::RgbdSurfaceTracker::create();
+    RgbdCameraTracker::Ptr rgbdCameraTrackerPtr = dvo_ros::DVOCameraDenseTracker::create();    
     boost::function<void (cv::Mat&, cv::Mat&, cv::Mat&, cv::Mat&) > callback(
-            boost::bind(&cv::rgbd::RgbdSurfaceTracker::callback, &rgbdSurfTracker, _1, _2, _3, _4));
+            boost::bind(&RgbdCameraTracker::callback, rgbdCameraTrackerPtr, _1, _2, _3, _4));
 
     bagReader.setCallback(callback);
 
