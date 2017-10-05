@@ -218,7 +218,7 @@ void ROS_RgbdSurfaceTracker::createDepthImageFloat(cv::Mat& depth_frame) {
             }
         }
     } else if (depth_encoding == sensor_msgs::image_encodings::TYPE_32FC1) {
-        depth_frame = cv_depthimg_ptr->image;
+        depth_frame = cv_depthimg_ptr->image.clone();
     }
 }
 

@@ -33,6 +33,8 @@
 #include <sensor_msgs/CameraInfo.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 
+#include <opencv2/core/eigen.hpp>
+
 #include <image_transport/image_transport.h>
 
 #include <Eigen/Geometry>
@@ -63,6 +65,7 @@ namespace dvo_ros {
 
         Eigen::Affine3d accumulated_transform, from_baselink_to_asus, latest_absolute_transform_;
 
+        Pose pose, delta_pose;
         size_t frames_since_last_success;
 
         bool use_dense_tracking_estimate_;
@@ -88,6 +91,7 @@ namespace dvo_ros {
             //pose_sub_ = nh.subscribe<geometry_msgs::PoseWithCovarianceStamped>("pelican/pose", 1, &CameraDenseTracker::handlePose, this);
 
             latest_absolute_transform_.setIdentity();
+            from_baselink_to_asus.setIdentity();
             accumulated_transform.setIdentity();
         };
 
@@ -100,7 +104,7 @@ namespace dvo_ros {
 
         void callback(cv::Mat& _ocv_rgbframe, cv::Mat& _ocv_depthframe_float,
                 cv::Mat& _rgb_distortionCoeffs, cv::Mat& _rgb_cameraMatrix) {
-            std::cout << "In dvo_ros callback!" << std::endl;
+            //std::cout << "In dvo_ros callback!" << std::endl;
 
             // different size of rgb and depth image
             int depth_width = _ocv_depthframe_float.cols;
@@ -148,13 +152,19 @@ namespace dvo_ros {
             }
 
             Eigen::Affine3d transform;
-
             bool success = tracker->match(*reference, *current, transform);
+            Eigen::Matrix4d matVal;
+            matVal = transform.matrix();
+            cv::Mat cvTransform(4, 4, CV_32F);
+            cv::eigen2cv(matVal, cvTransform);
+            delta_pose.set(cvTransform);
+            //std::cout << "transform = [" << matVal << "]" << std::endl;
+            //std::cout << "cvTransform = [" << cvTransform << "]" << std::endl;
 
             if (success) {
                 frames_since_last_success = 0;
                 accumulated_transform = accumulated_transform * transform;
-
+                pose.compose(delta_pose);
                 Eigen::Matrix<double, 6, 6> covariance;
 
                 //tracker->getCovarianceEstimate(covariance);
@@ -170,15 +180,13 @@ namespace dvo_ros {
         }
 
         Pose getPose() {
-            Pose pose;
             return pose;
         }
 
         Pose getDeltaPose() {
-            Pose delta_pose;
             return delta_pose;
         }
-        
+
         bool hasChanged(const int lwidth, const int lheight) {
             return width != lwidth || height != lheight;
         }
