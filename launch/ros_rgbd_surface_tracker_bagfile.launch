@@ -7,7 +7,7 @@
     <env name="ROSCONSOLE_CONFIG_FILE" 
          value="$(find ros_rgbd_surface_tracker)/cfg/rosconsole.conf"/> 
     
-    <arg name="live_sensor" default="true" />
+    <arg name="live_sensor" default="false" />
     <arg name="ARM_HOST" default="false" />
     <arg name="play_bagfile" default="false" />
        
@@ -17,7 +17,7 @@
     
     <arg name="run_profiler" value="false" />
 
-    <arg name="file_A" default="/home/arwillis/freiburg_data/rgbd_dataset_freiburg1_room_validation.bag" />
+    <arg name="file_A" default="/home/jpapadak/bagfiles/rgbd_dataset_freiburg1_xyz.bag" />
     <arg name="file_1" default="$(arg file_A)" />  
     <arg name="rviz_config_file" default="ros_rgbd_surface_tracker.rviz" />    
     
@@ -39,7 +39,7 @@
 
     <arg name="sensor_type_sr4000" default="false" />
     <arg name="sensor_type_ds325" default="false" />
-    <arg name="sensor_type_astra" default="true" />
+    <arg name="sensor_type_astra" default="false" />
     <arg name="sensor_type_xtion" default="false" />
     <arg name="sensor_type_kinect_xbox360" default="false" />
     <arg name="sensor_type_kinect_v2" default="false" />
@@ -49,7 +49,7 @@
     <arg name="camera" default="camera" />
 
     <arg name="depth_registration" default="true" />
-    <include file="$(find astra_launch)/launch/astra.launch">
+    <include file="$(find astra_launch)/launch/astra.launch" if="$(arg live_sensor)">
         <arg name="publish_tf" default="false" /> 
 
         <!-- device_id can have the following formats:

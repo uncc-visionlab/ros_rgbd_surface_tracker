@@ -63,7 +63,7 @@ namespace dvo_ros {
         dvo::core::RgbdCameraPyramidPtr camera;
         dvo::core::RgbdImagePyramidPtr current, reference;
 
-        Eigen::Affine3d accumulated_transform, from_baselink_to_asus, latest_absolute_transform_;
+        Eigen::Affine3d accumulated_transform, from_baselink_to_camera, latest_absolute_transform_;
 
         Pose pose, delta_pose;
         size_t frames_since_last_success;
@@ -91,7 +91,7 @@ namespace dvo_ros {
             //pose_sub_ = nh.subscribe<geometry_msgs::PoseWithCovarianceStamped>("pelican/pose", 1, &CameraDenseTracker::handlePose, this);
 
             latest_absolute_transform_.setIdentity();
-            from_baselink_to_asus.setIdentity();
+            from_baselink_to_camera.setIdentity();
             accumulated_transform.setIdentity();
         };
 
@@ -146,7 +146,7 @@ namespace dvo_ros {
             static Eigen::Affine3d first;
 
             if (!reference) {
-                accumulated_transform = latest_absolute_transform_ * from_baselink_to_asus;
+                accumulated_transform = latest_absolute_transform_ * from_baselink_to_camera;
                 first = accumulated_transform;
                 return;
             }
