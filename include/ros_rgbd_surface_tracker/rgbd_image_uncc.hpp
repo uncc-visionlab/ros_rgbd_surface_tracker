@@ -465,6 +465,16 @@ namespace cv {
                     }
                 }
             }
+            
+            bool inImage(const float& px, const float& py) const {
+                // checks that the pixel is within the image bounds
+                return (px >= 0 && py < this->height && px >= 0 && px < this->width);
+            }
+            
+            bool inImage(cv::Point2f& pixel) const {
+                // checks that the pixel is within the image bounds
+                return this->inImage(pixel.x, pixel.y);
+            }
 
             LineSegment2f getVisibleLineSegment2f(Line3f & line3) const;
 

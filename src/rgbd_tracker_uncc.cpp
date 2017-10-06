@@ -945,6 +945,24 @@ namespace cv {
                 return false;
         }
         
+        float interpolate(const cv::Mat& img, float x, float y) {
+            
+            float x0 = std::floor(x);
+            float y0 = std::floor(y);
+            float x1 = x0 + 1;
+            float y1 = y0 + 1;
+
+            float x0w, x1w, y0w, y1w;
+            x1w = x - x0;
+            x0w = 1.0f - x1w;
+            y1w = x - y0;
+            y0w = 1.0f - y1w;
+            
+            float result = y0w * (img.at<float>(y0, x0) * x0w + img.at<float>(y0, x1) * x1w)  + 
+                y1w * (img.at<float>(y1, x0) * x0w + img.at<float>(y1, x1) * x1w);
+            return result;
+        }
+        
         bool RgbdSurfaceTracker::estimateDeltaPoseReprojectionErrorFC(
                 const cv::rgbd::RgbdImage& rgbd_img1, // reference
                 const cv::rgbd::RgbdImage& rgbd_img2, // current
@@ -1001,9 +1019,9 @@ namespace cv {
                             cv::Vec3f pt;
                             rgbd_img1.getPoint3f(x, y, pt);
                             cv::Vec3f transformed_pt = rotation*pt + translation;
-                            cv::Point2i warped_pt = rgbd_img2.project(static_cast<cv::Point3f>(transformed_pt));
-
-                            if (warped_pt.y >= 0 && warped_pt.y < height && warped_pt.x >= 0 && warped_pt.x < width) {
+                            cv::Point2f warped_pt = rgbd_img2.project(static_cast<cv::Point3f>(transformed_pt));
+                            
+                            if (rgbd_img2.inImage(warped_pt) && rgbd_img2.inImage(warped_pt.x + 1, warped_pt.y + 1)) {
 
                                 int warped_index = warped_pt.y*width + warped_pt.x;
                                 ((float *)warped_depth_img1.data)[warped_index] = transformed_pt[2];
@@ -1011,9 +1029,10 @@ namespace cv {
         //                        ((cv::Vec3f *)warped_depth_img2_ptcloud.data)[warped_index] = transformed_pt;
     //                            warped_depth_img2_ptcloud.at<cv::Vec3f>(warped_pt.y, warped_pt.x) = transformed_pt;
 
-                                float& depth_img2_at_warped_xy = ((float *)depth_img2.data)[warped_index];
+//                                float& depth_img2_at_warped_xy = ((float *)depth_img2.data)[warped_index];
+                                float depth_img2_at_warped_xy = interpolate(depth_img2, warped_pt.x, warped_pt.y);
 //                                float& depth_img1_at_xy = ((float *)depth_img1.data)[index];
-                                if (!std::isnan(depth_img2_at_warped_xy)) { 
+                                if (!std::isnan(depth_img2_at_warped_xy) && std::isfinite(depth_img2_at_warped_xy)) { 
 
                                     residuals_valid.data[warped_index] = true;
                                     float& residual = ((float *)residuals.data)[warped_index];
@@ -1028,14 +1047,19 @@ namespace cv {
                     }
                 );
 
-                cv::Mat squared_errors;
-                cv::pow(residuals, 2, squared_errors);
-                error = cv::sum(squared_errors)[0];
+                double depth_error = 0;
+                for (int i = 0; i < residuals.rows; ++i)
+                    depth_error += std::pow(residuals.at<float>(i, 0), 2);
+                std::cout << "Iteration " << iterations << " Error: " << depth_error << std::endl;
+                
+//                cv::Mat squared_errors;
+//                cv::pow(residuals, 2, squared_errors);
+//                error = cv::sum(squared_errors)[0];
 
                 if (iterations < 1)
                     initial_error = error;
     //                float avg_error = error/cv::countNonZero(residuals);
-                std::cout << "Iteration " << iterations << " Error: " << error << std::endl;
+//                std::cout << "Iteration " << iterations << " Error: " << error << std::endl;
 
     //            cv::Mat warped_depth_img2_invalid;
     //            cv::bitwise_not(warped_depth_img2_valid, warped_depth_img2_invalid);
@@ -1137,7 +1161,7 @@ namespace cv {
 //                std::cout << "Delta pose estimate (parallel): " << delta_pose_estimate.toString() << std::endl;
                 iterations++;
 
-                if (std::abs(last_error - error) < .5)// || (iterations > max_iterations))// || ((iterations > 1) && (cv::norm(param_update, cv::NormTypes::NORM_L2SQR) < 1e-5)))
+                if ((std::abs(last_error - error) < .5) || (iterations > max_iterations))// || ((iterations > 1) && (cv::norm(param_update, cv::NormTypes::NORM_L2SQR) < 1e-5)))
                     iterate = false;
 
                 last_error = error;
