@@ -17,6 +17,17 @@
     
     <arg name="run_profiler" value="false" />
 
+    <arg name="file_A" default="/home/arwillis/freiburg_data/rgbd_dataset_freiburg1_room_validation.bag" />
+    <arg name="file_1" default="$(arg file_A)" />  
+    <arg name="rviz_config_file" default="ros_rgbd_surface_tracker.rviz" />    
+    
+    <param name="use_sim_time" value="true" />
+    <node pkg="rosbag" type="play" name="player" output="screen" args="-r 0.5 --clock $(arg file_1)"/> 
+  
+    <node pkg="rviz" type="rviz" name="rviz" output="screen" 
+          args="-d $(find ros_rgbd_surface_tracker)/rviz/$(arg rviz_config_file)" if="$(arg run_rviz)"/> 
+    
+    
     <arg name="profile_attribute" value="" unless="$(arg run_profiler)"/>
     <arg name="profile_attribute" 
          value="valgrind &#x002d;&#x002d;tool=callgrind &#x002d;&#x002d;collect-atstart=no" 
@@ -98,28 +109,30 @@
           args="record -o $(arg savefile) /camera/rgb/image_raw /camera/rgb/camera_info /camera/depth_registered/image_raw"
           if="$(arg record_cameras)" />
     <!-- END Save data to .bag file configuration -->
-
+    
     <group ns="$(arg camera)">
         <node name="camera_info_relay" pkg="topic_tools" type="relay" output="screen"
               args="rgb/camera_info ir/camera_info"/>
         <node name="ros_rgbd_surface_tracker" pkg="ros_rgbd_surface_tracker" 
               type="ros_rgbd_surface_tracker" launch-prefix="$(arg profile_attribute)"
               output="screen" if="$(arg run_surface_tracker)">
-            <remap from="rgb/input_image" to="rgb/image_raw"/>            
+            <!--
+            <remap from="rgb/input_image" to="rgb/image_raw"/>
             <remap from="depth_registered/input_image" to="depth_registered/image_raw"/>
+            -->
+            <remap from="rgb/input_image" to="rgb/image_color"/>
+            <remap from="depth_registered/input_image" to="depth/image"/>
             <param name="use_rgb_stream" value = "false" if="$(arg ARM_HOST)"/>
             <param name="use_rgb_stream" value = "true" unless="$(arg ARM_HOST)"/>
             <param name="map_frame" value = "$(arg map_frame)"/>
-            <param name="optical_parent" value = "$(arg rgb_optical_frame)"/>
+            <param name="optical_parent" value = "$(arg map_frame)"/>
             <param name="optical_frame" value = "$(arg rgbd_frame)"/>
         </node>        
     </group>      
                 
     <node name="base_to_optical" pkg="tf" 
           type="static_transform_publisher"  
-          args="0.0 0.0 0.5  0.5 -0.5 0.5 -0.5 $(arg map_frame) $(arg rgb_optical_frame) 100" />   
+          args="0.0 0.0 0.0 0.0 0.0 0.0 $(arg map_frame) $(arg rgb_optical_frame) 100" />   
+          <!-- args="0.0 0.0 0.5  0.5 -0.5 0.5 -0.5 $(arg map_frame) $(arg rgb_optical_frame) 100" />  -->
         
-    <arg name="rviz_config_file" default="ros_rgbd_surface_tracker.rviz" />    
-    <node pkg="rviz" type="rviz" name="rviz" output="screen" 
-          args="-d $(find ros_rgbd_surface_tracker)/rviz/$(arg rviz_config_file)" if="$(arg run_rviz)"/>
 </launch>
