@@ -27,6 +27,7 @@ find_package(catkin REQUIRED
   tf2
   tf2_ros
 
+  rgbd_drivers_uncc
   dvo_core
 )
 
@@ -158,7 +159,11 @@ include_directories(
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 # add_executable(${PROJECT_NAME}_node src/detect_depth_surflets_node.cpp)
-add_executable(${PROJECT_NAME} src/ros_rgbd_surface_tracker.cpp
+
+link_directories(/opt/ros/kinetic/lib) # needed to find OpenNI2Orbbec
+
+add_executable(${PROJECT_NAME} 
+    src/ros_rgbd_surface_tracker.cpp
     src/rgbd_tracker_uncc.cpp
     src/rgbd_image_uncc.cpp
     src/rgbd_surf_detector.cpp
@@ -188,8 +193,8 @@ target_link_libraries(${PROJECT_NAME}
    ${OpenCV_LIBRARIES}
    ${Eigen3_LIBRARIES} GL GLU glut)
 
-link_directories(/opt/ros/kinetic/lib) # needed to find OpenNI2Orbbec
-add_executable(main_opencv src/main_opencv.cpp
+add_executable(run_rgbd_live
+    src/run_rgbd_live.cpp
     src/rgbd_tracker_uncc.cpp
     src/rgbd_image_uncc.cpp
     src/rgbd_surf_detector.cpp
@@ -203,15 +208,15 @@ add_executable(main_opencv src/main_opencv.cpp
 #  INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/include/libbar"
 #)
 
-target_link_libraries(main_opencv 
+target_link_libraries(run_rgbd_live
    ${catkin_LIBRARIES} 
    ${Boost_LIBRARIES} 
    ${OpenCV_LIBRARIES}  
    ${Eigen3_LIBRARIES}  
    OpenNI2Orbbec pthread marchingcubes GL GLU glut)
 
-add_executable(main_opencv_arm
-    src/main_opencv_arm.cpp
+add_executable(run_rgbd_live_arm
+    src/run_rgbd_live_arm.cpp
     src/rgbd_tracker_uncc.cpp
     src/rgbd_image_uncc.cpp
     src/rgbd_surf_detector.cpp
@@ -221,7 +226,7 @@ add_executable(main_opencv_arm
     src/surface_fitting.cpp
     src/opengl_renderer.cpp)
 
-target_link_libraries(main_opencv_arm
+target_link_libraries(run_rgbd_live_arm
    ${catkin_LIBRARIES} 
    ${Boost_LIBRARIES}
    ${OpenCV_LIBRARIES}  
@@ -237,7 +242,8 @@ target_link_libraries(opengl_iothread
 add_library(marchingcubes src/marchingsource.cpp)
 target_link_libraries(marchingcubes GL glut)
 
-add_executable(main_bagfile_driver src/main_bagfile_driver.cpp 
+add_executable(run_rgbd_from_bagfile
+    src/run_rgbd_from_bagfile.cpp 
     src/rgbd_tracker_uncc.cpp
     src/rgbd_image_uncc.cpp
     src/rgbd_surf_detector.cpp
@@ -247,7 +253,7 @@ add_executable(main_bagfile_driver src/main_bagfile_driver.cpp
     src/surface_fitting.cpp
     src/opengl_renderer.cpp)
 
-target_link_libraries(main_bagfile_driver 
+target_link_libraries(run_rgbd_from_bagfile
     ${catkin_LIBRARIES}
     ${Boost_LIBRARIES}
     ${OpenCV_LIBS} GL GLU glut)
