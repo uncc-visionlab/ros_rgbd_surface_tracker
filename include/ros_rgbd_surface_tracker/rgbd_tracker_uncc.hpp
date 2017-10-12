@@ -139,12 +139,6 @@ namespace cv {
                     Pose& delta_pose_estimate,
                     int max_iterations);
             
-            bool estimateDeltaPoseReprojectionErrorFC(
-                    const cv::rgbd::RgbdImage& fixedImg,
-                    const cv::rgbd::RgbdImage& movingImg,
-                    Pose& delta_pose_estimate,
-                    int max_iterations);
-            
             //void updateSurfaces(cv::rgbd::RgbdImage& rgbd_img, cv::Mat& rgb_result);
             void updateSurfaces(cv::rgbd::RgbdImage::Ptr rgbd_img, cv::Mat& rgb_result);
 
