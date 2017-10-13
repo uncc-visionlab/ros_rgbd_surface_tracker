@@ -905,7 +905,7 @@ namespace cv {
                             float& intensity_residual = ((float *)intensity_residuals.data)[index];
                             for (int i = 0; i < 6; ++i) {
                                 error_grad_ptr[i] += depth_residual*depth_gradient_vec[i]; 
-                                error_grad_ptr[i] += *intensity_residual*intensity_gradient_vec[i];
+                                error_grad_ptr[i] += intensity_residual*intensity_gradient_vec[i];
                             }
 
                             // compute upper triangular component this point contributes to the Hessian
