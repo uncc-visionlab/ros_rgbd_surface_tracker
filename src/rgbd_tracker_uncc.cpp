@@ -732,25 +732,32 @@ namespace cv {
             int height = rgbd_img1.getHeight();
             const cv::Mat& depth_img1 = rgbd_img1.getDepthImage();
             const cv::Mat& depth_img2 = rgbd_img2.getDepthImage();
+            cv::Mat intensity_img1, intensity_img2;
+            cv::cvtColor(rgbd_img1.getRGBImage(), intensity_img1, cv::COLOR_RGB2GRAY);
+            cv::cvtColor(rgbd_img2.getRGBImage(), intensity_img2, cv::COLOR_RGB2GRAY);
+            intensity_img1.convertTo(intensity_img1, CV_32F, 1.0/255.0);
+            intensity_img2.convertTo(intensity_img2, CV_32F, 1.0/255.0);
             
             // compute image gradients
-            cv::Mat depth_img2_dx, depth_img2_dy; // depth_img1_dx, depth_img1_dy;
+            cv::Mat depth_img2_dx, depth_img2_dy, intensity_img2_dx, intensity_img2_dy;
             cv::Mat cdiffX = (Mat_<float>(1,3) << -0.5f, 0, 0.5f);
             cv::Mat cdiffY = (Mat_<float>(3,1) << -0.5f, 0, 0.5f);
-//            cv::filter2D(depth_img1, depth_img1_dx, -1, cdiffX);
-//            cv::filter2D(depth_img1, depth_img1_dy, -1, cdiffY);
             cv::filter2D(depth_img2, depth_img2_dx, -1, cdiffX);
             cv::filter2D(depth_img2, depth_img2_dy, -1, cdiffY);
+            cv::filter2D(intensity_img2, intensity_img2_dx, -1, cdiffX);
+            cv::filter2D(intensity_img2, intensity_img2_dy, -1, cdiffY);
             
             // initialize pointclouds
-            cv::Mat ptcloud1(height, width, CV_32FC3), colors;
-            rgbd_img1.getPointCloud(ptcloud1, colors);
+            cv::Mat ptcloud1;
+            rgbd_img1.getPointCloud(ptcloud1);
             
             cv::Matx33f rotation;
             cv::Vec3f translation;
             cv::Mat pixels_valid(width*height, 1, CV_8U);
-            cv::Mat residuals(width*height, 1, CV_32F);
-            cv::Mat gradient_images(width*height, 6, CV_32F);
+            cv::Mat depth_residuals(width*height, 1, CV_32F);
+            cv::Mat intensity_residuals(width*height, 1, CV_32F);
+            cv::Mat depth_gradient_vecs(width*height, 6, CV_32F);
+            cv::Mat intensity_gradient_vecs(width*height, 6, CV_32F);
             cv::Mat error_hessian(6, 6, CV_32F);
             cv::Mat error_grad(6, 1, CV_32F);
             float* error_grad_ptr = error_grad.ptr<float>(0, 0);
@@ -801,7 +808,7 @@ namespace cv {
                                 float y1w = warped_px.y - y0;
                                 float y0w = 1.0f - y1w;
                                 
-                                // interpolate values
+                                // interpolate depth related values
                                 float depth_img2_at_warped_px = y0w * (((float *)depth_img2.data)[index_x0y0] * x0w + ((float *)depth_img2.data)[index_x1y0] * x1w)  + 
                                     y1w * (((float *)depth_img2.data)[index_x0y1] * x0w + ((float *)depth_img2.data)[index_x1y1] * x1w);
 
@@ -813,6 +820,16 @@ namespace cv {
                                 
                                 if (!std::isnan(depth_img2_at_warped_px) && !std::isnan(depth2_gradx_at_warped_px) && !std::isnan(depth2_grady_at_warped_px)) {
                                     
+                                    // interpolate intensity related values
+                                    float intensity_img2_at_warped_px = y0w * (((float *)intensity_img2.data)[index_x0y0] * x0w + ((float *)intensity_img2.data)[index_x1y0] * x1w)  + 
+                                        y1w * (((float *)intensity_img2.data)[index_x0y1] * x0w + ((float *)intensity_img2.data)[index_x1y1] * x1w);
+
+                                    float intensity2_gradx_at_warped_px = y0w * (((float *)intensity_img2_dx.data)[index_x0y0] * x0w + ((float *)intensity_img2_dx.data)[index_x1y0] * x1w)  + 
+                                        y1w * (((float *)intensity_img2_dx.data)[index_x0y1] * x0w + ((float *)intensity_img2_dx.data)[index_x1y1] * x1w);
+
+                                    float intensity2_grady_at_warped_px = y0w * (((float *)intensity_img2_dy.data)[index_x0y0] * x0w + ((float *)intensity_img2_dy.data)[index_x1y0] * x1w)  + 
+                                        y1w * (((float *)intensity_img2_dy.data)[index_x0y1] * x0w + ((float *)intensity_img2_dy.data)[index_x1y1] * x1w);
+                                    
                                     // compute index of initial point (pt)
                                     int y = position[0];
                                     int x = position[1];
@@ -820,9 +837,13 @@ namespace cv {
                                     
                                     pixels_valid.data[index] = true;
                                     
-                                    // compute residual
-                                    float& residual = ((float *)residuals.data)[index];
-                                    residual = depth_img2_at_warped_px - transformed_pt[2];
+                                    // compute residuals
+                                    float& depth_residual = ((float *)depth_residuals.data)[index];
+                                    depth_residual = depth_img2_at_warped_px - transformed_pt[2];
+                                    
+                                    float& intensity_residual = ((float *)intensity_residuals.data)[index];
+                                    const float& intensity_img1_at_xy = ((float *)intensity_img1.data)[index];
+                                    intensity_residual = intensity_img2_at_warped_px - intensity_img1_at_xy;
                                     
                                     // backproject using interpolated values 
 //                                    cv::Vec3f warped_pt(
@@ -836,13 +857,21 @@ namespace cv {
                                     float inv_depth = 1.0f / pt[2];
                                     float inv_depth_sq = inv_depth*inv_depth;
                                     
-                                    float* gradient_vec = gradient_images.ptr<float>(index);
-                                    gradient_vec[0] = depth2_gradx_at_warped_px * fx * inv_depth + depth2_grady_at_warped_px * 0;
-                                    gradient_vec[1] = depth2_gradx_at_warped_px * 0 + depth2_grady_at_warped_px * fy * inv_depth;
-                                    gradient_vec[2] = -(depth2_gradx_at_warped_px * fx * jpt[0] + depth2_grady_at_warped_px * fy * jpt[1]) * inv_depth_sq - 1.0f;
-                                    gradient_vec[3] = -(depth2_gradx_at_warped_px * fx * jpt[0] * jpt[1] + depth2_grady_at_warped_px * fy * (jpt[2] * jpt[2] + jpt[1] * jpt[1])) * inv_depth_sq - jpt[1];
-                                    gradient_vec[4] = (depth2_gradx_at_warped_px * fx * (jpt[2] * jpt[2] + jpt[0] * jpt[0]) + depth2_grady_at_warped_px * fy * jpt[0] * jpt[1]) * inv_depth_sq + jpt[0];
-                                    gradient_vec[5] = (-depth2_gradx_at_warped_px * fx * jpt[1] + depth2_grady_at_warped_px * fy * jpt[0]) * inv_depth;
+                                    float* depth_gradient_vec = depth_gradient_vecs.ptr<float>(index);
+                                    depth_gradient_vec[0] = depth2_gradx_at_warped_px * fx * inv_depth + depth2_grady_at_warped_px * 0;
+                                    depth_gradient_vec[1] = depth2_gradx_at_warped_px * 0 + depth2_grady_at_warped_px * fy * inv_depth;
+                                    depth_gradient_vec[2] = -(depth2_gradx_at_warped_px * fx * jpt[0] + depth2_grady_at_warped_px * fy * jpt[1]) * inv_depth_sq - 1.0f;
+                                    depth_gradient_vec[3] = -(depth2_gradx_at_warped_px * fx * jpt[0] * jpt[1] + depth2_grady_at_warped_px * fy * (jpt[2] * jpt[2] + jpt[1] * jpt[1])) * inv_depth_sq - jpt[1];
+                                    depth_gradient_vec[4] = (depth2_gradx_at_warped_px * fx * (jpt[2] * jpt[2] + jpt[0] * jpt[0]) + depth2_grady_at_warped_px * fy * jpt[0] * jpt[1]) * inv_depth_sq + jpt[0];
+                                    depth_gradient_vec[5] = (-depth2_gradx_at_warped_px * fx * jpt[1] + depth2_grady_at_warped_px * fy * jpt[0]) * inv_depth;
+                                    
+                                    float* intensity_gradient_vec = intensity_gradient_vecs.ptr<float>(index);
+                                    intensity_gradient_vec[0] = intensity2_gradx_at_warped_px * fx * inv_depth + intensity2_grady_at_warped_px * 0;
+                                    intensity_gradient_vec[1] = intensity2_gradx_at_warped_px * 0 + intensity2_grady_at_warped_px * fy * inv_depth;
+                                    intensity_gradient_vec[2] = -(intensity2_gradx_at_warped_px * fx * jpt[0] + intensity2_grady_at_warped_px * fy * jpt[1]) * inv_depth_sq;
+                                    intensity_gradient_vec[3] = -(intensity2_gradx_at_warped_px * fx * jpt[0] * jpt[1] + intensity2_grady_at_warped_px * fy * (jpt[2] * jpt[2] + jpt[1] * jpt[1])) * inv_depth_sq;
+                                    intensity_gradient_vec[4] = (intensity2_gradx_at_warped_px * fx * (jpt[2] * jpt[2] + jpt[0] * jpt[0]) + intensity2_grady_at_warped_px * fy * jpt[0] * jpt[1]) * inv_depth_sq;
+                                    intensity_gradient_vec[5] = (-intensity2_gradx_at_warped_px * fx * jpt[1] + intensity2_grady_at_warped_px * fy * jpt[0]) * inv_depth;
                                     
                                 }
 
@@ -868,12 +897,15 @@ namespace cv {
 
                         if (pixel_valid) {
 
-                            float* gradient_vec = gradient_images.ptr<float>(index);
+                            float* depth_gradient_vec = depth_gradient_vecs.ptr<float>(index);
+                            float* intensity_gradient_vec = intensity_gradient_vecs.ptr<float>(index);
 
                             // add pixel's contribution to gradient vector
-                            float& residual = ((float *)residuals.data)[index];
+                            float& depth_residual = ((float *)depth_residuals.data)[index];
+                            float& intensity_residual = ((float *)intensity_residuals.data)[index];
                             for (int i = 0; i < 6; ++i) {
-                                error_grad_ptr[i] += residual*gradient_vec[i];
+                                error_grad_ptr[i] += depth_residual*depth_gradient_vec[i]; 
+                                error_grad_ptr[i] += *intensity_residual*intensity_gradient_vec[i];
                             }
 
                             // compute upper triangular component this point contributes to the Hessian
@@ -881,11 +913,12 @@ namespace cv {
                             for (int row = 0; row < 6; ++row) {
                                 error_hessian_ptr += row;                
                                 for (int col = row; col < 6; ++col, ++error_hessian_ptr) {
-                                    *error_hessian_ptr += gradient_vec[row] * gradient_vec[col];
+                                    *error_hessian_ptr += depth_gradient_vec[row]*depth_gradient_vec[col] 
+                                            + intensity_gradient_vec[row]*intensity_gradient_vec[col];
                                 }
                             }
                             
-                            error += residual*residual;
+                            error += depth_residual*depth_residual;
                             num_constraints++;
                             
                         }
@@ -928,6 +961,7 @@ namespace cv {
                     break;
                 } else if ((last_error - error < .1) || iterations > max_iterations) { 
                     // finish this update and then stop iterating
+                    std::cout << "Minimum detected or iterations (" << max_iterations << ") exceeded.\n";
                     iterate = false;
                 }
                 

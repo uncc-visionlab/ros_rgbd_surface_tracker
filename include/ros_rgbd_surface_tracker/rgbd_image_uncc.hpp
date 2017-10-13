@@ -244,6 +244,8 @@ namespace cv {
             }
             
             void getPointCloud(cv::Mat& pts, cv::Mat& colors) const;
+            
+            void getPointCloud(cv::Mat& pts) const;
 
             bool getTileData_Random(int x0, int y0,
                     int loc_width, int loc_height,
