@@ -4,7 +4,7 @@ project(ros_rgbd_surface_tracker)
 set( CMAKE_FIND_DEBUG_MODE 1 )
 set( CMAKE_VERBOSE_MAKEFILE ON )
 
-set( CMAKE_CXX_FLAGS "-std=c++11 -DCMAKE_BUILD_TYPE=Debug")
+set( CMAKE_CXX_FLAGS "-std=c++11")
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
 
@@ -28,8 +28,8 @@ find_package(catkin REQUIRED
   tf2_ros
 
   rgbd_drivers_uncc
-  dvo_core
-)
+  uncc_rgbd_slam
+  dvo_core)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)

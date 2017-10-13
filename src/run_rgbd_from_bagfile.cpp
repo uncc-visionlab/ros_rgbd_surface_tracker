@@ -4,8 +4,8 @@
 #include <ros/time.h>
 
 #include <rgbd_drivers_uncc/rgbd_driver.hpp>
-#include <rgbd_drivers_uncc/rgbd_tracker.hpp>
-#include <rgbd_drivers_uncc/rgbd_tracker_dvo.hpp>
+#include <uncc_rgbd_slam/rgbd_tracker.hpp>
+#include <uncc_rgbd_slam/rgbd_tracker_dvo.hpp>
 
 #include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>
 
