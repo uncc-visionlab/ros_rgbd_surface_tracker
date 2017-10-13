@@ -468,7 +468,7 @@ namespace cv {
             
             bool inImage(const float& px, const float& py) const {
                 // checks that the pixel is within the image bounds
-                return (px >= 0 && py < this->height && px >= 0 && px < this->width);
+                return (py >= 0 && py < this->height && px >= 0 && px < this->width);
             }
             
             bool inImage(cv::Point2f& pixel) const {

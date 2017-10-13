@@ -793,7 +793,7 @@ namespace cv {
 
                 ptcloud1.forEach<cv::Vec3f>(
                     // this lambda runs for each pixel and is parallelized
-                    [&](const cv::Vec3f& pt, const int * position) {
+                    [&](const cv::Vec3f& pt, const int* position) {
 
                         if (!std::isnan(pt[2])) {
                             
@@ -843,13 +843,13 @@ namespace cv {
                                     // compute residual
                                     float& residual = ((float *)residuals.data)[index];
                                     residual = depth_img2_at_warped_px - transformed_pt[2];
-                                    
+                                                                     
                                     // evaluate for this pixel: gradient vec = imggrad(I)*Jw at jpt
                                     const cv::Vec3f& jpt = pt; // point where the jacobian will be evaluated
                                     float inv_depth = 1.0f / pt[2];
                                     float inv_depth_sq = inv_depth*inv_depth;
                                     
-                                    float * gradient_vec = gradient_images.ptr<float>(index);
+                                    float* gradient_vec = gradient_images.ptr<float>(index);
                                     gradient_vec[0] = depth2_gradx_at_warped_px * fx * inv_depth + depth2_grady_at_warped_px * 0;
                                     gradient_vec[1] = depth2_gradx_at_warped_px * 0 + depth2_grady_at_warped_px * fy * inv_depth;
                                     gradient_vec[2] = -(depth2_gradx_at_warped_px * fx * jpt[0] + depth2_grady_at_warped_px * fy * jpt[1]) * inv_depth_sq - 1.0f;
@@ -883,7 +883,7 @@ namespace cv {
 
                         if (pixel_valid) {
 
-                            float * gradient_vec = gradient_images.ptr<float>(index);
+                            float* gradient_vec = gradient_images.ptr<float>(index);
 
                             // add pixel's contribution to gradient vector
                             float& residual = ((float *)residuals.data)[index];
@@ -892,7 +892,7 @@ namespace cv {
                             }
 
                             // compute upper triangular component this point contributes to the Hessian
-                            float * error_hessian_ptr = error_hessian.ptr<float>(0, 0);
+                            float* error_hessian_ptr = error_hessian.ptr<float>(0, 0);
                             for (int row = 0; row < 6; ++row) {
                                 error_hessian_ptr += row;                
                                 for (int col = row; col < 6; ++col, ++error_hessian_ptr) {
@@ -902,7 +902,7 @@ namespace cv {
                             
                             error += residual*residual;
                             num_constraints++;
-
+                            
                         }
                     }
                 }
