@@ -712,25 +712,6 @@ namespace cv {
             return true;
         }
         
-        float bilinterpolate(const cv::Mat& img, float x, float y) {
-            // bilinear interpolation at subpixel location x, y
-            
-            float x0 = std::floor(x);
-            float y0 = std::floor(y);
-            float x1 = x0 + 1;
-            float y1 = y0 + 1;
-
-            float x1w = x - x0;
-            float x0w = 1.0f - x1w;
-            float y1w = y - y0;
-            float y0w = 1.0f - y1w;
-            
-            float result = y0w * (img.at<float>(y0, x0) * x0w + img.at<float>(y0, x1) * x1w)  + 
-                y1w * (img.at<float>(y1, x0) * x0w + img.at<float>(y1, x1) * x1w);
-            
-            return result;
-        }
-        
         bool RgbdSurfaceTracker::estimateDeltaPoseReprojectionErrorParallel(
                 const cv::rgbd::RgbdImage& rgbd_img1, // warp image
                 const cv::rgbd::RgbdImage& rgbd_img2, // template
@@ -764,7 +745,6 @@ namespace cv {
             // initialize pointclouds
             cv::Mat ptcloud1(height, width, CV_32FC3), colors;
             rgbd_img1.getPointCloud(ptcloud1, colors);
-//            cv::Mat warped_ptcloud1(height, width, CV_32FC3);
             
             cv::Matx33f rotation;
             cv::Vec3f translation;
@@ -773,7 +753,7 @@ namespace cv {
             cv::Mat gradient_images(width*height, 6, CV_32F);
             cv::Mat error_hessian(6, 6, CV_32F);
             cv::Mat error_grad(6, 1, CV_32F);
-            float * error_grad_ptr = error_grad.ptr<float>(0, 0);
+            float* error_grad_ptr = error_grad.ptr<float>(0, 0);
             cv::Mat param_update(6, 1, CV_32F);
             
             float initial_error, error, num_constraints;
@@ -843,7 +823,14 @@ namespace cv {
                                     // compute residual
                                     float& residual = ((float *)residuals.data)[index];
                                     residual = depth_img2_at_warped_px - transformed_pt[2];
-                                                                     
+                                    
+                                    // backproject using interpolated values 
+//                                    cv::Vec3f warped_pt(
+//                                        (warped_px.x - cx) * depth_img2_at_warped_px * inv_fx,
+//                                        (warped_px.y - cy) * depth_img2_at_warped_px * inv_fy,
+//                                        depth_img2_at_warped_px
+//                                    );
+                                                            
                                     // evaluate for this pixel: gradient vec = imggrad(I)*Jw at jpt
                                     const cv::Vec3f& jpt = pt; // point where the jacobian will be evaluated
                                     float inv_depth = 1.0f / pt[2];
@@ -867,8 +854,6 @@ namespace cv {
                     
                 );
 
-                
-                
                 error = 0;
                 num_constraints = 0;
                 error_hessian.setTo(0.0f);
@@ -888,7 +873,7 @@ namespace cv {
                             // add pixel's contribution to gradient vector
                             float& residual = ((float *)residuals.data)[index];
                             for (int i = 0; i < 6; ++i) {
-                                error_grad_ptr[i] += -residual*gradient_vec[i]; // note we negate residual value
+                                error_grad_ptr[i] += residual*gradient_vec[i];
                             }
 
                             // compute upper triangular component this point contributes to the Hessian
@@ -911,7 +896,7 @@ namespace cv {
                 if (iterations == 1)
                     initial_error = error;
                 
-                std::cout << "Iteration " << iterations << " Current Error: " << error << std::endl;
+                std::cout << "Iteration " << iterations << ", Error: " << error << std::endl;
                 
                 error_decreased = error < last_error;
                 
@@ -941,7 +926,7 @@ namespace cv {
                     // don't update the parameters, stop iterating now
                     error = last_error;
                     break;
-                } else if (iterations > max_iterations) { 
+                } else if ((last_error - error < .1) || iterations > max_iterations) { 
                     // finish this update and then stop iterating
                     iterate = false;
                 }
@@ -949,6 +934,7 @@ namespace cv {
                 // update parameters via composition
                 Pose delta_pose_update(cv::Vec3f((float *)param_update.data), 
                         cv::Vec3f((float *)param_update.data + 3));
+                delta_pose_update.invertInPlace();
                 Pose::multiplyInPlace(delta_pose_update, delta_pose_estimate, delta_pose_estimate);
 
                 last_error = error;
