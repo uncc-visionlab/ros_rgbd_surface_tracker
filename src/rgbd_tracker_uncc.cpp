@@ -15,6 +15,7 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/rgbd.hpp>
 
+#include <uncc_rgbd_slam/pose.hpp>
 #include <ros_rgbd_surface_tracker/AlgebraicSurface.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>
@@ -706,7 +707,7 @@ namespace cv {
                 float *delta_pose_ptr = delta_pose.ptr<float>(0, 0);
                 Pose delta_pose_iter(cv::Vec3f(delta_pose_ptr[0], delta_pose_ptr[1], delta_pose_ptr[2]),
                         cv::Vec3f(delta_pose_ptr[3], delta_pose_ptr[4], delta_pose_ptr[5]));
-                delta_pose_estimate.compose(delta_pose_iter);
+                Pose::multiplyInPlace(delta_pose_estimate, delta_pose_iter, delta_pose_estimate);
             }
             return true;
         }
@@ -925,7 +926,7 @@ namespace cv {
                 // update parameters via composition
                 Pose delta_pose_update(cv::Vec3f((float *)param_update.data), 
                         cv::Vec3f((float *)param_update.data + 3));
-                delta_pose_estimate.preCompose(delta_pose_update);
+                Pose::multiplyInPlace(delta_pose_update, delta_pose_estimate, delta_pose_estimate);
 
                 last_error = error;
             
@@ -1159,7 +1160,8 @@ namespace cv {
                     //cv::Matx44f deltaPose = delta_pose_estimate.getTransform();
                     //cv::Matx44f new_pose = pose*deltaPose;
                     //global_pose_estimate.set(new_pose);
-                    global_pose_estimate.compose(delta_pose_estimate);
+                    //global_pose_estimate.compose(delta_pose_estimate);
+                    Pose::multiplyInPlace(global_pose_estimate, delta_pose_estimate, global_pose_estimate);
                     std::cout << "global pose: " << global_pose_estimate.toString() << std::endl;
                     // Mapping -> Structure estimation                   
                     world_map->update(quadTree, query_shapeMap,

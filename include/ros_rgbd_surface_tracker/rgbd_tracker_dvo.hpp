@@ -164,7 +164,7 @@ namespace dvo_ros {
             if (success) {
                 frames_since_last_success = 0;
                 accumulated_transform = accumulated_transform * transform;
-                pose.compose(delta_pose);
+                Pose::multiplyInPlace(pose, delta_pose, pose);
                 Eigen::Matrix<double, 6, 6> covariance;
 
                 //tracker->getCovarianceEstimate(covariance);
