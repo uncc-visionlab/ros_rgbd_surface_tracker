@@ -722,7 +722,7 @@ namespace cv {
 
             float x1w = x - x0;
             float x0w = 1.0f - x1w;
-            float y1w = x - y0;
+            float y1w = y - y0;
             float y0w = 1.0f - y1w;
             
             float result = y0w * (img.at<float>(y0, x0) * x0w + img.at<float>(y0, x1) * x1w)  + 
@@ -795,44 +795,67 @@ namespace cv {
                     // this lambda runs for each pixel and is parallelized
                     [&](const cv::Vec3f& pt, const int * position) {
 
-                        int y = position[0];
-                        int x = position[1];
-                        int index = y*width + x;
-
                         if (!std::isnan(pt[2])) {
                             
                             cv::Vec3f transformed_pt = rotation*pt + translation;
-                            cv::Point2i warped_px = rgbd_img2.project(static_cast<cv::Point3f>(transformed_pt)); // nearest neighbor interpolation
+                            cv::Point2f warped_px = rgbd_img2.project(static_cast<cv::Point3f>(transformed_pt));
                             
-                            if (rgbd_img2.inImage(warped_px.x, warped_px.y)) {
+                            float x0 = std::floor(warped_px.x);
+                            float y0 = std::floor(warped_px.y);
+                            float x1 = x0 + 1;
+                            float y1 = y0 + 1;
+                            
+                            if (rgbd_img2.inImage(x0, y0) && rgbd_img2.inImage(x1, y1)) {
+                                
+                                // compute corner indices for pointer access
+                                int row_y0 = y0*width;
+                                int row_y1 = y1*width;
+                                int index_x0y0 = row_y0 + x0;
+                                int index_x0y1 = row_y1 + x0;
+                                int index_x1y0 = row_y0 + x1;
+                                int index_x1y1 = row_y1 + x1;
+                                
+                                // compute interpolation weights
+                                float x1w = warped_px.x - x0;
+                                float x0w = 1.0f - x1w;
+                                float y1w = warped_px.y - y0;
+                                float y0w = 1.0f - y1w;
+                                
+                                // interpolate values
+                                float depth_img2_at_warped_px = y0w * (((float *)depth_img2.data)[index_x0y0] * x0w + ((float *)depth_img2.data)[index_x1y0] * x1w)  + 
+                                    y1w * (((float *)depth_img2.data)[index_x0y1] * x0w + ((float *)depth_img2.data)[index_x1y1] * x1w);
 
-                                int warped_index = warped_px.y*width + warped_px.x;
-                                float& depth_img2_at_warped_px = ((float *)depth_img2.data)[warped_index];
-                                float& depth2_gradx_at_warped_px = ((float *)depth_img2_dx.data)[warped_index];
-                                float& depth2_grady_at_warped_px = ((float *)depth_img2_dy.data)[warped_index];
-
+                                float depth2_gradx_at_warped_px = y0w * (((float *)depth_img2_dx.data)[index_x0y0] * x0w + ((float *)depth_img2_dx.data)[index_x1y0] * x1w)  + 
+                                    y1w * (((float *)depth_img2_dx.data)[index_x0y1] * x0w + ((float *)depth_img2_dx.data)[index_x1y1] * x1w);
+                                
+                                float depth2_grady_at_warped_px = y0w * (((float *)depth_img2_dy.data)[index_x0y0] * x0w + ((float *)depth_img2_dy.data)[index_x1y0] * x1w)  + 
+                                    y1w * (((float *)depth_img2_dy.data)[index_x0y1] * x0w + ((float *)depth_img2_dy.data)[index_x1y1] * x1w);
+                                
                                 if (!std::isnan(depth_img2_at_warped_px) && !std::isnan(depth2_gradx_at_warped_px) && !std::isnan(depth2_grady_at_warped_px)) {
                                     
-                                    pixels_valid.data[warped_index] = true;
+                                    // compute index of initial point (pt)
+                                    int y = position[0];
+                                    int x = position[1];
+                                    int index = y*width + x;
+                                    
+                                    pixels_valid.data[index] = true;
                                     
                                     // compute residual
-                                    float& residual = ((float *)residuals.data)[warped_index];
+                                    float& residual = ((float *)residuals.data)[index];
                                     residual = depth_img2_at_warped_px - transformed_pt[2];
                                     
-                                    // evaluate (image gradient)*Jw
+                                    // evaluate for this pixel: gradient vec = imggrad(I)*Jw at jpt
                                     const cv::Vec3f& jpt = pt; // point where the jacobian will be evaluated
                                     float inv_depth = 1.0f / pt[2];
                                     float inv_depth_sq = inv_depth*inv_depth;
                                     
-                                    float * gradient_vec = gradient_images.ptr<float>(warped_index);
+                                    float * gradient_vec = gradient_images.ptr<float>(index);
                                     gradient_vec[0] = depth2_gradx_at_warped_px * fx * inv_depth + depth2_grady_at_warped_px * 0;
                                     gradient_vec[1] = depth2_gradx_at_warped_px * 0 + depth2_grady_at_warped_px * fy * inv_depth;
                                     gradient_vec[2] = -(depth2_gradx_at_warped_px * fx * jpt[0] + depth2_grady_at_warped_px * fy * jpt[1]) * inv_depth_sq - 1.0f;
                                     gradient_vec[3] = -(depth2_gradx_at_warped_px * fx * jpt[0] * jpt[1] + depth2_grady_at_warped_px * fy * (jpt[2] * jpt[2] + jpt[1] * jpt[1])) * inv_depth_sq - jpt[1];
                                     gradient_vec[4] = (depth2_gradx_at_warped_px * fx * (jpt[2] * jpt[2] + jpt[0] * jpt[0]) + depth2_grady_at_warped_px * fy * jpt[0] * jpt[1]) * inv_depth_sq + jpt[0];
                                     gradient_vec[5] = (-depth2_gradx_at_warped_px * fx * jpt[1] + depth2_grady_at_warped_px * fy * jpt[0]) * inv_depth;
-                                    
-//                                    warped_ptcloud1.at<cv::Vec3f>(warped_px.y, warped_px.x) = jpt;
                                     
                                 }
 
@@ -860,7 +883,7 @@ namespace cv {
 
                         if (pixel_valid) {
 
-                            float * gradient_vec = gradient_images.ptr<float>(index, 0);
+                            float * gradient_vec = gradient_images.ptr<float>(index);
 
                             // add pixel's contribution to gradient vector
                             float& residual = ((float *)residuals.data)[index];
