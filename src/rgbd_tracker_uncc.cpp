@@ -913,12 +913,12 @@ namespace cv {
                             for (int row = 0; row < 6; ++row) {
                                 error_hessian_ptr += row;                
                                 for (int col = row; col < 6; ++col, ++error_hessian_ptr) {
-                                    *error_hessian_ptr += depth_gradient_vec[row]*depth_gradient_vec[col] 
-                                            + intensity_gradient_vec[row]*intensity_gradient_vec[col];
+                                    *error_hessian_ptr += depth_gradient_vec[row]*depth_gradient_vec[col]; 
+                                    *error_hessian_ptr += intensity_gradient_vec[row]*intensity_gradient_vec[col];
                                 }
                             }
                             
-                            error += depth_residual*depth_residual;
+                            error += depth_residual*depth_residual + intensity_residual*intensity_residual;
                             num_constraints++;
                             
                         }
@@ -1105,7 +1105,7 @@ namespace cv {
 //                            descriptor_matching_timeBudget_ms, rgb_result, delta_pose_estimate);
 
                     if (prev_rgbd_img_ptr) {
-                        int max_iterations = 50;
+                        int max_iterations = 100;
                         //estimateDeltaPoseReprojectionError(*prev_rgbd_img_ptr, *rgbd_img_ptr, delta_pose_estimate);
                         alignmentConverged = estimateDeltaPoseReprojectionErrorParallel(*prev_rgbd_img_ptr, *rgbd_img_ptr, delta_pose_estimate, max_iterations);
                         validDeltaPoseEstimate = alignmentConverged;
