@@ -720,6 +720,7 @@ namespace cv {
             
             // Inverse compositional image alignment
             
+            delta_pose_estimate.invertInPlace();
             const cv::Mat& camera_matrix = rgbd_img1.getCameraMatrix();
             const float& fx = camera_matrix.at<float>(0, 0);
             const float& fy = camera_matrix.at<float>(1, 1);
@@ -740,8 +741,8 @@ namespace cv {
             
             // compute image gradients
             cv::Mat depth_img2_dx, depth_img2_dy, intensity_img2_dx, intensity_img2_dy;
-            cv::Mat cdiffX = (Mat_<float>(1,3) << -0.5f, 0, 0.5f);
-            cv::Mat cdiffY = (Mat_<float>(3,1) << -0.5f, 0, 0.5f);
+            cv::Mat cdiffX = (Mat_<float>(1,3) << -1.0f, 0, 1.0f);
+            cv::Mat cdiffY = (Mat_<float>(3,1) << -1.0f, 0, 1.0f);
             cv::filter2D(depth_img2, depth_img2_dx, -1, cdiffX);
             cv::filter2D(depth_img2, depth_img2_dy, -1, cdiffY);
             cv::filter2D(intensity_img2, intensity_img2_dx, -1, cdiffX);
@@ -985,6 +986,45 @@ namespace cv {
             
         }
         
+        bool RgbdSurfaceTracker::estimateDeltaPoseReprojectionErrorMultiScale(
+                const cv::rgbd::RgbdImage& rgbd_img1, // warp image
+                const cv::rgbd::RgbdImage& rgbd_img2, // template
+                Pose& delta_pose_estimate, int max_iterations_per_level, 
+                int start_level, int end_level) {
+            
+            bool convergence = false;
+            
+            for (int level = start_level; level != end_level-1; --level) {
+                
+                std::cout << "Reprojection Error Minimization Level: " << level << std::endl;
+                
+                int sample_factor = std::pow(2, level);
+                float inv_factor = 1.0f/sample_factor;
+                
+                cv::Mat sampled_depth_img1, sampled_depth_img2, sampled_color_img1, sampled_color_img2;
+                cv::resize(rgbd_img1.getDepthImage(), sampled_depth_img1, cv::Size(), inv_factor, inv_factor, cv::INTER_NEAREST);
+                cv::resize(rgbd_img2.getDepthImage(), sampled_depth_img2, cv::Size(), inv_factor, inv_factor, cv::INTER_NEAREST);
+                cv::resize(rgbd_img1.getRGBImage(), sampled_color_img1, cv::Size(), inv_factor, inv_factor, cv::INTER_NEAREST);
+                cv::resize(rgbd_img2.getRGBImage(), sampled_color_img2, cv::Size(), inv_factor, inv_factor, cv::INTER_NEAREST);
+                
+                cv::rgbd::RgbdImage sampled_rgbd_img1(sampled_color_img1, sampled_depth_img1, 
+                        rgbd_img1.getCameraMatrix().at<float>(0, 2)*inv_factor, // cx
+                        rgbd_img1.getCameraMatrix().at<float>(1, 2)*inv_factor, // cy
+                        rgbd_img1.getCameraMatrix().at<float>(0, 0)*inv_factor); // f
+                
+                cv::rgbd::RgbdImage sampled_rgbd_img2(sampled_color_img2, sampled_depth_img2, 
+                        rgbd_img2.getCameraMatrix().at<float>(0, 2)*inv_factor, // cx
+                        rgbd_img2.getCameraMatrix().at<float>(1, 2)*inv_factor, // cy
+                        rgbd_img2.getCameraMatrix().at<float>(0, 0)*inv_factor); // f
+                
+                bool convergence = estimateDeltaPoseReprojectionErrorParallel(sampled_rgbd_img1, sampled_rgbd_img2, delta_pose_estimate, max_iterations_per_level);
+                
+            }
+            
+            return convergence;
+            
+        }
+        
         
         
 
@@ -1107,7 +1147,7 @@ namespace cv {
                     if (prev_rgbd_img_ptr) {
                         int max_iterations = 100;
                         //estimateDeltaPoseReprojectionError(*prev_rgbd_img_ptr, *rgbd_img_ptr, delta_pose_estimate);
-                        alignmentConverged = estimateDeltaPoseReprojectionErrorParallel(*prev_rgbd_img_ptr, *rgbd_img_ptr, delta_pose_estimate, max_iterations);
+                        alignmentConverged = estimateDeltaPoseReprojectionErrorMultiScale(*prev_rgbd_img_ptr, *rgbd_img_ptr, delta_pose_estimate, max_iterations, 2, 1);
                         validDeltaPoseEstimate = alignmentConverged;
                     }
                     //std::cout << "Iteration " << alignmentIterations << " alignment error = " << error << std::endl;
