@@ -715,12 +715,13 @@ namespace cv {
         bool RgbdSurfaceTracker::estimateDeltaPoseReprojectionErrorParallel(
                 const cv::rgbd::RgbdImage& rgbd_img1, // warp image
                 const cv::rgbd::RgbdImage& rgbd_img2, // template
-                Pose& delta_pose_estimate,
+                Pose& global_delta_pose_estimate,
                 int max_iterations) {
             
             // Inverse compositional image alignment
             
-            delta_pose_estimate.invertInPlace();
+            Pose& local_delta_pose_estimate = global_delta_pose_estimate;
+            local_delta_pose_estimate.invertInPlace();
             const cv::Mat& camera_matrix = rgbd_img1.getCameraMatrix();
             const float& fx = camera_matrix.at<float>(0, 0);
             const float& fy = camera_matrix.at<float>(1, 1);
@@ -763,9 +764,14 @@ namespace cv {
             cv::Mat error_grad(6, 1, CV_32F);
             float* error_grad_ptr = error_grad.ptr<float>(0, 0);
             cv::Mat param_update(6, 1, CV_32F);
+            cv::Mat error_hessian_double(6, 6, CV_32F);
+            cv::Mat error_grad_double(6, 1, CV_64F);
+            cv::Mat param_update_double(6, 1, CV_64F);
+            float intensity_weight = 0.5;
             
             float initial_error, error, num_constraints;
             float last_error = std::numeric_limits<float>::infinity();
+            double param_max = std::numeric_limits<float>::infinity();
             bool error_decreased, enough_constraints, param_update_valid;
             int iterations = 0;
             bool iterate = true;
@@ -774,8 +780,8 @@ namespace cv {
                 iterations++;
                 
                 // get current transformation
-                rotation = delta_pose_estimate.getRotation_Matx33();
-                delta_pose_estimate.getTranslation(translation);
+                rotation = local_delta_pose_estimate.getRotation_Matx33();
+                local_delta_pose_estimate.getTranslation(translation);
 
                 pixels_valid.setTo(false);
 
@@ -906,7 +912,7 @@ namespace cv {
                             float& intensity_residual = ((float *)intensity_residuals.data)[index];
                             for (int i = 0; i < 6; ++i) {
                                 error_grad_ptr[i] += depth_residual*depth_gradient_vec[i]; 
-                                error_grad_ptr[i] += intensity_residual*intensity_gradient_vec[i];
+                                error_grad_ptr[i] += intensity_weight*intensity_residual*intensity_gradient_vec[i];
                             }
 
                             // compute upper triangular component this point contributes to the Hessian
@@ -930,37 +936,37 @@ namespace cv {
                 if (iterations == 1)
                     initial_error = error;
                 
-                std::cout << "Iteration " << iterations << ", Error: " << error << std::endl;
+//                std::cout << "Iteration " << iterations << ", Error: " << error << std::endl;
                 
-                error_decreased = error < last_error;
-                
-                if (error_decreased) {
+//                error_decreased = error < last_error;
                     
-                    enough_constraints = num_constraints > 6;
-                    
-                    if (enough_constraints) {
-                    
-                        cv::solve(error_hessian, error_grad, param_update);
-                        param_update_valid = cv::checkRange(param_update);
+                enough_constraints = num_constraints > 6;
 
-                        if(!param_update_valid) { // check for NaNs
-                            std::cout << "Invalid values in parameter update: " << param_update.t() << std::endl;
-                        }
-                        
+                if (enough_constraints) {
+
+                    error_hessian.convertTo(error_hessian_double, CV_64F);
+                    error_grad.convertTo(error_grad_double, CV_64F);
+                    param_update.convertTo(param_update_double, CV_64F);
+
+                    cv::solve(error_hessian_double, error_grad_double, param_update_double);
+                    param_update_valid = cv::checkRange(param_update_double);
+
+                    if(!param_update_valid) { // check for NaNs
+                        std::cout << "Invalid values in parameter update: " << param_update.t() << std::endl;
                     } else {
-                        std::cout << "Not enough constraints for minimization!\n";
+                        param_update_double.convertTo(param_update, CV_32F);
+                        cv::minMaxLoc(cv::abs(param_update), nullptr, &param_max);
                     }
-                    
-                } else {
-                    std::cout << "Error increased... bailing out.\n";
-                }
 
+                } else {
+                    std::cout << "Not enough constraints for minimization!\n";
+                }
                 
-                if (!error_decreased || !enough_constraints || !param_update_valid) { 
+                if (!enough_constraints || !param_update_valid) { 
                     // don't update the parameters, stop iterating now
                     error = last_error;
                     break;
-                } else if ((last_error - error < .1) || iterations > max_iterations) { 
+                } else if (param_max <= 5e-5 || iterations > max_iterations) { 
                     // finish this update and then stop iterating
                     std::cout << "Minimum detected or iterations (" << max_iterations << ") exceeded.\n";
                     iterate = false;
@@ -970,14 +976,17 @@ namespace cv {
                 Pose delta_pose_update(cv::Vec3f((float *)param_update.data), 
                         cv::Vec3f((float *)param_update.data + 3));
                 delta_pose_update.invertInPlace();
-                Pose::multiplyInPlace(delta_pose_update, delta_pose_estimate, delta_pose_estimate);
+                Pose::multiplyInPlace(delta_pose_update, local_delta_pose_estimate, local_delta_pose_estimate);
 
                 last_error = error;
             
             }
             
             // invert the estimate that we return
-            delta_pose_estimate.invertInPlace();
+            local_delta_pose_estimate.invertInPlace();
+            global_delta_pose_estimate = local_delta_pose_estimate;
+            
+            std::cout << "Iterations: " << iterations << "\nInitial Error: " << initial_error << "\nFinal Error: " << error << "\n";
             
             if (error <= initial_error)
                 return true;
@@ -989,12 +998,13 @@ namespace cv {
         bool RgbdSurfaceTracker::estimateDeltaPoseReprojectionErrorMultiScale(
                 const cv::rgbd::RgbdImage& rgbd_img1, // warp image
                 const cv::rgbd::RgbdImage& rgbd_img2, // template
-                Pose& delta_pose_estimate, int max_iterations_per_level, 
+                Pose& global_delta_pose_estimate, int max_iterations_per_level, 
                 int start_level, int end_level) {
             
-            bool convergence = false;
+            bool error_decreased = false;
+            Pose local_delta_pose_estimate = global_delta_pose_estimate;
             
-            for (int level = start_level; level != end_level-1; --level) {
+            for (int level = start_level; level >= end_level; --level) {
                 
                 std::cout << "Reprojection Error Minimization Level: " << level << std::endl;
                 
@@ -1017,11 +1027,17 @@ namespace cv {
                         rgbd_img2.getCameraMatrix().at<float>(1, 2)*inv_factor, // cy
                         rgbd_img2.getCameraMatrix().at<float>(0, 0)*inv_factor); // f
                 
-                bool convergence = estimateDeltaPoseReprojectionErrorParallel(sampled_rgbd_img1, sampled_rgbd_img2, delta_pose_estimate, max_iterations_per_level);
+                bool level_error_decreased = estimateDeltaPoseReprojectionErrorParallel(
+                    sampled_rgbd_img1, sampled_rgbd_img2, local_delta_pose_estimate, max_iterations_per_level);
+                
+                if (level_error_decreased) {
+                    error_decreased = true;
+                    global_delta_pose_estimate = local_delta_pose_estimate;
+                }
                 
             }
             
-            return convergence;
+            return error_decreased;
             
         }
         

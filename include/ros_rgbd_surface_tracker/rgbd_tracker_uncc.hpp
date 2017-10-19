@@ -136,13 +136,13 @@ namespace cv {
             bool estimateDeltaPoseReprojectionErrorParallel(
                     const cv::rgbd::RgbdImage& rgbd_img1,
                     const cv::rgbd::RgbdImage& rgbd_img2,
-                    Pose& delta_pose_estimate,
+                    Pose& global_delta_pose_estimate,
                     int max_iterations);
             
             bool estimateDeltaPoseReprojectionErrorMultiScale(
                 const cv::rgbd::RgbdImage& rgbd_img1,
                 const cv::rgbd::RgbdImage& rgbd_img2,
-                Pose& delta_pose_estimate,
+                Pose& global_delta_pose_estimate,
                 int max_iterations_per_level, int start_level, int end_level);
             
             //void updateSurfaces(cv::rgbd::RgbdImage& rgbd_img, cv::Mat& rgb_result);
