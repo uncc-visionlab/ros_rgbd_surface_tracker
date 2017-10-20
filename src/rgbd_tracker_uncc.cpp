@@ -52,6 +52,7 @@ namespace cv {
             cv::rgbd::RgbdImage::Ptr rgbd_img_ptr = cv::rgbd::RgbdImage::create(_ocv_rgbframe.clone(), _ocv_depthframe_float.clone(), cx, cy, fx);
             cv::Mat rgb_result = _ocv_rgbframe;
             updateSurfaces(rgbd_img_ptr, rgb_result);
+//            estimateOdometryReprojectionError(rgbd_img_ptr);
             cv::imshow("RGB Result", rgb_result);
             cv::waitKey(3);
         }
@@ -1050,7 +1051,25 @@ namespace cv {
         }
         
         
-        
+        void RgbdSurfaceTracker::estimateOdometryReprojectionError(cv::rgbd::RgbdImage::Ptr rgbd_img_ptr) {
+            rgbd_img_ptr->invalidate_NaN_Neighbors();
+            
+            bool valid_estimate = false;
+            delta_pose_estimate.set(cv::Vec3f(0, 0, 0), cv::Vec3f(0, 0, 0));
+            int max_iterations = 100;
+            
+            if (prev_rgbd_img_ptr) {
+                valid_estimate = estimateDeltaPoseReprojectionErrorMultiScale(*prev_rgbd_img_ptr, *rgbd_img_ptr, delta_pose_estimate, max_iterations, 3, 1);
+            }
+            
+            if (valid_estimate) {
+                Pose::multiplyInPlace(global_pose_estimate, delta_pose_estimate, global_pose_estimate);
+                std::cout << "global pose: " << global_pose_estimate.toString() << std::endl;
+            }
+            
+            prev_rgbd_img_ptr = rgbd_img_ptr;
+            
+        }
 
         void RgbdSurfaceTracker::updateSurfaces(cv::rgbd::RgbdImage::Ptr rgbd_img_ptr, cv::Mat& rgb_result) {
 

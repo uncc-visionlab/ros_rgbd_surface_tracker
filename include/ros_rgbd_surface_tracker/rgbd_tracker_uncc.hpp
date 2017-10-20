@@ -145,9 +145,11 @@ namespace cv {
                 Pose& global_delta_pose_estimate,
                 int max_iterations_per_level, int start_level, int end_level);
             
+            void estimateOdometryReprojectionError(cv::rgbd::RgbdImage::Ptr rgbd_img_ptr);
+            
             //void updateSurfaces(cv::rgbd::RgbdImage& rgbd_img, cv::Mat& rgb_result);
             void updateSurfaces(cv::rgbd::RgbdImage::Ptr rgbd_img, cv::Mat& rgb_result);
-
+            
             Pose getPose() {
                 return global_pose_estimate;
             }
