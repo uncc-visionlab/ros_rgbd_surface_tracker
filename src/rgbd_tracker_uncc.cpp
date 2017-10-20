@@ -720,7 +720,8 @@ namespace cv {
             
             // Inverse compositional image alignment
             
-            Pose& local_delta_pose_estimate = global_delta_pose_estimate;
+            Pose local_delta_pose_estimate = global_delta_pose_estimate;
+            Pose prev_local_delta_pose_estimate;
             local_delta_pose_estimate.invertInPlace();
             const cv::Mat& camera_matrix = rgbd_img1.getCameraMatrix();
             const float& fx = camera_matrix.at<float>(0, 0);
@@ -938,41 +939,48 @@ namespace cv {
                 
 //                std::cout << "Iteration " << iterations << ", Error: " << error << std::endl;
                 
-//                error_decreased = error < last_error;
-                    
+                error_decreased = error < last_error;
                 enough_constraints = num_constraints > 6;
+                
+                if (error_decreased) {
+                
+                    if (enough_constraints) {
 
-                if (enough_constraints) {
+                        error_hessian.convertTo(error_hessian_double, CV_64F);
+                        error_grad.convertTo(error_grad_double, CV_64F);
+                        param_update.convertTo(param_update_double, CV_64F);
 
-                    error_hessian.convertTo(error_hessian_double, CV_64F);
-                    error_grad.convertTo(error_grad_double, CV_64F);
-                    param_update.convertTo(param_update_double, CV_64F);
+                        cv::solve(error_hessian_double, error_grad_double, param_update_double);
+                        param_update_valid = cv::checkRange(param_update_double);
 
-                    cv::solve(error_hessian_double, error_grad_double, param_update_double);
-                    param_update_valid = cv::checkRange(param_update_double);
+                        if(!param_update_valid) { // check for NaNs
+                            std::cout << "Invalid values in parameter update: " << param_update.t() << std::endl;
+                        } else {
+                            param_update_double.convertTo(param_update, CV_32F);
+                            cv::minMaxLoc(cv::abs(param_update), nullptr, &param_max);
+                        }
 
-                    if(!param_update_valid) { // check for NaNs
-                        std::cout << "Invalid values in parameter update: " << param_update.t() << std::endl;
                     } else {
-                        param_update_double.convertTo(param_update, CV_32F);
-                        cv::minMaxLoc(cv::abs(param_update), nullptr, &param_max);
+                        std::cout << "Not enough constraints for minimization!\n";
                     }
-
+                    
                 } else {
-                    std::cout << "Not enough constraints for minimization!\n";
+                    std::cout << "Error increased... bailing out.\n";
                 }
                 
-                if (!enough_constraints || !param_update_valid) { 
+                if (!error_decreased || !enough_constraints || !param_update_valid) { 
                     // don't update the parameters, stop iterating now
+                    local_delta_pose_estimate = prev_local_delta_pose_estimate;
                     error = last_error;
                     break;
-                } else if (param_max <= 5e-5 || iterations > max_iterations) { 
+                } else if (param_max <= 1e-5 || iterations > max_iterations) { 
                     // finish this update and then stop iterating
                     std::cout << "Minimum detected or iterations (" << max_iterations << ") exceeded.\n";
                     iterate = false;
                 }
                 
                 // update parameters via composition
+                prev_local_delta_pose_estimate = local_delta_pose_estimate;
                 Pose delta_pose_update(cv::Vec3f((float *)param_update.data), 
                         cv::Vec3f((float *)param_update.data + 3));
                 delta_pose_update.invertInPlace();
