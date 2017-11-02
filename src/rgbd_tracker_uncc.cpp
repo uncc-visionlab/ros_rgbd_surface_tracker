@@ -723,6 +723,7 @@ namespace cv {
             
             Pose local_delta_pose_estimate = global_delta_pose_estimate;
             Pose prev_local_delta_pose_estimate;
+            Pose delta_pose_update;
             local_delta_pose_estimate.invertInPlace();
             const cv::Mat& camera_matrix = rgbd_img1.getCameraMatrix();
             const float& fx = camera_matrix.at<float>(0, 0);
@@ -982,7 +983,7 @@ namespace cv {
                 
                 // update parameters via composition
                 prev_local_delta_pose_estimate = local_delta_pose_estimate;
-                Pose delta_pose_update(cv::Vec3f((float *)param_update.data), 
+                delta_pose_update.setFromTwist(cv::Vec3f((float *)param_update.data), 
                         cv::Vec3f((float *)param_update.data + 3));
                 delta_pose_update.invertInPlace();
                 Pose::multiplyInPlace(delta_pose_update, local_delta_pose_estimate, local_delta_pose_estimate);
@@ -1059,7 +1060,7 @@ namespace cv {
             int max_iterations = 100;
             
             if (prev_rgbd_img_ptr) {
-                valid_estimate = estimateDeltaPoseReprojectionErrorMultiScale(*prev_rgbd_img_ptr, *rgbd_img_ptr, delta_pose_estimate, max_iterations, 3, 1);
+                valid_estimate = estimateDeltaPoseReprojectionErrorMultiScale(*prev_rgbd_img_ptr, *rgbd_img_ptr, delta_pose_estimate, max_iterations, 2, 1);
             }
             
             if (valid_estimate) {
