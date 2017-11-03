@@ -137,6 +137,7 @@ namespace cv {
                     const cv::rgbd::RgbdImage& rgbd_img1,
                     const cv::rgbd::RgbdImage& rgbd_img2,
                     Pose& global_delta_pose_estimate,
+                    bool compute_image_gradients,
                     int max_iterations);
             
             bool estimateDeltaPoseReprojectionErrorMultiScale(

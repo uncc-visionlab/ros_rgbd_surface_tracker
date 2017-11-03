@@ -717,24 +717,19 @@ namespace cv {
                 const cv::rgbd::RgbdImage& rgbd_img1, // warp image
                 const cv::rgbd::RgbdImage& rgbd_img2, // template
                 Pose& global_delta_pose_estimate,
-                int max_iterations) {
+                bool compute_image_gradients = true,
+                int max_iterations = 50) {
             
             // Inverse compositional image alignment
             
             Pose local_delta_pose_estimate = global_delta_pose_estimate;
-            Pose prev_local_delta_pose_estimate;
-            Pose delta_pose_update;
             local_delta_pose_estimate.invertInPlace();
-            const cv::Mat& camera_matrix = rgbd_img1.getCameraMatrix();
-            const float& fx = camera_matrix.at<float>(0, 0);
-            const float& fy = camera_matrix.at<float>(1, 1);
-            const float& cx = camera_matrix.at<float>(0, 2);
-            const float& cy = camera_matrix.at<float>(1, 2);
-            float inv_fx = 1.0f / fx;
-            float inv_fy = 1.0f / fy;
+            Pose delta_pose_update, prev_local_delta_pose_estimate;
             
             int width = rgbd_img1.getWidth();
             int height = rgbd_img1.getHeight();
+            const float& fx = rgbd_img2.getCameraMatrix().at<float>(0, 0);
+            const float& fy = rgbd_img2.getCameraMatrix().at<float>(1, 1);
             const cv::Mat& depth_img1 = rgbd_img1.getDepthImage();
             const cv::Mat& depth_img2 = rgbd_img2.getDepthImage();
             cv::Mat intensity_img1, intensity_img2;
@@ -744,13 +739,15 @@ namespace cv {
             intensity_img2.convertTo(intensity_img2, CV_32F, 1.0/255.0);
             
             // compute image gradients
-            cv::Mat depth_img2_dx, depth_img2_dy, intensity_img2_dx, intensity_img2_dy;
-            cv::Mat cdiffX = (Mat_<float>(1,3) << -1.0f, 0, 1.0f);
-            cv::Mat cdiffY = (Mat_<float>(3,1) << -1.0f, 0, 1.0f);
-            cv::filter2D(depth_img2, depth_img2_dx, -1, cdiffX);
-            cv::filter2D(depth_img2, depth_img2_dy, -1, cdiffY);
-            cv::filter2D(intensity_img2, intensity_img2_dx, -1, cdiffX);
-            cv::filter2D(intensity_img2, intensity_img2_dy, -1, cdiffY);
+            static cv::Mat depth_img2_dx, depth_img2_dy, intensity_img2_dx, intensity_img2_dy;
+            if (compute_image_gradients) {
+                cv::Mat cdiffX = (Mat_<float>(1,3) << -1.0f, 0, 1.0f);
+                cv::Mat cdiffY = (Mat_<float>(3,1) << -1.0f, 0, 1.0f);
+                cv::filter2D(depth_img2, depth_img2_dx, -1, cdiffX);
+                cv::filter2D(depth_img2, depth_img2_dy, -1, cdiffY);
+                cv::filter2D(intensity_img2, intensity_img2_dx, -1, cdiffX);
+                cv::filter2D(intensity_img2, intensity_img2_dy, -1, cdiffY);
+            }
             
             // initialize pointclouds
             cv::Mat ptcloud1;
@@ -805,8 +802,8 @@ namespace cv {
                             if (rgbd_img2.inImage(x0, y0) && rgbd_img2.inImage(x1, y1)) {
                                 
                                 // compute corner indices for pointer access
-                                int row_y0 = y0*width;
-                                int row_y1 = y1*width;
+                                int row_y0 = y0*rgbd_img2.getWidth();
+                                int row_y1 = y1*rgbd_img2.getWidth();
                                 int index_x0y0 = row_y0 + x0;
                                 int index_x0y1 = row_y1 + x0;
                                 int index_x1y0 = row_y0 + x1;
@@ -1011,8 +1008,9 @@ namespace cv {
                 Pose& global_delta_pose_estimate, int max_iterations_per_level, 
                 int start_level, int end_level) {
             
-            bool error_decreased = false;
             Pose local_delta_pose_estimate = global_delta_pose_estimate;
+            bool error_decreased = false;
+            bool compute_image_gradients = true;
             
             for (int level = start_level; level >= end_level; --level) {
                 
@@ -1021,29 +1019,25 @@ namespace cv {
                 int sample_factor = std::pow(2, level);
                 float inv_factor = 1.0f/sample_factor;
                 
-                cv::Mat sampled_depth_img1, sampled_depth_img2, sampled_color_img1, sampled_color_img2;
+                cv::Mat sampled_depth_img1, sampled_color_img1;
                 cv::resize(rgbd_img1.getDepthImage(), sampled_depth_img1, cv::Size(), inv_factor, inv_factor, cv::INTER_NEAREST);
-                cv::resize(rgbd_img2.getDepthImage(), sampled_depth_img2, cv::Size(), inv_factor, inv_factor, cv::INTER_NEAREST);
                 cv::resize(rgbd_img1.getRGBImage(), sampled_color_img1, cv::Size(), inv_factor, inv_factor, cv::INTER_NEAREST);
-                cv::resize(rgbd_img2.getRGBImage(), sampled_color_img2, cv::Size(), inv_factor, inv_factor, cv::INTER_NEAREST);
                 
                 cv::rgbd::RgbdImage sampled_rgbd_img1(sampled_color_img1, sampled_depth_img1, 
                         rgbd_img1.getCameraMatrix().at<float>(0, 2)*inv_factor, // cx
                         rgbd_img1.getCameraMatrix().at<float>(1, 2)*inv_factor, // cy
                         rgbd_img1.getCameraMatrix().at<float>(0, 0)*inv_factor); // f
                 
-                cv::rgbd::RgbdImage sampled_rgbd_img2(sampled_color_img2, sampled_depth_img2, 
-                        rgbd_img2.getCameraMatrix().at<float>(0, 2)*inv_factor, // cx
-                        rgbd_img2.getCameraMatrix().at<float>(1, 2)*inv_factor, // cy
-                        rgbd_img2.getCameraMatrix().at<float>(0, 0)*inv_factor); // f
-                
                 bool level_error_decreased = estimateDeltaPoseReprojectionErrorParallel(
-                    sampled_rgbd_img1, sampled_rgbd_img2, local_delta_pose_estimate, max_iterations_per_level);
+                    sampled_rgbd_img1, rgbd_img2, local_delta_pose_estimate, compute_image_gradients, max_iterations_per_level);
                 
                 if (level_error_decreased) {
                     error_decreased = true;
                     global_delta_pose_estimate = local_delta_pose_estimate;
                 }
+                
+                if (compute_image_gradients)
+                    compute_image_gradients = false;
                 
             }
             
@@ -1060,7 +1054,7 @@ namespace cv {
             int max_iterations = 100;
             
             if (prev_rgbd_img_ptr) {
-                valid_estimate = estimateDeltaPoseReprojectionErrorMultiScale(*prev_rgbd_img_ptr, *rgbd_img_ptr, delta_pose_estimate, max_iterations, 2, 1);
+                valid_estimate = estimateDeltaPoseReprojectionErrorMultiScale(*prev_rgbd_img_ptr, *rgbd_img_ptr, delta_pose_estimate, max_iterations, 3, 1);
             }
             
             if (valid_estimate) {
