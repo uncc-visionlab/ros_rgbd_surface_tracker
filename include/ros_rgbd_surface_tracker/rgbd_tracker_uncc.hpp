@@ -129,9 +129,11 @@ namespace cv {
                     Pose& delta_pose_estimate);
 
             bool estimateDeltaPoseReprojectionError(
-                    const cv::rgbd::RgbdImage& fixedImg,
-                    const cv::rgbd::RgbdImage& movingImg,
-                    Pose& delta_pose_estimate);
+                    const cv::rgbd::RgbdImage& rgbd_img1,
+                    const cv::rgbd::RgbdImage& rgbd_img2,
+                    Pose& global_delta_pose_estimate,
+                    bool compute_image_gradients,
+                    int max_iterations);
             
             bool estimateDeltaPoseReprojectionErrorParallel(
                     const cv::rgbd::RgbdImage& rgbd_img1,
