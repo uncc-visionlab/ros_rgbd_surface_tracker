@@ -735,6 +735,7 @@ namespace cv {
             cv::Mat intensity_img1, intensity_img2;
             cv::cvtColor(rgbd_img1.getRGBImage(), intensity_img1, cv::COLOR_RGB2GRAY);
             cv::cvtColor(rgbd_img2.getRGBImage(), intensity_img2, cv::COLOR_RGB2GRAY);
+            // normalizing intensities to range 0-1
             intensity_img1.convertTo(intensity_img1, CV_32F, 1.0/255.0);
             intensity_img2.convertTo(intensity_img2, CV_32F, 1.0/255.0);
             
@@ -767,7 +768,8 @@ namespace cv {
             cv::Mat error_hessian_double(6, 6, CV_32F);
             cv::Mat error_grad_double(6, 1, CV_64F);
             cv::Mat param_update_double(6, 1, CV_64F);
-            float intensity_weight = 0.5;
+            float intensity_weight = 1.0;
+            float intensity_weight_sq = intensity_weight*intensity_weight;
             
             float initial_error, error, num_constraints;
             float last_error = std::numeric_limits<float>::infinity();
@@ -858,10 +860,10 @@ namespace cv {
 //                                        (warped_px.y - cy) * depth_img2_at_warped_px * inv_fy,
 //                                        depth_img2_at_warped_px
 //                                    );
-                                                            
+                                    
                                     // evaluate for this pixel: gradient vec = imggrad(I)*Jw at jpt
                                     const cv::Vec3f& jpt = pt; // point where the jacobian will be evaluated
-                                    float inv_depth = 1.0f / pt[2];
+                                    float inv_depth = 1.0f / jpt[2];
                                     float inv_depth_sq = inv_depth*inv_depth;
                                     
                                     float* depth_gradient_vec = depth_gradient_vecs.ptr<float>(index);
@@ -925,7 +927,7 @@ namespace cv {
                                 }
                             }
                             
-                            error += depth_residual*depth_residual + intensity_residual*intensity_residual;
+                            error += depth_residual*depth_residual + intensity_weight_sq*intensity_residual*intensity_residual;
                             num_constraints++;
                             
                         }
@@ -972,7 +974,7 @@ namespace cv {
                     local_delta_pose_estimate = prev_local_delta_pose_estimate;
                     error = last_error;
                     break;
-                } else if (param_max <= 1e-5 || iterations > max_iterations) { 
+                } else if (param_max <= 8e-6 || iterations > max_iterations) { 
                     // finish this update and then stop iterating
                     std::cout << "Minimum detected or iterations (" << max_iterations << ") exceeded.\n";
                     iterate = false;
@@ -1051,10 +1053,10 @@ namespace cv {
             
             bool valid_estimate = false;
             delta_pose_estimate.set(cv::Vec3f(0, 0, 0), cv::Vec3f(0, 0, 0));
-            int max_iterations = 100;
+            int max_iterations_per_level = 50;
             
             if (prev_rgbd_img_ptr) {
-                valid_estimate = estimateDeltaPoseReprojectionErrorMultiScale(*prev_rgbd_img_ptr, *rgbd_img_ptr, delta_pose_estimate, max_iterations, 3, 1);
+                valid_estimate = estimateDeltaPoseReprojectionErrorMultiScale(*prev_rgbd_img_ptr, *rgbd_img_ptr, delta_pose_estimate, max_iterations_per_level, 3, 1);
             }
             
             if (valid_estimate) {
