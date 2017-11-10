@@ -22,7 +22,7 @@
     <arg name="rviz_config_file" default="ros_rgbd_surface_tracker.rviz" />    
     
     <param name="use_sim_time" value="true" />
-    <node pkg="rosbag" type="play" name="player" output="screen" args="-r 0.5 --clock $(arg file_1)"/> 
+    <node pkg="rosbag" type="play" name="player" output="screen" args="-r 0.5 --clock --quiet $(arg file_1)"/> 
   
     <node pkg="rviz" type="rviz" name="rviz" output="screen" 
           args="-d $(find ros_rgbd_surface_tracker)/rviz/$(arg rviz_config_file)" if="$(arg run_rviz)"/> 

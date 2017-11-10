@@ -51,8 +51,8 @@ namespace cv {
             float fy = _rgb_cameraMatrix.at<float>(1, 1);
             cv::rgbd::RgbdImage::Ptr rgbd_img_ptr = cv::rgbd::RgbdImage::create(_ocv_rgbframe.clone(), _ocv_depthframe_float.clone(), cx, cy, fx);
             cv::Mat rgb_result = _ocv_rgbframe;
-//            updateSurfaces(rgbd_img_ptr, rgb_result);
-            estimateOdometryReprojectionError(rgbd_img_ptr);
+            updateSurfaces(rgbd_img_ptr, rgb_result);
+//            estimateOdometryReprojectionError(rgbd_img_ptr);
             cv::imshow("RGB Result", rgb_result);
             cv::waitKey(3);
         }
@@ -542,6 +542,9 @@ namespace cv {
             
             // Inverse compositional image alignment
             
+            if (!rgbd_img1.isContinuous() or !rgbd_img2.isContinuous())
+                throw std::runtime_error("Color and depth cv::Mats must be continuous!");
+            
             Pose local_delta_pose_estimate = global_delta_pose_estimate;
             local_delta_pose_estimate.invertInPlace();
             Pose delta_pose_update, prev_local_delta_pose_estimate;
@@ -587,7 +590,7 @@ namespace cv {
             cv::Mat param_update_double(6, 1, CV_64F);
             cv::Vec3f transformed_pt;
             cv::Point2f warped_px;
-            float intensity_weight = 1.0;
+            float intensity_weight = 1.5;
             float intensity_weight_sq = intensity_weight*intensity_weight;
             
             float initial_error, error, num_constraints;
@@ -754,12 +757,12 @@ namespace cv {
                     std::cout << "Error increased... bailing out.\n";
                 }
                 
-                if (!error_decreased || !enough_constraints || !param_update_valid) { 
+                if (!error_decreased or !enough_constraints or !param_update_valid) { 
                     // don't update the parameters, stop iterating now
                     local_delta_pose_estimate = prev_local_delta_pose_estimate;
                     error = last_error;
                     break;
-                } else if (param_max <= 8e-6 || iterations > max_iterations) { 
+                } else if (param_max <= 8e-6 or iterations > max_iterations) { 
                     // finish this update and then stop iterating
                     std::cout << "Minimum detected or iterations (" << max_iterations << ") exceeded.\n";
                     iterate = false;
@@ -780,7 +783,7 @@ namespace cv {
             local_delta_pose_estimate.invertInPlace();
             global_delta_pose_estimate = local_delta_pose_estimate;
             
-            std::cout << "Iterations: " << iterations << "\nInitial Error: " << initial_error << "\nFinal Error: " << error << "\n";
+            std::cout << "Initial Error: " << initial_error << "\nFinal Error: " << error << "\nIterations: " << iterations << "\n---\n";
             
             if (error <= initial_error)
                 return true;
@@ -796,6 +799,9 @@ namespace cv {
                 int max_iterations = 50) {
             
             // Inverse compositional image alignment with parallelization
+            
+            if (!rgbd_img1.isContinuous() or !rgbd_img2.isContinuous())
+                throw std::runtime_error("Color and Depth cv::Mats must be continuous!");
             
             Pose local_delta_pose_estimate = global_delta_pose_estimate;
             local_delta_pose_estimate.invertInPlace();
@@ -843,7 +849,7 @@ namespace cv {
             cv::Mat error_hessian_double(6, 6, CV_32F);
             cv::Mat error_grad_double(6, 1, CV_64F);
             cv::Mat param_update_double(6, 1, CV_64F);
-            float intensity_weight = 1.0;
+            float intensity_weight = 1.5;
             float intensity_weight_sq = intensity_weight*intensity_weight;
             
             float initial_error, error, num_constraints;
@@ -1044,12 +1050,12 @@ namespace cv {
                     std::cout << "Error increased... bailing out.\n";
                 }
                 
-                if (!error_decreased || !enough_constraints || !param_update_valid) { 
+                if (!error_decreased or !enough_constraints or !param_update_valid) { 
                     // don't update the parameters, stop iterating now
                     local_delta_pose_estimate = prev_local_delta_pose_estimate;
                     error = last_error;
                     break;
-                } else if (param_max <= 8e-6 || iterations > max_iterations) { 
+                } else if (param_max <= 8e-6 or iterations > max_iterations) { 
                     // finish this update and then stop iterating
                     std::cout << "Minimum detected or iterations (" << max_iterations << ") exceeded.\n";
                     iterate = false;
@@ -1070,7 +1076,7 @@ namespace cv {
             local_delta_pose_estimate.invertInPlace();
             global_delta_pose_estimate = local_delta_pose_estimate;
             
-            std::cout << "Iterations: " << iterations << "\nInitial Error: " << initial_error << "\nFinal Error: " << error << "\n";
+            std::cout << "Initial Error: " << initial_error << "\nFinal Error: " << error << "\nIterations: " << iterations << "\n---\n";
             
             if (error <= initial_error)
                 return true;
@@ -1089,9 +1095,11 @@ namespace cv {
             bool error_decreased = false;
             bool compute_image_gradients = true;
             
+            std::cout << "--- Reprojection Error Minimization ---\n";
+            
             for (int level = start_level; level >= end_level; --level) {
                 
-                std::cout << "Reprojection Error Minimization Level: " << level << std::endl;
+                std::cout << "Level: " << level << std::endl;
                 
                 int sample_factor = std::pow(2, level);
                 float inv_factor = 1.0f/sample_factor;

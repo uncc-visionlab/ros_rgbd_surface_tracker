@@ -226,6 +226,11 @@ namespace cv {
             };
 
             bool staticDataOK();
+            
+            bool isContinuous() const {
+                // Checks color and depth cv::Mats for memory continuity
+                return (this->img_I.isContinuous() and this->img_Z.isContinuous());
+            }
 
             bool getPoint3f(const int ix, const int iy,
                     float& x3, float& y3, float& z3) const {
