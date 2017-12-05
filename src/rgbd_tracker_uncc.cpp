@@ -773,7 +773,7 @@ namespace cv {
                 delta_pose_update.setFromTwist(cv::Vec3f((float *)param_update.data), 
                         cv::Vec3f((float *)param_update.data + 3));
                 delta_pose_update.invertInPlace();
-                Pose::multiplyInPlace(delta_pose_update, local_delta_pose_estimate, local_delta_pose_estimate);
+                Pose::multiply(delta_pose_update, local_delta_pose_estimate, local_delta_pose_estimate);
 
                 last_error = error;
             
@@ -1066,7 +1066,7 @@ namespace cv {
                 delta_pose_update.setFromTwist(cv::Vec3f((float *)param_update.data), 
                         cv::Vec3f((float *)param_update.data + 3));
                 delta_pose_update.invertInPlace();
-                Pose::multiplyInPlace(delta_pose_update, local_delta_pose_estimate, local_delta_pose_estimate);
+                Pose::multiply(delta_pose_update, local_delta_pose_estimate, local_delta_pose_estimate);
 
                 last_error = error;
             
@@ -1143,7 +1143,7 @@ namespace cv {
             }
             
             if (valid_estimate) {
-                Pose::multiplyInPlace(global_pose_estimate, delta_pose_estimate, global_pose_estimate);
+                Pose::multiply(global_pose_estimate, delta_pose_estimate, global_pose_estimate);
                 std::cout << "global pose: " << global_pose_estimate.toString() << std::endl;
             }
             
@@ -1367,7 +1367,7 @@ namespace cv {
                     //cv::Matx44f new_pose = pose*deltaPose;
                     //global_pose_estimate.set(new_pose);
                     //global_pose_estimate.compose(delta_pose_estimate);
-                    Pose::multiplyInPlace(global_pose_estimate, delta_pose_estimate, global_pose_estimate);
+                    Pose::multiply(global_pose_estimate, delta_pose_estimate, global_pose_estimate);
                     std::cout << "global pose: " << global_pose_estimate.toString() << std::endl;
                     // Mapping -> Structure estimation                   
                     world_map->update(quadTree, query_shapeMap,

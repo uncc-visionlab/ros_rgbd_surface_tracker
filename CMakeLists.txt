@@ -37,6 +37,10 @@ find_package(Boost REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
 
+if (EIGEN3_FOUND AND NOT(Eigen3_INCLUDE_DIRS))
+    set(Eigen3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})
+endif()
+
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
 ## See http://ros.org/doc/api/catkin/html/user_guide/setup_dot_py.html
