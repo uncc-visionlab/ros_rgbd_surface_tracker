@@ -34,13 +34,13 @@
 #include <ros_rgbd_surface_tracker/surface_alignment_optimizer.hpp>
 #include <ros_rgbd_surface_tracker/AlgebraicSurface.hpp>
 
-template <typename ScalarType>
+template <typename scalar_t>
 class Polygonizer {
     /**
      * Performs marching cubes on an implicit polynomial (AlgebraicSurface)
      */
 
-    using Vector3s = Eigen::Matrix<ScalarType, 3, 1>;
+    using Vector3s = Eigen::Matrix<scalar_t, 3, 1>;
     
 public:
     
@@ -56,9 +56,9 @@ public:
         size(_size(0), _size(1), _size(2)), 
         num_blocks(_num_blocks(0), _num_blocks(1), _num_blocks(2)) {}
 
-        EvaluationVolume(ScalarType posx, ScalarType posy, ScalarType posz,
-                ScalarType sizex, ScalarType sizey, ScalarType sizez,
-                ScalarType blocksx, ScalarType blocksy, ScalarType blocksz)
+        EvaluationVolume(scalar_t posx, scalar_t posy, scalar_t posz,
+                scalar_t sizex, scalar_t sizey, scalar_t sizez,
+                scalar_t blocksx, scalar_t blocksy, scalar_t blocksz)
         : position(posx, posy, posz),
         size(sizex, sizey, sizez),
         num_blocks(blocksx, blocksy, blocksz) {}
@@ -71,7 +71,7 @@ public:
 
     Polygonizer();
 
-    Polygonizer(AlgebraicSurfaceProduct<ScalarType>* surface_ptr, 
+    Polygonizer(AlgebraicSurfaceProduct<scalar_t>* surface_ptr, 
             PlaneVisualizationData* vis_data_ptr) {
 
         this->surface_ptr = surface_ptr;
@@ -80,7 +80,7 @@ public:
     }
 
     Polygonizer(const EvaluationVolume& volume,
-            AlgebraicSurfaceProduct<ScalarType>* surface_ptr,
+            AlgebraicSurfaceProduct<scalar_t>* surface_ptr,
             PlaneVisualizationData* vis_data_ptr) {
 
         this->volume = volume;
@@ -114,14 +114,14 @@ public:
     void marchSingleCube(const Vector3s& pos, const Vector3s& step) {
         
         int corner, vertex, vertex_test, edge, triangle, flag_index, edge_flags;
-        ScalarType offset;
-        ScalarType cube_value[8];
+        scalar_t offset;
+        scalar_t cube_value[8];
         Vector3s edge_vertex[12];
 
         //Make a local copy of the values at the cube's corners
         for (vertex = 0; vertex < 8; vertex++) {
             cube_value[vertex] = surface_ptr->evaluate(
-                    Eigen::Matrix<ScalarType, 1, 3>(
+                    Eigen::Matrix<scalar_t, 1, 3>(
                     pos(0) + vertex_offset[vertex][0] * step(0),
                     pos(1) + vertex_offset[vertex][1] * step(1),
                     pos(2) + vertex_offset[vertex][2] * step(2)));
@@ -182,9 +182,9 @@ public:
         }
     }
 
-    ScalarType level_set = 0.0;
+    scalar_t level_set = 0.0;
     EvaluationVolume volume;
-    AlgebraicSurfaceProduct<ScalarType>* surface_ptr;
+    AlgebraicSurfaceProduct<scalar_t>* surface_ptr;
     PlaneVisualizationData* vis_data_ptr;
 
 
@@ -198,7 +198,7 @@ private:
     or as close to the surface as possible after RES
     iterations
      */
-    void converge(const Vector3s& p1, const Vector3s& p2, ScalarType v, Vector3s& p) {
+    void converge(const Vector3s& p1, const Vector3s& p2, scalar_t v, Vector3s& p) {
         int maxiter = 10;
         
         int i = 0;
@@ -225,7 +225,7 @@ private:
         }
     }
 
-    static ScalarType getOffset(ScalarType value1, ScalarType value2, ScalarType value_desired) {
+    static scalar_t getOffset(scalar_t value1, scalar_t value2, scalar_t value_desired) {
         // finds the approximate point of intersection of the surface
         // between two points with the values value1 and value2
         double delta = value2 - value1;
@@ -236,7 +236,7 @@ private:
         return (value_desired - value1) / delta;
     }
 
-    static constexpr ScalarType vertex_offset[8][3] = {
+    static constexpr scalar_t vertex_offset[8][3] = {
         // lists the positions, relative to vertex0, of each of the 8 vertices of a cube
         {-0.5, -0.5, -0.5},
         { 0.5, -0.5, -0.5},
@@ -265,7 +265,7 @@ private:
         {3, 7}
     };
 
-    static constexpr ScalarType edge_direction[12][3] = {
+    static constexpr scalar_t edge_direction[12][3] = {
         // lists the direction vector (vertex1-vertex0) for each edge in the cube
         {1.0, 0.0, 0.0},
         {0.0, 1.0, 0.0},
@@ -573,20 +573,20 @@ private:
 
 };
 
-template <typename ScalarType>
-constexpr ScalarType Polygonizer<ScalarType>::vertex_offset[8][3];
+template <typename scalar_t>
+constexpr scalar_t Polygonizer<scalar_t>::vertex_offset[8][3];
 
-template <typename ScalarType>
-constexpr int Polygonizer<ScalarType>::edge_connection[12][2];
+template <typename scalar_t>
+constexpr int Polygonizer<scalar_t>::edge_connection[12][2];
 
-template <typename ScalarType>
-constexpr ScalarType Polygonizer<ScalarType>::edge_direction[12][3];
+template <typename scalar_t>
+constexpr scalar_t Polygonizer<scalar_t>::edge_direction[12][3];
 
-template <typename ScalarType>
-constexpr int Polygonizer<ScalarType>::cube_edge_flags[256];
+template <typename scalar_t>
+constexpr int Polygonizer<scalar_t>::cube_edge_flags[256];
 
-template <typename ScalarType>
-constexpr int Polygonizer<ScalarType>::triangle_connection_table[256][16];
+template <typename scalar_t>
+constexpr int Polygonizer<scalar_t>::triangle_connection_table[256][16];
 
 
 #endif /* POLIGONIZER_HPP */

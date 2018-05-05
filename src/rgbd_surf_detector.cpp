@@ -159,8 +159,14 @@ namespace cv {
                         rgbd_img.getTileData_Uniform(quad.x, quad.y,
                                 quad.width, quad.height, tile_data, numSamples);
                         if (tile_data.size() > (numSamples >> 2)) {
-                            rgbd_img.fitImplicitPlaneLeastSquares(tile_data, plane3, quad.error,
-                                    quad.noise, quad.inliers, quad.outliers, quad.invalid);
+                            cv::FitStatistics stats;
+                            std::tie(plane3, stats) = rgbd_img.fitPlaneImplicitLeastSquaresWithStats(tile_data);
+                            quad.error = stats.error;
+                            quad.noise = stats.noise;
+                            quad.inliers = stats.inliers;
+                            quad.outliers = stats.outliers;
+                            quad.invalid = stats.invalid;
+                            
                             if (quad.error / (quad.inliers + quad.outliers) < PLANE_FIT_ERROR_THRESHOLD * avgDepth) {
                                 //&& plane3.d > 0 && abs(plane3.x) < 0.99 && abs(plane3.y) < 0.99) {
                                 //std::cout << "areaA " << planeA->area() << " errorA = " 
@@ -215,8 +221,13 @@ namespace cv {
                     rgbd_img.getTileData_Uniform(quad.x, quad.y,
                             quad.width, quad.height, tile_data, numSamples);
                     if (tile_data.size() > (numSamples >> 2)) {
-                        rgbd_img.fitImplicitPlaneLeastSquares(tile_data, plane3, quad.error,
-                                quad.noise, quad.inliers, quad.outliers, quad.invalid);
+                            cv::FitStatistics stats;
+                            std::tie(plane3, stats) = rgbd_img.fitPlaneImplicitLeastSquaresWithStats(tile_data);
+                            quad.error = stats.error;
+                            quad.noise = stats.noise;
+                            quad.inliers = stats.inliers;
+                            quad.outliers = stats.outliers;
+                            quad.invalid = stats.invalid;
                         if (quad.error / (quad.inliers + quad.outliers) < PLANE_FIT_ERROR_THRESHOLD * avgDepth) {
                             //&& plane3.d > 0 && abs(plane3.x) < 0.99 && abs(plane3.y) < 0.99) {
                             //std::cout << "areaA " << planeA->area() << " errorA = " 

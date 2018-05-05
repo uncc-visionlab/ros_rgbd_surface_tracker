@@ -35,13 +35,13 @@
 
 #define SAFETY_CHECKS true
 
-template <typename ScalarType>
+template <typename scalar_t>
 class AlgebraicSurface {
-    using RowVectorXs = Eigen::Matrix<ScalarType, 1, Eigen::Dynamic>;
-    using MatrixXs = Eigen::Matrix<ScalarType, Eigen::Dynamic, Eigen::Dynamic>;
+    using RowVectorXs = Eigen::Matrix<scalar_t, 1, Eigen::Dynamic>;
+    using MatrixXs = Eigen::Matrix<scalar_t, Eigen::Dynamic, Eigen::Dynamic>;
     
 public:
-    using Ptr = boost::shared_ptr<AlgebraicSurface<ScalarType>>;
+    using Ptr = boost::shared_ptr<AlgebraicSurface<scalar_t>>;
 
     AlgebraicSurface() {
     }
@@ -205,7 +205,7 @@ public:
         return monomial_vector;
     }
     
-    static int signum(ScalarType d) {
+    static int signum(scalar_t d) {
         if (d == 0) {
             return 0;
         } else if (d < 0) {
@@ -216,13 +216,13 @@ public:
     }
     
     static bool coincident(
-            const AlgebraicSurface<ScalarType>& p, const AlgebraicSurface<ScalarType>& q) {
-        ScalarType det_nx_ny = p.coeffs(1) * q.coeffs(2) - q.coeffs(1) * p.coeffs(2);
-        ScalarType det_nx_nz = p.coeffs(1) * q.coeffs(3) - q.coeffs(1) * p.coeffs(3);
-        ScalarType det_nx_d = p.coeffs(1) * q.coeffs(0) - q.coeffs(1) * p.coeffs(0);
-        ScalarType det_ny_nz = p.coeffs(2) * q.coeffs(3) - q.coeffs(2) * p.coeffs(3);
-        ScalarType det_ny_d = p.coeffs(2) * q.coeffs(0) - q.coeffs(2) * p.coeffs(0);
-        ScalarType det_nz_d = p.coeffs(3) * q.coeffs(0) - q.coeffs(3) * p.coeffs(0);
+            const AlgebraicSurface<scalar_t>& p, const AlgebraicSurface<scalar_t>& q) {
+        scalar_t det_nx_ny = p.coeffs(1) * q.coeffs(2) - q.coeffs(1) * p.coeffs(2);
+        scalar_t det_nx_nz = p.coeffs(1) * q.coeffs(3) - q.coeffs(1) * p.coeffs(3);
+        scalar_t det_nx_d = p.coeffs(1) * q.coeffs(0) - q.coeffs(1) * p.coeffs(0);
+        scalar_t det_ny_nz = p.coeffs(2) * q.coeffs(3) - q.coeffs(2) * p.coeffs(3);
+        scalar_t det_ny_d = p.coeffs(2) * q.coeffs(0) - q.coeffs(2) * p.coeffs(0);
+        scalar_t det_nz_d = p.coeffs(3) * q.coeffs(0) - q.coeffs(3) * p.coeffs(0);
         return (det_nx_ny == 0 && det_nx_nz == 0 && det_nx_d == 0
                 && det_ny_nz == 0 && det_ny_d == 0 && det_nz_d == 0);
         
@@ -246,7 +246,7 @@ public:
      * @param m Total number of available items.
      * @return Number of ways to choose n items out of m.
      * */
-    static ScalarType getBinomialCoefficient(int n, int m) {
+    static scalar_t getBinomialCoefficient(int n, int m) {
         int r1, r2, r3, r;
         r1 = factorial(n);
         r2 = factorial(m);
@@ -256,7 +256,7 @@ public:
         } else {
             r = 0;
         }
-        return ((ScalarType) r);
+        return ((scalar_t) r);
     }
     
     /**
@@ -265,7 +265,7 @@ public:
      * @param m Total number of available items.
      * @return Number of ways to choose n items out of m.
      * */
-    static ScalarType getMultinomialCoefficient(
+    static scalar_t getMultinomialCoefficient(
             const Eigen::Ref<const Eigen::RowVectorXi>& coordinate_powers) {
 
         Eigen::RowVectorXi K(coordinate_powers.size());
@@ -342,9 +342,9 @@ public:
      * @param surfaceB - The second implicit polynomial.
      * @return a new  implicit polynomial representing surfaceA + surfaceB.
      * */
-    static AlgebraicSurface<ScalarType> add(
-            const AlgebraicSurface<ScalarType>& surfaceA, 
-            const AlgebraicSurface<ScalarType>& surfaceB) {
+    static AlgebraicSurface<scalar_t> add(
+            const AlgebraicSurface<scalar_t>& surfaceA, 
+            const AlgebraicSurface<scalar_t>& surfaceB) {
         
         int new_order = (surfaceA.order > surfaceB.order) ? surfaceA.order : surfaceB.order;
         int new_dimension = surfaceA.dimension;
@@ -365,12 +365,12 @@ public:
             new_coeffs[i] = coeffA + coeffB;
         }
         
-        return AlgebraicSurface<ScalarType>(new_coeffs, new_dimension, new_order);
+        return AlgebraicSurface<scalar_t>(new_coeffs, new_dimension, new_order);
         
     }
     
-    static AlgebraicSurface<ScalarType> scale(ScalarType scale, const AlgebraicSurface<ScalarType>& surface) {
-        return AlgebraicSurface<ScalarType>(scale*surface.coeffs, surface.dimension, surface.order);
+    static AlgebraicSurface<scalar_t> scale(scalar_t scale, const AlgebraicSurface<scalar_t>& surface) {
+        return AlgebraicSurface<scalar_t>(scale*surface.coeffs, surface.dimension, surface.order);
     }
     
     /**
@@ -378,8 +378,8 @@ public:
      * @param scale the value which will be multiplied into each of the polynomial coefficients.
      * @return a new scaled implicit polynomial.
      * */
-    AlgebraicSurface<ScalarType> scale(ScalarType scale) {
-        return AlgebraicSurface<ScalarType>(scale*this->coeffs, this->dimension, this->order);
+    AlgebraicSurface<scalar_t> scale(scalar_t scale) {
+        return AlgebraicSurface<scalar_t>(scale*this->coeffs, this->dimension, this->order);
     }
 
     /**
@@ -390,9 +390,9 @@ public:
      * @param surfB The second of the two implicit polynomials to multiply.
      * @return A new AlgebraicSurface object representing surfA*surfB.
      */
-    static AlgebraicSurface<ScalarType> multiply(
-            const AlgebraicSurface<ScalarType>& surfA,
-            const AlgebraicSurface<ScalarType>& surfB) {
+    static AlgebraicSurface<scalar_t> multiply(
+            const AlgebraicSurface<scalar_t>& surfA,
+            const AlgebraicSurface<scalar_t>& surfB) {
 
         if (surfA.dimension != surfB.dimension) {
             throw "Cannot multiply polynomials of differing dimension";
@@ -400,7 +400,7 @@ public:
 
         int num_monomialsA = polyDim(surfA.dimension, surfA.order);
         int num_monomialsB = polyDim(surfB.dimension, surfB.order);
-        AlgebraicSurface<ScalarType> product(surfA.dimension, 
+        AlgebraicSurface<scalar_t> product(surfA.dimension, 
                 surfA.order + surfB.order);
         int num_monomials = polyDim(product.dimension, product.order);
 
@@ -430,12 +430,12 @@ public:
         return product;
     }
 
-    virtual ScalarType evaluate(const Eigen::Ref<const RowVectorXs>& pt) {
+    virtual scalar_t evaluate(const Eigen::Ref<const RowVectorXs>& pt) {
         RowVectorXs monomial_vector = computeMonomialVector(pt);
         return this->coeffs * monomial_vector.transpose();
     }
 
-    virtual ScalarType evaluateDerivative(int coord_index, 
+    virtual scalar_t evaluateDerivative(int coord_index, 
             const Eigen::Ref<const RowVectorXs>& pt) {
         return computeSymbolicDerivative(coord_index).evaluate(pt);
     }
@@ -447,7 +447,7 @@ public:
      * @return The ImplicitPolynomial object which corresponds to the derivative of this polynomial
      *         with respect to the coordinate specified by coordIndex.
      * */
-    AlgebraicSurface<ScalarType> computeSymbolicDerivative(int coord_index) {
+    AlgebraicSurface<scalar_t> computeSymbolicDerivative(int coord_index) {
         
         int num_monomials = polyDim(this->dimension, this->order);
         int num_monomials2 = polyDim(this->dimension, this->order - 1);
@@ -470,7 +470,7 @@ public:
             coordinate_powers = generateNextMonomial(coordinate_powers);
         }
         
-        return AlgebraicSurface<ScalarType>(derivative_coeffs, this->dimension, 
+        return AlgebraicSurface<scalar_t>(derivative_coeffs, this->dimension, 
                 this->order - 1);
         
     }
@@ -488,13 +488,13 @@ public:
     }
     
     
-    static AlgebraicSurface<ScalarType> affineTransform(
+    static AlgebraicSurface<scalar_t> affineTransform(
             const Eigen::Ref<const MatrixXs>& transform, 
-            const AlgebraicSurface<ScalarType>& surface) {
+            const AlgebraicSurface<scalar_t>& surface) {
         
         int num_monomials = polyDim(surface.dimension, surface.order);
-        AlgebraicSurface<ScalarType> res = 
-                AlgebraicSurface<ScalarType>(surface.dimension, surface.order);
+        AlgebraicSurface<scalar_t> res = 
+                AlgebraicSurface<scalar_t>(surface.dimension, surface.order);
 
         // notice we need to reverse the order to satisfy the order of [a_n, ..., a2, a1] like
         Eigen::RowVectorXi powers(surface.dimension);
@@ -505,7 +505,7 @@ public:
             RowVectorXs one_coeff(1);
             one_coeff.setOnes();
 
-            AlgebraicSurface<ScalarType> poly(one_coeff, surface.dimension, 0); // 0 degree polynomial
+            AlgebraicSurface<scalar_t> poly(one_coeff, surface.dimension, 0); // 0 degree polynomial
             for (int j = 0; j < surface.dimension; j++) {
                 // for each dimension
                 RowVectorXs trans(surface.dimension + 1);
@@ -513,9 +513,9 @@ public:
                     trans(k) = transform(j, k - 1);
                 }
                 trans(0) = transform(j, surface.dimension);
-                poly = AlgebraicSurface<ScalarType>::multiply(poly, surface.expandLinearFormPower(trans, powers(j)));
+                poly = AlgebraicSurface<scalar_t>::multiply(poly, surface.expandLinearFormPower(trans, powers(j)));
             }
-            res = AlgebraicSurface<ScalarType>::add(res, poly.scale(surface.coeffs(i)));
+            res = AlgebraicSurface<scalar_t>::add(res, poly.scale(surface.coeffs(i)));
             powers = surface.generateNextMonomial(powers);
         }
         
@@ -524,11 +524,11 @@ public:
     
     
     virtual void affineTransform(const Eigen::Ref<const MatrixXs>& transform) {
-        *this = AlgebraicSurface<ScalarType>::affineTransform(transform, *this);
+        *this = AlgebraicSurface<scalar_t>::affineTransform(transform, *this);
         return;
     }
     
-    AlgebraicSurface<ScalarType> expandLinearFormPower(
+    AlgebraicSurface<scalar_t> expandLinearFormPower(
             const Eigen::Ref<const RowVectorXs>& linear_coeffs, int power) const {
         
         Eigen::RowVectorXi indx(this->dimension + 1);
@@ -536,7 +536,7 @@ public:
         indx(0) = power;
 
         int num_monomials = polyDim(this->dimension, power);
-        AlgebraicSurface<ScalarType> res = AlgebraicSurface<ScalarType>(this->dimension, power);
+        AlgebraicSurface<scalar_t> res = AlgebraicSurface<scalar_t>(this->dimension, power);
         RowVectorXs coeffs(num_monomials);
         coeffs.setZero();
         
@@ -603,10 +603,10 @@ public:
 
 };
 
-template <typename ScalarType>
-class PlanarSurface : public AlgebraicSurface<ScalarType> {
-    typedef Eigen::Matrix<ScalarType, 1, Eigen::Dynamic> RowVectorXs;
-    typedef Eigen::Matrix<ScalarType, Eigen::Dynamic, Eigen::Dynamic> MatrixXs;
+template <typename scalar_t>
+class PlanarSurface : public AlgebraicSurface<scalar_t> {
+    typedef Eigen::Matrix<scalar_t, 1, Eigen::Dynamic> RowVectorXs;
+    typedef Eigen::Matrix<scalar_t, Eigen::Dynamic, Eigen::Dynamic> MatrixXs;
 
 public:
 
@@ -618,27 +618,27 @@ public:
     }
 
     PlanarSurface(const Eigen::Ref<const RowVectorXs>& coeffs) : 
-        AlgebraicSurface<ScalarType>(coeffs, 3, 1) {}
+        AlgebraicSurface<scalar_t>(coeffs, 3, 1) {}
 
     void convertHessianNormalForm() {
         this->coeffs = this->coeffs/this->coeffs.tail(3).norm();
     }
     
-    ScalarType evaluate(const Eigen::Ref<const RowVectorXs>& pt) {
+    scalar_t evaluate(const Eigen::Ref<const RowVectorXs>& pt) {
         
-        return (Eigen::Matrix<ScalarType, 1, 4>() << 1.0, pt).finished() *
+        return (Eigen::Matrix<scalar_t, 1, 4>() << 1.0, pt).finished() *
                 this->coeffs.transpose();
         
     }
 
-    ScalarType evaluateDerivative(int coord_index, const Eigen::Ref<const RowVectorXs>& pt) {
+    scalar_t evaluateDerivative(int coord_index, const Eigen::Ref<const RowVectorXs>& pt) {
         
         return this->coeffs(coord_index + 1);
         
     }
     
     void affineTransform(
-            const Eigen::Ref<const Eigen::Matrix<ScalarType, 4, 4>>& transform) {
+            const Eigen::Ref<const Eigen::Matrix<scalar_t, 4, 4>>& transform) {
         
         // inverse method 1
 //        transform.row(3).swap(transform.col(3));
@@ -654,7 +654,7 @@ public:
         perm.indices() << 1, 2, 3, 0;
         this->coeffs = perm.transpose()*transform*perm*this->coeffs.transpose();
 
-//        this->AlgebraicSurface<ScalarType>::affineTransform(transform);
+//        this->AlgebraicSurface<scalar_t>::affineTransform(transform);
         this->convertHessianNormalForm();
         
         return;
@@ -662,12 +662,12 @@ public:
 
 };
 
-template <typename ScalarType>
+template <typename scalar_t>
 class AlgebraicSurfaceProduct {
-    using RowVectorXs =  Eigen::Matrix<ScalarType, 1, Eigen::Dynamic>;
-    using MatrixXs = Eigen::Matrix<ScalarType, Eigen::Dynamic, Eigen::Dynamic>;
+    using RowVectorXs =  Eigen::Matrix<scalar_t, 1, Eigen::Dynamic>;
+    using MatrixXs = Eigen::Matrix<scalar_t, Eigen::Dynamic, Eigen::Dynamic>;
     using VecAlgebraicSurfacePtrs = 
-            std::vector<boost::shared_ptr<AlgebraicSurface<ScalarType>>>;
+            std::vector<boost::shared_ptr<AlgebraicSurface<scalar_t>>>;
     
 public:
 
@@ -714,7 +714,7 @@ public:
         
     }
     
-    void addSubSurface(const typename AlgebraicSurface<ScalarType>::Ptr& surface) {
+    void addSubSurface(const typename AlgebraicSurface<scalar_t>::Ptr& surface) {
         
         if (this->subsurfaces.size() == 0 && this->dimension == 0) {
             this->dimension = surface->dimension;
@@ -725,11 +725,11 @@ public:
         this->order = this->computeOrder();
     }
     
-    ScalarType evaluate(const Eigen::Ref<const RowVectorXs>& pt) {
+    scalar_t evaluate(const Eigen::Ref<const RowVectorXs>& pt) {
         if (subsurfaces.size() == 0 && SAFETY_CHECKS)
             throw "No subsurfaces found!";
         
-        ScalarType algebraic_dist = 1;
+        scalar_t algebraic_dist = 1;
 
         for (auto const& surface : this->subsurfaces) {
             algebraic_dist *= surface->evaluate(pt);
@@ -739,18 +739,18 @@ public:
         
     }
     
-    ScalarType evaluateDerivative(int coord_index, const Eigen::Ref<const RowVectorXs>& pt) {
+    scalar_t evaluateDerivative(int coord_index, const Eigen::Ref<const RowVectorXs>& pt) {
         if (subsurfaces.size() == 0 && SAFETY_CHECKS)
             throw "No subsurfaces found!";
         
-        ScalarType algebraic_dist = 1;
-        ScalarType derivative = 0;
-        ScalarType this_surface_dist;
+        scalar_t algebraic_dist = 1;
+        scalar_t derivative = 0;
+        scalar_t this_surface_dist;
 
         for (std::size_t i = 0; i != this->subsurfaces.size(); i++) {
             this_surface_dist = this->subsurfaces[i]->evaluate(pt);
-            if (std::abs<ScalarType>(this_surface_dist) < 1e-20)
-                return ((ScalarType) 0.0);
+            if (std::abs<scalar_t>(this_surface_dist) < 1e-20)
+                return ((scalar_t) 0.0);
             algebraic_dist *= this_surface_dist;
             derivative += this->subsurfaces[i]->evaluateDerivative(coord_index, pt)/this_surface_dist;
         }
@@ -769,14 +769,14 @@ public:
         if (this->dimension == 0)
             this->dimension = this->computeDimension();
         
-        ScalarType algebraic_dist = 1;
-        ScalarType this_surface_dist;
+        scalar_t algebraic_dist = 1;
+        scalar_t this_surface_dist;
         RowVectorXs gradient(this->dimension);
         gradient.setZero();
         
         for (std::size_t i = 0; i != this->subsurfaces.size(); i++) {
             this_surface_dist = this->subsurfaces[i]->evaluate(pt);
-            if (std::abs<ScalarType>(this_surface_dist) < 1e-20)
+            if (std::abs<scalar_t>(this_surface_dist) < 1e-20)
                 return gradient.setZero();
             algebraic_dist *= this_surface_dist;
             
@@ -799,14 +799,14 @@ public:
         if (this->dimension == 0)
             this->dimension = this->computeDimension();
         
-        ScalarType algebraic_dist = 1;
-        ScalarType this_surface_dist;
+        scalar_t algebraic_dist = 1;
+        scalar_t this_surface_dist;
         RowVectorXs gradient(this->dimension);
         gradient.setZero();
         
         for (std::size_t i = 0; i != this->subsurfaces.size(); i++) {
             this_surface_dist = this->subsurfaces[i]->evaluate(pt);
-            if (std::abs<ScalarType>(this_surface_dist) < 1e-20)
+            if (std::abs<scalar_t>(this_surface_dist) < 1e-20)
                 return gradient.setZero();
             algebraic_dist *= this_surface_dist;
             
@@ -830,16 +830,16 @@ public:
         return;
     }
     
-    AlgebraicSurface<ScalarType> toAlgebraicSurface() {
+    AlgebraicSurface<scalar_t> toAlgebraicSurface() {
         
         if (subsurfaces.size() == 0 && SAFETY_CHECKS)
             throw "No subsurfaces found!";
         
-        AlgebraicSurface<ScalarType> new_surface(this->subsurfaces[0]->dimension, 0);
+        AlgebraicSurface<scalar_t> new_surface(this->subsurfaces[0]->dimension, 0);
         new_surface.coeffs(0) = 1;
         
         for (auto const& surface : this->subsurfaces) {
-            new_surface = AlgebraicSurface<ScalarType>::multiply(new_surface, *surface);
+            new_surface = AlgebraicSurface<scalar_t>::multiply(new_surface, *surface);
         }
         
         return new_surface;
@@ -853,18 +853,18 @@ public:
     VecAlgebraicSurfacePtrs subsurfaces;
 };
 
-template <typename ScalarType>
-class CornerSurfaceProduct : public AlgebraicSurfaceProduct<ScalarType> {
-    using RowVector3s =  Eigen::Matrix<ScalarType, 1, 3>;
-    using RowVectorXs =  Eigen::Matrix<ScalarType, 1, Eigen::Dynamic>;
-    using Matrix3s =  Eigen::Matrix<ScalarType, 3, 3>;
-    using MatrixXs = Eigen::Matrix<ScalarType, Eigen::Dynamic, Eigen::Dynamic>;
+template <typename scalar_t>
+class CornerSurfaceProduct : public AlgebraicSurfaceProduct<scalar_t> {
+    using RowVector3s =  Eigen::Matrix<scalar_t, 1, 3>;
+    using RowVectorXs =  Eigen::Matrix<scalar_t, 1, Eigen::Dynamic>;
+    using Matrix3s =  Eigen::Matrix<scalar_t, 3, 3>;
+    using MatrixXs = Eigen::Matrix<scalar_t, Eigen::Dynamic, Eigen::Dynamic>;
     using VecAlgebraicSurfacePtrs = 
-            std::vector<boost::shared_ptr<AlgebraicSurface<ScalarType>>>;
+            std::vector<boost::shared_ptr<AlgebraicSurface<scalar_t>>>;
     
 public:
     
-    CornerSurfaceProduct() : AlgebraicSurfaceProduct<ScalarType>(3) {}
+    CornerSurfaceProduct() : AlgebraicSurfaceProduct<scalar_t>(3) {}
     
     CornerSurfaceProduct(const VecAlgebraicSurfacePtrs& new_subsurfaces) {
         this->subsurfaces = new_subsurfaces;
@@ -873,21 +873,21 @@ public:
     }
     
     static RowVector3s getPoint(
-            const AlgebraicSurface<ScalarType>& p, 
-            const AlgebraicSurface<ScalarType>& q, 
-            const AlgebraicSurface<ScalarType>& r) {
+            const AlgebraicSurface<scalar_t>& p, 
+            const AlgebraicSurface<scalar_t>& q, 
+            const AlgebraicSurface<scalar_t>& r) {
         
-        Eigen::Matrix<ScalarType, 3, 4> coeffs_mat;
+        Eigen::Matrix<scalar_t, 3, 4> coeffs_mat;
         coeffs_mat << p.coeffs, q.coeffs, r.coeffs;
          
-        ScalarType x = (Matrix3s() << coeffs_mat.col(0), coeffs_mat.col(2), coeffs_mat.col(3)).finished().determinant();
-        ScalarType y = (Matrix3s() << coeffs_mat.col(1), coeffs_mat.col(0), coeffs_mat.col(3)).finished().determinant();
-        ScalarType z = (Matrix3s() << coeffs_mat.col(1), coeffs_mat.col(2), coeffs_mat.col(0)).finished().determinant();
-        ScalarType w = -(Matrix3s() << coeffs_mat.col(1), coeffs_mat.col(2), coeffs_mat.col(3)).finished().determinant();
+        scalar_t x = (Matrix3s() << coeffs_mat.col(0), coeffs_mat.col(2), coeffs_mat.col(3)).finished().determinant();
+        scalar_t y = (Matrix3s() << coeffs_mat.col(1), coeffs_mat.col(0), coeffs_mat.col(3)).finished().determinant();
+        scalar_t z = (Matrix3s() << coeffs_mat.col(1), coeffs_mat.col(2), coeffs_mat.col(0)).finished().determinant();
+        scalar_t w = -(Matrix3s() << coeffs_mat.col(1), coeffs_mat.col(2), coeffs_mat.col(3)).finished().determinant();
         
-        if (AlgebraicSurface<ScalarType>::signum(w) == 0) {
-            bool is_coincident = AlgebraicSurface<ScalarType>::coincident(p, q);
-            return  RowVector3s().setConstant(std::numeric_limits<ScalarType>::quiet_NaN());
+        if (AlgebraicSurface<scalar_t>::signum(w) == 0) {
+            bool is_coincident = AlgebraicSurface<scalar_t>::coincident(p, q);
+            return  RowVector3s().setConstant(std::numeric_limits<scalar_t>::quiet_NaN());
         }
         
         RowVector3s pt(x, y, z);
@@ -901,27 +901,27 @@ public:
         
     }
     
-    ScalarType evaluateSecondDerivative(int coord_index, const Eigen::Ref<const RowVector3s>& pt) {
+    scalar_t evaluateSecondDerivative(int coord_index, const Eigen::Ref<const RowVector3s>& pt) {
         if (this->subsurfaces.size() != 3 && SAFETY_CHECKS)
             throw "Subsurfaces != 3!";
             
-        ScalarType a1 = this->subsurfaces[0]->coeffs[1];
-        ScalarType a2 = this->subsurfaces[1]->coeffs[1];
-        ScalarType a3 = this->subsurfaces[2]->coeffs[1];
+        scalar_t a1 = this->subsurfaces[0]->coeffs[1];
+        scalar_t a2 = this->subsurfaces[1]->coeffs[1];
+        scalar_t a3 = this->subsurfaces[2]->coeffs[1];
         
-        ScalarType b1 = this->subsurfaces[0]->coeffs[2];
-        ScalarType b2 = this->subsurfaces[1]->coeffs[2];
-        ScalarType b3 = this->subsurfaces[2]->coeffs[2];
+        scalar_t b1 = this->subsurfaces[0]->coeffs[2];
+        scalar_t b2 = this->subsurfaces[1]->coeffs[2];
+        scalar_t b3 = this->subsurfaces[2]->coeffs[2];
         
-        ScalarType c1 = this->subsurfaces[0]->coeffs[3];
-        ScalarType c2 = this->subsurfaces[1]->coeffs[3];
-        ScalarType c3 = this->subsurfaces[2]->coeffs[3];
+        scalar_t c1 = this->subsurfaces[0]->coeffs[3];
+        scalar_t c2 = this->subsurfaces[1]->coeffs[3];
+        scalar_t c3 = this->subsurfaces[2]->coeffs[3];
         
-        ScalarType d1 = this->subsurfaces[0]->coeffs[0];
-        ScalarType d2 = this->subsurfaces[1]->coeffs[0];
-        ScalarType d3 = this->subsurfaces[2]->coeffs[0];
+        scalar_t d1 = this->subsurfaces[0]->coeffs[0];
+        scalar_t d2 = this->subsurfaces[1]->coeffs[0];
+        scalar_t d3 = this->subsurfaces[2]->coeffs[0];
         
-        ScalarType result;
+        scalar_t result;
         
         switch(coord_index) {
             case 0:

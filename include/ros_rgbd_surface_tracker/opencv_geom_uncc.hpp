@@ -541,9 +541,11 @@ namespace cv {
 
     class Consensus {
     public:
-        int inliers, outliers, invalid;
+        int inliers = 0;
+        int outliers = 0;
+        int invalid = 0;
 
-        Consensus() : inliers(0), outliers(0), invalid(0) {
+        Consensus() {
         }
 
         Consensus(int _inliers, int _outliers, int _invalid) :
@@ -560,25 +562,43 @@ namespace cv {
             return os;
         }
     };
-
-    class RectWithError : public Rect, public Consensus {
+    
+    class FitStatistics : public Consensus {
     public:
-        float error, noise;
+        float error = 0;
+        float noise = 0;
+        
+        FitStatistics() {
+        }
+        
+        FitStatistics(float error, size_t inliers, size_t outliers, size_t invalid) : 
+            error(error), Consensus(inliers, outliers, invalid) {}
+        
+        FitStatistics(float error, float noise, size_t inliers, size_t outliers, size_t invalid) : 
+            error(error), noise(noise), Consensus(inliers, outliers, invalid) {}
+        
+        friend std::ostream& operator<<(std::ostream& os, const FitStatistics& stats) {
+            os << "[error = " << stats.error << ", noise = " << stats.noise << ", i = " << stats.inliers 
+                << ", o = " << stats.outliers << ", nan = " << stats.invalid << "]";
+            return os;
+        }
+        
+    };
 
-        RectWithError() : Rect(), error(0), noise(0) {
+    class RectWithError : public Rect, public FitStatistics {
+    public:
+
+        RectWithError() : Rect() {
         }
 
         RectWithError(int _x, int _y, int _width, int _height) :
-        Rect(_x, _y, _width, _height), error(0), noise(0), Consensus() {
+        Rect(_x, _y, _width, _height), FitStatistics() {
 
         }
 
         RectWithError(int _x, int _y, int _width, int _height, float _error,
                 int _inliers, int _outliers, int _invalid = 0) :
-        Rect(_x, _y, _width, _height), error(_error), noise(0),
-        Consensus(_inliers, _outliers, _invalid) {
-
-        }
+        Rect(_x, _y, _width, _height), FitStatistics(_error, _inliers, _outliers, _invalid) {}
 
         RectWithError clone() {
             return RectWithError(x, y, width, height, error,

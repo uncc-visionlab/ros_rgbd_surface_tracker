@@ -76,10 +76,7 @@ namespace cv {
 
                 } else {
                     // fit a plane to use as an initial guess
-                    cv::Plane3f plane;
-                    cv::RectWithError rect;
-                    rgbd_img.fitImplicitPlaneLeastSquares(data, plane, rect.error,
-                            rect.noise, rect.inliers, rect.outliers, rect.invalid);
+                    cv::Plane3f plane = rgbd_img.fitPlaneImplicitLeastSquares(data);
                     AlgebraicSurface<double>::Ptr subsurface_ptr =
                             boost::make_shared<PlanarSurface<double>>(
                             Eigen::RowVector4d(plane.d, plane.x, plane.y, plane.z));
@@ -163,12 +160,8 @@ namespace cv {
 
                 } else {
                     // fit edge for initial guess
-                    cv::Plane3f planeA, planeB;
-                    cv::RectWithError rect;
-                    rgbd_img.fitImplicitPlaneLeastSquares(tileA_data, planeA, rect.error,
-                            rect.noise, rect.inliers, rect.outliers, rect.invalid);
-                    rgbd_img.fitImplicitPlaneLeastSquares(tileB_data, planeB, rect.error,
-                            rect.noise, rect.inliers, rect.outliers, rect.invalid);
+                    cv::Plane3f planeA = rgbd_img.fitPlaneImplicitLeastSquares(tileA_data);
+                    cv::Plane3f planeB = rgbd_img.fitPlaneImplicitLeastSquares(tileB_data);
                     AlgebraicSurface<double>::Ptr subsurfaceA_ptr =
                             boost::make_shared<PlanarSurface<double>>(
                             Eigen::RowVector4d(planeA.d, planeA.x, planeA.y, planeA.z));
@@ -275,11 +268,7 @@ namespace cv {
                     // fit surface for initial guess
 
                     for (std::size_t rectid = 0; rectid != rects.size(); ++rectid) {
-                        cv::Plane3f plane;
-                        cv::RectWithError rect;
-
-                        rgbd_img.fitImplicitPlaneLeastSquares(tile_data[rectid], plane, rect.error,
-                                rect.noise, rect.inliers, rect.outliers, rect.invalid);
+                        cv::Plane3f plane = rgbd_img.fitPlaneImplicitLeastSquares(tile_data[rectid]);
 
                         AlgebraicSurface<double>::Ptr subsurface_ptr =
                                 boost::make_shared<PlanarSurface<double>>(
@@ -681,11 +670,7 @@ namespace cv {
             rgbd_img.getTileData_Uniform(
                     x1, y1, tile_width, tile_height, tile_data, samples_per_tile);
 
-            cv::Plane3f plane;
-            cv::RectWithError rect;
-
-            rgbd_img.fitImplicitPlaneLeastSquares(tile_data, plane, rect.error,
-                    rect.noise, rect.inliers, rect.outliers, rect.invalid);
+            cv::Plane3f plane = rgbd_img.fitPlaneImplicitLeastSquares(tile_data);
 
             //            std::fstream plane_data_file("plane_data.csv", std::fstream::in | std::fstream::out | std::fstream::app);
             //            std::cout << plane.toString();
