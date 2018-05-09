@@ -15,7 +15,7 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/rgbd.hpp>
 
-#include <uncc_rgbd_slam/pose.hpp>
+#include <ros_rgbd_surface_tracker/pose.hpp>
 #include <ros_rgbd_surface_tracker/AlgebraicSurface.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>

@@ -20,9 +20,9 @@
 
 #include <pcl/point_types.h>
 
-#include <colored_sphere_detector/PixelColorClassifier.hpp>
-#include <colored_sphere_detector/CircleDetector.hpp>
-#include <colored_sphere_detector/SphereDetector.hpp>
+#include <ros_rgbd_surface_tracker/PixelColorClassifier.hpp>
+#include <ros_rgbd_surface_tracker/CircleDetector.hpp>
+#include <ros_rgbd_surface_tracker/SphereDetector.hpp>
 
 class ColoredSphereDetector {
 public:

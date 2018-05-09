@@ -20,7 +20,7 @@
 
 #include <opencv2/core.hpp>
 
-#include <colored_sphere_detector/Gaussian.hpp>
+#include <ros_rgbd_surface_tracker/Gaussian.hpp>
 
 enum class Color {
     OTHER, RED, GREEN, BLUE, YELLOW, ORANGE

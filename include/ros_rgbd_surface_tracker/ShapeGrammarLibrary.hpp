@@ -21,7 +21,7 @@
 #include <GL/glut.h>
 
 #include <ros_rgbd_surface_tracker/opencv_geom_uncc.hpp>
-#include <uncc_rgbd_slam/pose.hpp>
+#include <ros_rgbd_surface_tracker/pose.hpp>
 
 #ifdef __cplusplus
 

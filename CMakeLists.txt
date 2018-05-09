@@ -28,14 +28,16 @@ find_package(catkin REQUIRED
   tf2_ros
 
   rgbd_drivers_uncc
-  uncc_rgbd_slam
-  dvo_core)
+#  uncc_rgbd_slam
+#  dvo_core
+)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 find_package(Boost REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(PCL REQUIRED)
 
 if (EIGEN3_FOUND AND NOT(Eigen3_INCLUDE_DIRS))
     set(Eigen3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})
@@ -147,6 +149,7 @@ include_directories(
   ${Boost_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
   ${Eigen3_INCLUDE_DIRS}
+  ${PCL_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
@@ -166,7 +169,25 @@ include_directories(
 
 link_directories(/opt/ros/kinetic/lib) # needed to find OpenNI2Orbbec
 
-add_executable(${PROJECT_NAME} 
+add_library(${PROJECT_NAME} 
+    src/ros_rgbd_surface_tracker.cpp
+    src/rgbd_tracker_uncc.cpp
+    src/rgbd_image_uncc.cpp
+    src/rgbd_surf_detector.cpp
+    src/ShapeGrammarLibrary.cpp
+    src/surf_descriptor_proc.cpp
+    src/surface_alignment_optimizer.cpp
+    src/surface_fitting.cpp
+    src/opengl_renderer.cpp)
+
+target_link_libraries(${PROJECT_NAME} 
+   ${catkin_LIBRARIES}  
+   ${Boost_LIBRARIES} 
+   ${OpenCV_LIBRARIES}
+   ${Eigen3_LIBRARIES}
+   ${PCL_LIBRARIES} GL GLU glut)
+
+add_executable(${PROJECT_NAME}_run
     src/ros_rgbd_surface_tracker.cpp
     src/rgbd_tracker_uncc.cpp
     src/rgbd_image_uncc.cpp
@@ -191,33 +212,11 @@ add_executable(${PROJECT_NAME}
 # target_link_libraries(${PROJECT_NAME}_node
 #   ${catkin_LIBRARIES}
 # )
-target_link_libraries(${PROJECT_NAME} 
+target_link_libraries(${PROJECT_NAME}_run
    ${catkin_LIBRARIES}  
    ${Boost_LIBRARIES} 
    ${OpenCV_LIBRARIES}
    ${Eigen3_LIBRARIES} GL GLU glut)
-
-add_executable(run_rgbd_live
-    src/run_rgbd_live.cpp
-    src/rgbd_tracker_uncc.cpp
-    src/rgbd_image_uncc.cpp
-    src/rgbd_surf_detector.cpp
-    src/ShapeGrammarLibrary.cpp
-    src/surf_descriptor_proc.cpp
-    src/surface_alignment_optimizer.cpp
-    src/surface_fitting.cpp
-    src/opengl_renderer.cpp)
-#set_target_properties(main_opencv PROPERTIES
-#  IMPORTED_LOCATION "/opt/ros/kinetic/lib/libbar.so"
-#  INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/include/libbar"
-#)
-
-target_link_libraries(run_rgbd_live
-   ${catkin_LIBRARIES} 
-   ${Boost_LIBRARIES} 
-   ${OpenCV_LIBRARIES}  
-   ${Eigen3_LIBRARIES}  
-   OpenNI2Orbbec pthread marchingcubes GL GLU glut)
 
 add_executable(run_rgbd_live_arm
     src/run_rgbd_live_arm.cpp
@@ -245,22 +244,6 @@ target_link_libraries(opengl_iothread
 
 add_library(marchingcubes src/marchingsource.cpp)
 target_link_libraries(marchingcubes GL glut)
-
-add_executable(run_rgbd_from_bagfile
-    src/run_rgbd_from_bagfile.cpp 
-    src/rgbd_tracker_uncc.cpp
-    src/rgbd_image_uncc.cpp
-    src/rgbd_surf_detector.cpp
-    src/ShapeGrammarLibrary.cpp
-    src/surf_descriptor_proc.cpp
-    src/surface_alignment_optimizer.cpp
-    src/surface_fitting.cpp
-    src/opengl_renderer.cpp)
-
-target_link_libraries(run_rgbd_from_bagfile
-    ${catkin_LIBRARIES}
-    ${Boost_LIBRARIES}
-    ${OpenCV_LIBS} GL GLU glut)
 
 #############
 ## Install ##

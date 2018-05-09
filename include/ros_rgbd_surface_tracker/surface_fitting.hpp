@@ -156,11 +156,10 @@ namespace cv {
 
             }
             
-            static std::vector<cv::Plane3f> planeSegmentationRANSAC(pcl::PointCloud<pcl::PointXYZ>::Ptr points, double distance_threshold = .01, size_t max_iterations = 1000, bool refine = true) {
+            static std::vector<cv::Plane3f> planeExtractionRANSAC(pcl::PointCloud<pcl::PointXYZ>::Ptr points, double distance_threshold = .01, size_t max_iterations = 1000, bool refine = true) {
 
                 std::vector<cv::Plane3f> planes;
 
-                // Get segmentation ready
                 pcl::ModelCoefficients::Ptr coefficients = boost::make_shared<pcl::ModelCoefficients>();
                 pcl::PointIndices::Ptr inliers = boost::make_shared<pcl::PointIndices>();
                 pcl::SACSegmentation<pcl::PointXYZ> segmentation;

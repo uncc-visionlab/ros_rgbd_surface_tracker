@@ -10,14 +10,15 @@
 
 #ifdef __cplusplus
 
+#include <boost/shared_ptr.hpp>
 #include <opencv2/core.hpp>
 
-#include <ros_rgbd_surface_tracker/ShapeGrammarLibrary.hpp>
+#include <rgbd_drivers_uncc/rgbd_driver_client.hpp>
+#include <ros_rgbd_surface_tracker/pose.hpp>
 
-class RgbdCameraTracker {
+class RgbdCameraTracker : public RgbdDriverClient {
 public:
     typedef boost::shared_ptr<RgbdCameraTracker> Ptr;
-
 
     virtual void callback(cv::Mat& _ocv_rgbframe, cv::Mat& _ocv_depthframe_float,
             cv::Mat& _rgb_distortionCoeffs, cv::Mat& _rgb_cameraMatrix) = 0;
