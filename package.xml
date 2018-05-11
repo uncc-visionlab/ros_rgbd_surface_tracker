@@ -57,6 +57,7 @@
   <build_depend>tf2_ros</build_depend>
   
   <build_depend>rgbd_drivers_uncc</build_depend>
+  <build_depend>uncc_rgbd_odom</build_depend>
   <!--<build_depend>dvo_core</build_depend>-->
 
   <run_depend>boost</run_depend>
@@ -73,6 +74,7 @@
   <run_depend>tf2_ros</run_depend>
 
   <run_depend>rgbd_drivers_uncc</run_depend>
+  <run_depend>uncc_rgbd_odom</run_depend>
   <!--<run_depend>dvo_core</run_depend>-->
 
   <!-- The export tag contains other, unspecified, tags -->

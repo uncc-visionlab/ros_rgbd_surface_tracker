@@ -28,6 +28,7 @@ find_package(catkin REQUIRED
   tf2_ros
 
   rgbd_drivers_uncc
+  uncc_rgbd_odom
 #  uncc_rgbd_slam
 #  dvo_core
 )

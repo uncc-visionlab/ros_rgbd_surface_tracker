@@ -14,7 +14,7 @@
 #include <opencv2/core.hpp>
 
 #include <rgbd_drivers_uncc/rgbd_driver_client.hpp>
-#include <ros_rgbd_surface_tracker/pose.hpp>
+#include <rgbd_odometry/pose.hpp>
 
 class RgbdCameraTracker : public RgbdDriverClient {
 public:

@@ -18,7 +18,7 @@
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
 
-namespace gfd {
+namespace rgbd {
     
     template <typename scalar_t>
     static cv::Point3_<scalar_t> reconstruct(cv::Point2i pixel, scalar_t depth, const cv::Point_<scalar_t>& focal_length, const cv::Point_<scalar_t>& image_center) {

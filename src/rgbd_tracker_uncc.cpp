@@ -15,7 +15,7 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/rgbd.hpp>
 
-#include <ros_rgbd_surface_tracker/pose.hpp>
+#include <rgbd_odometry/pose.hpp>
 #include <ros_rgbd_surface_tracker/AlgebraicSurface.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_tracker_uncc.hpp>
@@ -1129,7 +1129,6 @@ namespace cv {
             return error_decreased;
             
         }
-        
         
         void RgbdSurfaceTracker::estimateOdometryReprojectionError(cv::rgbd::RgbdImage::Ptr rgbd_img_ptr) {
             rgbd_img_ptr->invalidate_NaN_Neighbors();
