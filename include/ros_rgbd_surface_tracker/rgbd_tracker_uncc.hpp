@@ -28,6 +28,8 @@
 #include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
 #include <ros_rgbd_surface_tracker/surface_alignment_optimizer.hpp>
 
+#include <rgbd_odometry/rgbd_odometry_core.h>
+
 //#define PROFILE_CALLGRIND
 
 #ifdef PROFILE_CALLGRIND
@@ -127,28 +129,8 @@ namespace cv {
                     const std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>&train_shapeMap,
                     const std::vector<cv::rgbd::ShapeMatch>& matches,
                     Pose& delta_pose_estimate);
-
-            bool estimateDeltaPoseReprojectionError(
-                    const cv::rgbd::RgbdImage& rgbd_img1,
-                    const cv::rgbd::RgbdImage& rgbd_img2,
-                    Pose& global_delta_pose_estimate,
-                    bool compute_image_gradients,
-                    int max_iterations);
             
-            bool estimateDeltaPoseReprojectionErrorParallel(
-                    const cv::rgbd::RgbdImage& rgbd_img1,
-                    const cv::rgbd::RgbdImage& rgbd_img2,
-                    Pose& global_delta_pose_estimate,
-                    bool compute_image_gradients,
-                    int max_iterations);
-            
-            bool estimateDeltaPoseReprojectionErrorMultiScale(
-                const cv::rgbd::RgbdImage& rgbd_img1,
-                const cv::rgbd::RgbdImage& rgbd_img2,
-                Pose& global_delta_pose_estimate,
-                int max_iterations_per_level, int start_level, int end_level);
-            
-            void estimateOdometryReprojectionError(cv::rgbd::RgbdImage::Ptr rgbd_img_ptr);
+            bool estimateOdometryReprojectionError(cv::rgbd::RgbdImage::Ptr rgbd_img_ptr);
             
             //void updateSurfaces(cv::rgbd::RgbdImage& rgbd_img, cv::Mat& rgb_result);
             void updateSurfaces(cv::rgbd::RgbdImage::Ptr rgbd_img, cv::Mat& rgb_result);
@@ -180,6 +162,7 @@ namespace cv {
             SurfaceDetector surfdetector;
             SurfaceDescriptorExtractor surfdescriptor_extractor;
             SurfaceDescriptorMatcher surfmatcher;
+            RGBDOdometryCore rgbd_odom;
 
             cv::QuadTree<sg::Plane<float>::Ptr>::Ptr prev_quadTree;
             cv::rgbd::RgbdImage::Ptr prev_rgbd_img_ptr;
