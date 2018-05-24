@@ -168,7 +168,8 @@ include_directories(
 ## The recommended prefix ensures that target names across packages don't collide
 # add_executable(${PROJECT_NAME}_node src/detect_depth_surflets_node.cpp)
 
-link_directories(/opt/ros/kinetic/lib) # needed to find OpenNI2Orbbec
+link_directories(/opt/ros/kinetic/lib
+    /home/arwillis/astra/OpenNI-Linux-x64-2.3/Redist) # needed to find OpenNI2Orbbec
 
 add_library(${PROJECT_NAME} 
     src/ros_rgbd_surface_tracker.cpp
