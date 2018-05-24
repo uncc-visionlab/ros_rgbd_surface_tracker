@@ -36,6 +36,7 @@
 #include <ros_rgbd_surface_tracker/surface_fitting.hpp>
 #include <ros_rgbd_surface_tracker/ShapeGrammarLibrary.hpp>
 
+#define OPENCV_TRAITS_ENABLE_DEPRECATED
 // forward declaration for C++ compiler
 //class cv::rgbd::DepthIntegralImages;
 
@@ -665,7 +666,8 @@ namespace cv {
                 cv::Plane3_<scalar_t> plane3;
                 cv::FitStatistics stats;
 
-                cv::Mat _M = cv::Mat::zeros(num_points, 3, cv::traits::Type<scalar_t>::value);
+              //cv::Mat _M = cv::Mat::zeros(num_points, 3, cv::traits::Type<scalar_t>::value);
+                cv::Mat _M = cv::Mat::zeros(num_points, 3, cv::DataType<scalar_t>::type);
                 scalar_t* M = _M.ptr<scalar_t>();
                 cv::Point3f centroid(0, 0, 0);
                 for (size_t ptIdx = 0; ptIdx < num_points; ++ptIdx) {
@@ -698,7 +700,8 @@ namespace cv {
                 scalar_t d3 = -(plane3.x * centroid.x + plane3.y * centroid.y + plane3.z * centroid.z);
                 plane3.d = d3;
                 //std::cout << "centroid_dist = " << plane3.evaluate(centroid) << std::endl;
-                cv::Mat _D = cv::Mat::ones(num_points, 1, cv::traits::Type<scalar_t>::value);
+                //cv::Mat _D = cv::Mat::ones(num_points, 1, cv::traits::Type<scalar_t>::value);
+                cv::Mat _D = cv::Mat::ones(num_points, 1, cv::DataType<scalar_t>::type);
                 _D *= plane3.d;
                 for (size_t ptIdx = 0; ptIdx < num_points; ++ptIdx) {
                     M[3 * ptIdx] += centroid.x;
@@ -738,8 +741,10 @@ namespace cv {
                 cv::Plane3_<scalar_t> plane3;
                 cv::FitStatistics stats;
 
-                cv::Mat _M = cv::Mat::zeros(num_points, 3, cv::traits::Type<scalar_t>::value);
-                cv::Mat _Z = cv::Mat::zeros(num_points, 1, cv::traits::Type<scalar_t>::value);
+                //cv::Mat _M = cv::Mat::zeros(num_points, 3, cv::traits::Type<scalar_t>::value);
+                //cv::Mat _Z = cv::Mat::zeros(num_points, 1, cv::traits::Type<scalar_t>::value);
+                cv::Mat _M = cv::Mat::zeros(num_points, 3, cv::DataType<scalar_t>::value);
+                cv::Mat _Z = cv::Mat::zeros(num_points, 1, cv::DataType<scalar_t>::value);
                 scalar_t* M = _M.ptr<scalar_t>();
                 scalar_t* Z = _Z.ptr<scalar_t>();
 

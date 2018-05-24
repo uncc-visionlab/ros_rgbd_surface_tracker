@@ -41,8 +41,10 @@ namespace cv {
             template <typename scalar_t>
             static cv::Plane3_<scalar_t> fitPlaneExplicitLeastSquares(const scalar_t* points, size_t num_points, size_t stride) {
 
-                cv::Mat _M = cv::Mat::zeros(num_points, 3, cv::traits::Type<scalar_t>::value);
-                cv::Mat _Z = cv::Mat::zeros(num_points, 1, cv::traits::Type<scalar_t>::value);
+//                cv::Mat _M = cv::Mat::zeros(num_points, 3, cv::traits::Type<scalar_t>::value);
+//                cv::Mat _Z = cv::Mat::zeros(num_points, 1, cv::traits::Type<scalar_t>::value);
+                cv::Mat _M = cv::Mat::zeros(num_points, 3, cv::DataType<scalar_t>::type);
+                cv::Mat _Z = cv::Mat::zeros(num_points, 1, cv::DataType<scalar_t>::type);
                 scalar_t* M = _M.ptr<scalar_t>();
                 scalar_t* Z = _Z.ptr<scalar_t>();
 
@@ -74,7 +76,8 @@ namespace cv {
 
                 cv::Plane3_<scalar_t> plane3;
 
-                cv::Mat _M = cv::Mat::zeros(num_points, 3, cv::traits::Type<scalar_t>::value);
+//                cv::Mat _M = cv::Mat::zeros(num_points, 3, cv::traits::Type<scalar_t>::value);
+                cv::Mat _M = cv::Mat::zeros(num_points, 3, cv::DataType<scalar_t>::type);
                 scalar_t* M = _M.ptr<scalar_t>();
                 cv::Point3f centroid(0, 0, 0);
                 for (size_t ptIdx = 0; ptIdx < num_points; ++ptIdx) {
