@@ -39,7 +39,7 @@ namespace cv {
         OpenGLRenderAttributes OpenGLRenderer::attrs;
 
         std::map<SurfaceType, const char*> surfaceTypeToString = {
-            {SurfaceType::UNKNOWN, "Uknown"},
+            {SurfaceType::UNKNOWN, "Unknown"},
             {SurfaceType::PLANE, "Plane"},
             {SurfaceType::EDGE, "Edge"},
             {SurfaceType::CORNER, "Corner"},

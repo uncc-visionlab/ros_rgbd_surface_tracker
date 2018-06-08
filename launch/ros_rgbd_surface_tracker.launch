@@ -103,7 +103,7 @@
         <node name="camera_info_relay" pkg="topic_tools" type="relay" output="screen"
               args="rgb/camera_info ir/camera_info"/>
         <node name="ros_rgbd_surface_tracker" pkg="ros_rgbd_surface_tracker" 
-              type="ros_rgbd_surface_tracker" launch-prefix="$(arg profile_attribute)"
+              type="ros_rgbd_surface_tracker_run" launch-prefix="$(arg profile_attribute)"
               output="screen" if="$(arg run_surface_tracker)">
             <remap from="rgb/input_image" to="rgb/image_raw"/>            
             <remap from="depth_registered/input_image" to="depth_registered/image_raw"/>
