@@ -185,7 +185,8 @@ namespace cv {
                     segmentation.segment(*inliers, *coefficients);
 
                     if (inliers->indices.size() < min_percentage*original_size) {
-                        std::cout << "plane only explains " << float(inliers->indices.size())/original_size;
+                         VERBOSE_SURFTRACK(std::cout << "plane only explains " 
+                                 << float(inliers->indices.size())/original_size;)
                         break;
                     }
 
@@ -194,7 +195,9 @@ namespace cv {
                     cv::Plane3f& plane = planes.back();
                     plane.scale((plane.z > 0) ? -1.0 : 1.0);
 
-                    std::cout << "Fit plane: " << plane << ", percentage of points: " << float(inliers->indices.size())/original_size << std::endl;
+                    VERBOSE_SURFTRACK(std::cout << "Fit plane: " << plane << 
+                            ", percentage of points: " << 
+                            float(inliers->indices.size())/original_size << std::endl);
 
                     // Extract inliers
                     extract.setInputCloud(points);

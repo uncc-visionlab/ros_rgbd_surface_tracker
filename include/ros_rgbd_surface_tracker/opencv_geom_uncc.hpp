@@ -15,6 +15,13 @@
 #include <opencv2/core.hpp>
 
 #define DEBUG false
+//#define DEBUG_SURFACE_TRACKING
+
+#ifdef DEBUG_SURFACE_TRACKING
+#define VERBOSE_SURFTRACK(x) x
+#else
+#define VERBOSE_SURFTRACK(x) 
+#endif
 
 namespace cv {
 
