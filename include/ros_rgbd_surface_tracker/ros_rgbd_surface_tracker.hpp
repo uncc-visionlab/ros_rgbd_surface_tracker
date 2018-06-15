@@ -25,6 +25,7 @@
 #include <geometry_msgs/TransformStamped.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <image_transport/image_transport.h>
+#include <image_geometry/pinhole_camera_model.h>
 
 // TF includes
 #include <tf/tf.h>
