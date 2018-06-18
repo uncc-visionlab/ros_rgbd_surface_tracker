@@ -83,7 +83,12 @@ namespace sg {
         virtual std::vector<int> generateColorCoordIndices() = 0;
         virtual std::string toString() = 0;
         virtual float matchDistance(Shape::Ptr qShape) = 0;
-
+        virtual void serializeParameters(std::vector<float>& params) {
+            std::cout << "serializeParameters not implemented!" << std::endl;
+        };
+        virtual void serializeBoundary(std::vector<float>& boundary) {
+            std::cout << "serializeBoundary not implemented!" << std::endl;
+        };
         void setPose(Pose _pose) {
             pose = _pose;
         }
@@ -209,6 +214,36 @@ namespace sg {
 
         static Plane<_Tpl>::Ptr create() {
             return Plane<_Tpl>::Ptr(boost::make_shared<Plane < _Tpl >> ());
+        }
+        
+        void serializeParameters(std::vector<_Tpl>& params) {
+            params.push_back(this->x);
+            params.push_back(this->y);
+            params.push_back(this->z);
+            params.push_back(this->d);
+        }
+        
+        void deserializeParameters(const std::vector<_Tpl>& params) {
+            this->x = params[0];
+            this->y = params[1];
+            this->z = params[2];
+            this->d = params[3];
+        }
+        
+        void serializeBoundary(std::vector<_Tpl>& boundary) {
+            std::vector<cv::Vec<_Tpl, 2 >> uv_poly_coords = uv_coords[0];
+            for (cv::Vec<_Tpl, 2 > uv_coord : uv_poly_coords) {
+                boundary.push_back(uv_coord[0]);
+                boundary.push_back(uv_coord[1]);
+            }
+        }
+        void deserializeBoundary(const std::vector<_Tpl>& boundary) {
+            std::vector<cv::Vec<_Tpl, 2 >> uv_poly_coords;
+            for (int ptIdx = 0; ptIdx < boundary.size(); ptIdx+=2) {
+                cv::Vec<_Tpl, 2> uv_coord(boundary[ptIdx],boundary[ptIdx+1]);
+                uv_poly_coords.push_back(uv_coord);
+            }
+            addCoords(uv_poly_coords);
         }
     };
 
