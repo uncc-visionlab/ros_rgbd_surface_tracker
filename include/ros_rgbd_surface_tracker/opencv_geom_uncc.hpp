@@ -173,9 +173,11 @@ namespace cv {
         typedef boost::shared_ptr<const Plane3_<_Tpl> > ConstPtr;
 
         Plane3_() : d(0), Point3_<_Tpl>() {
+            coefficientsChanged();
         }
 
         Plane3_(_Tpl _x, _Tpl _y, _Tpl _z, _Tpl _d) : d(_d), Point3_<_Tpl>(_x, _y, _z) {
+            coefficientsChanged();
         }
 
         Plane3_(const Point3_<_Tpl>& pt1, const Point3_<_Tpl>& pt2,
@@ -233,6 +235,7 @@ namespace cv {
             this->y = _y;
             this->z = _z;
             this->d = _d;
+            coefficientsChanged();
         }
 
         void scale(_Tpl scalef) {
@@ -240,6 +243,7 @@ namespace cv {
             this->y *= scalef;
             this->z *= scalef;
             this->d *= scalef;
+            coefficientsChanged();
         }
 
         _Tpl evaluate(const Point3_<_Tpl>& pt) {
@@ -293,6 +297,7 @@ namespace cv {
             this->y = (pt2.z - pt1.z)*(pt3.x - pt1.x)-(pt3.z - pt1.z)*(pt2.x - pt1.x);
             this->z = (pt2.x - pt1.x)*(pt3.y - pt1.y)-(pt3.x - pt1.x)*(pt2.y - pt1.y);
             this->d = -(this->x * pt1.x + this->y * pt1.y + this->z * pt1.z);
+            coefficientsChanged();
         }
 
         _Tpl cosDihedralAngle(const Plane3_<_Tpl> test_plane) const {
@@ -318,10 +323,11 @@ namespace cv {
             this->y = alpha * planeA.x + (1 - alpha) * planeB.x;
             this->z = alpha * planeA.x + (1 - alpha) * planeB.x;
             this->d = -(this->x * pt.x + this->y * pt.y + this->z * pt.z);
+            coefficientsChanged();
         }
 
         void convertHessianNormalForm() {
-            float normScale = 1.f / sqrt(this->x * this->x +
+            _Tpl normScale = (_Tpl) (1.0) / std::sqrt(this->x * this->x +
                     this->y * this->y + this->z * this->z);
             scale(normScale);
         }
@@ -332,7 +338,60 @@ namespace cv {
             return os;
         }
 
+        void coefficientsChanged() {
+            initializeUV();
+        }
+
+        void initializeUV() {
+            _Tpl threshold = 0.57736; // > 1/sqrt(3)+epsilon
+            //static cv::Point3_<_Tpl> uVec;
+            // static cv::Point3_<_Tpl> vVec;
+            cv::Vec<_Tpl, 3> planeNormal(this->x, this->y, this->z);
+            _Tpl normalLen = cv::norm(planeNormal);
+            if (normalLen < 1e-6) {
+                u[0] = u[1] = u[2] = 0;
+                v[0] = v[1] = v[2] = 0;
+                return;
+            }
+            planeNormal /= cv::norm(planeNormal);
+            if (std::abs<_Tpl>(planeNormal[0]) <= threshold) {
+                //_Tpl inverse = 1.0 / std::sqrt(this->y * this->y + this->z * this->z);
+                //this->u = cv::Vec<_Tpl, 3>((_Tpl) 0, inverse * this->z, -inverse * this->y);
+                u = cv::Vec<_Tpl, 3>((_Tpl) 0, planeNormal[2], -planeNormal[1]);
+            } else if (std::abs<_Tpl>(planeNormal[1]) <= threshold) {
+                //_Tpl inverse = 1.0 / std::sqrt(this->x * this->x + this->z * this->z);
+                //this->u = cv::Vec<_Tpl, 3>(-inverse * this->z, (_Tpl) 0, inverse * this->x);
+                u = cv::Vec<_Tpl, 3>(-planeNormal[2], (_Tpl) 0, planeNormal[0]);
+            } else {
+                //_Tpl inverse = 1.0 / std::sqrt(this->x * this->x + this->y * this->y);
+                //this->u = cv::Vec<_Tpl, 3>(inverse * this->y, -inverse * this->x, (_Tpl) 0);
+                u = cv::Vec<_Tpl, 3>(planeNormal[1], -planeNormal[0], (_Tpl) 0);
+            }
+            u /= cv::norm<_Tpl>(u);
+            v = u.cross(planeNormal);
+            //this->v /= cv::norm<_Tpl>(this->v);
+        }
+
         cv::Point3_<_Tpl> uvToXYZ(const cv::Point_<_Tpl>& uv) {
+            //coefficientsChanged();
+            cv::Point3_<_Tpl> pt0(-d * this->x, -d * this->y, -d * this->z);
+            pt0.x = pt0.x + uv.x * u[0] + uv.y * v[0];
+            pt0.y = pt0.y + uv.x * u[1] + uv.y * v[1];
+            pt0.z = pt0.z + uv.x * u[2] + uv.y * v[2];
+            return pt0;
+        }
+
+        cv::Point_<_Tpl> xyzToUV(const Point3_<_Tpl>& p) {
+            //coefficientsChanged();
+            cv::Point3_<_Tpl> pt0(-d * this->x, -d * this->y, -d * this->z);
+            pt0 = p - pt0;
+            cv::Point_<_Tpl> uv;
+            uv.x = pt0.dot(u);
+            uv.y = pt0.dot(v);
+            return uv;
+        }
+
+        cv::Point3_<_Tpl> uvToXYZ2(const cv::Point_<_Tpl>& uv) {
             _Tpl threshold = 0.6; // > 1/sqrt(3)
             static cv::Point3_<_Tpl> uVec;
             static cv::Point3_<_Tpl> vVec;
@@ -354,7 +413,7 @@ namespace cv {
             return pt0;
         }
 
-        cv::Point_<_Tpl> xyzToUV(const Point3_<_Tpl>& p) {
+        cv::Point_<_Tpl> xyzToUV2(const Point3_<_Tpl>& p) {
             _Tpl threshold = 0.6; // > 1/sqrt(3)
             cv::Point_<_Tpl> uv;
             static cv::Point3_<_Tpl> uVec;
@@ -383,12 +442,14 @@ namespace cv {
 
         std::string toString() {
             std::ostringstream stringStream;
-            stringStream << "(" << this->x << ", " << this->y
-                    << ", " << this->z << ", " << this->d << ")";
+            stringStream << "[" << this->x << ", " << this->y
+                    << ", " << this->z << ", " << this->d << "]";
             return stringStream.str();
         }
 
         _Tpl d;
+        cv::Vec<_Tpl, 3> u;
+        cv::Vec<_Tpl, 3> v;
     };
     typedef Plane3_<float> Plane3f;
     typedef Plane3_<double> Plane3d;
@@ -569,27 +630,29 @@ namespace cv {
             return os;
         }
     };
-    
+
     class FitStatistics : public Consensus {
     public:
         float error = 0;
         float noise = 0;
-        
+
         FitStatistics() {
         }
-        
-        FitStatistics(float error, size_t inliers, size_t outliers, size_t invalid) : 
-            error(error), Consensus(inliers, outliers, invalid) {}
-        
-        FitStatistics(float error, float noise, size_t inliers, size_t outliers, size_t invalid) : 
-            error(error), noise(noise), Consensus(inliers, outliers, invalid) {}
-        
+
+        FitStatistics(float error, size_t inliers, size_t outliers, size_t invalid) :
+        error(error), Consensus(inliers, outliers, invalid) {
+        }
+
+        FitStatistics(float error, float noise, size_t inliers, size_t outliers, size_t invalid) :
+        error(error), noise(noise), Consensus(inliers, outliers, invalid) {
+        }
+
         friend std::ostream& operator<<(std::ostream& os, const FitStatistics& stats) {
-            os << "[error = " << stats.error << ", noise = " << stats.noise << ", i = " << stats.inliers 
-                << ", o = " << stats.outliers << ", nan = " << stats.invalid << "]";
+            os << "[error = " << stats.error << ", noise = " << stats.noise << ", i = " << stats.inliers
+                    << ", o = " << stats.outliers << ", nan = " << stats.invalid << "]";
             return os;
         }
-        
+
     };
 
     class RectWithError : public Rect, public FitStatistics {
@@ -605,7 +668,8 @@ namespace cv {
 
         RectWithError(int _x, int _y, int _width, int _height, float _error,
                 int _inliers, int _outliers, int _invalid = 0) :
-        Rect(_x, _y, _width, _height), FitStatistics(_error, _inliers, _outliers, _invalid) {}
+        Rect(_x, _y, _width, _height), FitStatistics(_error, _inliers, _outliers, _invalid) {
+        }
 
         RectWithError clone() {
             return RectWithError(x, y, width, height, error,

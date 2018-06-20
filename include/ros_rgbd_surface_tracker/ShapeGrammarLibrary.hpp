@@ -83,12 +83,15 @@ namespace sg {
         virtual std::vector<int> generateColorCoordIndices() = 0;
         virtual std::string toString() = 0;
         virtual float matchDistance(Shape::Ptr qShape) = 0;
+
         virtual void serializeParameters(std::vector<float>& params) {
             std::cout << "serializeParameters not implemented!" << std::endl;
         };
+
         virtual void serializeBoundary(std::vector<float>& boundary) {
             std::cout << "serializeBoundary not implemented!" << std::endl;
         };
+
         void setPose(Pose _pose) {
             pose = _pose;
         }
@@ -107,6 +110,7 @@ namespace sg {
         std::vector< std::vector< cv::Vec<_Tpl, 2> > > uv_texCoords; // 2d parametric coords within the RGB image
     public:
         typedef boost::shared_ptr<Plane> Ptr;
+        typedef boost::shared_ptr<const Plane> ConstPtr;
 
         Plane() : sg::Shape(), cv::TesselatedPlane3_<_Tpl>() {
         }
@@ -215,21 +219,33 @@ namespace sg {
         static Plane<_Tpl>::Ptr create() {
             return Plane<_Tpl>::Ptr(boost::make_shared<Plane < _Tpl >> ());
         }
-        
+
         void serializeParameters(std::vector<_Tpl>& params) {
             params.push_back(this->x);
             params.push_back(this->y);
             params.push_back(this->z);
             params.push_back(this->d);
+            params.push_back(this->u[0]);
+            params.push_back(this->u[1]);
+            params.push_back(this->u[2]);
+            params.push_back(this->v[0]);
+            params.push_back(this->v[1]);
+            params.push_back(this->v[2]);
         }
-        
+
         void deserializeParameters(const std::vector<_Tpl>& params) {
             this->x = params[0];
             this->y = params[1];
             this->z = params[2];
             this->d = params[3];
+            this->u[0] = params[4];
+            this->u[1] = params[5];
+            this->u[2] = params[6];
+            this->v[0] = params[7];
+            this->v[1] = params[8];
+            this->v[2] = params[9];
         }
-        
+
         void serializeBoundary(std::vector<_Tpl>& boundary) {
             std::vector<cv::Vec<_Tpl, 2 >> uv_poly_coords = uv_coords[0];
             for (cv::Vec<_Tpl, 2 > uv_coord : uv_poly_coords) {
@@ -237,13 +253,27 @@ namespace sg {
                 boundary.push_back(uv_coord[1]);
             }
         }
+
         void deserializeBoundary(const std::vector<_Tpl>& boundary) {
             std::vector<cv::Vec<_Tpl, 2 >> uv_poly_coords;
-            for (int ptIdx = 0; ptIdx < boundary.size(); ptIdx+=2) {
-                cv::Vec<_Tpl, 2> uv_coord(boundary[ptIdx],boundary[ptIdx+1]);
+            for (int ptIdx = 0; ptIdx < boundary.size(); ptIdx += 2) {
+                cv::Vec<_Tpl, 2> uv_coord(boundary[ptIdx], boundary[ptIdx + 1]);
                 uv_poly_coords.push_back(uv_coord);
             }
             addCoords(uv_poly_coords);
+        }
+
+        std::vector<cv::Vec<_Tpl, 2 >> getBoundary() {
+            std::vector<cv::Vec<_Tpl, 2 >> uv_poly_coords;
+            return (uv_coords.size() > 0) ? uv_coords[0] : uv_poly_coords;
+        }
+
+        void setBoundary(std::vector<cv::Vec<_Tpl, 2 >>& boundary) {
+            if (uv_coords.size() == 0) {
+                uv_coords.push_back(boundary);
+            } else {
+                uv_coords[0] = boundary;
+            }
         }
     };
 
@@ -254,6 +284,7 @@ namespace sg {
         bool _isConvex;
     public:
         typedef boost::shared_ptr<Edge> Ptr;
+        typedef boost::shared_ptr<const Edge> ConstPtr;
 
         Edge(Plane<float>::Ptr planeA, Plane<float>::Ptr planeB) : sg::Shape(),
         cv::LineSegment3_<_Tpl>(), _isReal(false), _isConvex(false) {
@@ -515,6 +546,7 @@ namespace sg {
         bool _isConvex;
     public:
         typedef boost::shared_ptr<Corner> Ptr;
+        typedef boost::shared_ptr<const Corner> ConstPtr;
 
         Corner(Edge<float>::Ptr edgeA, Edge<float>::Ptr edgeB, Edge<float>::Ptr edgeC) :
         sg::Shape(), cv::Point3_<_Tpl>(), _isReal(false), _isConvex(false) {
@@ -767,6 +799,7 @@ namespace sg {
     class Box : public Shape {
     public:
         typedef boost::shared_ptr<Box> Ptr;
+        typedef boost::shared_ptr<const Box> ConstPtr;
 
         Box() : sg::Shape() {
         }
@@ -829,6 +862,7 @@ namespace sg {
     class Cylinder : public Shape {
     public:
         typedef boost::shared_ptr<Cylinder> Ptr;
+        typedef boost::shared_ptr<Cylinder> ConstPtr;
 
         Cylinder() : sg::Shape() {
         }
@@ -889,8 +923,74 @@ namespace sg {
         //Cylinder(const Cylinder& ref);
         //Cylinder& operator=(const Cylinder& ref);
         static constexpr float DEFAULT_RESOLUTION = 16;
-        float r, h; // length, width, height
+        float r, h; // radius, height
     };
+    
+    class Sphere : public Shape {
+    public:
+        typedef boost::shared_ptr<Sphere> Ptr;
+        typedef boost::shared_ptr<Sphere> ConstPtr;
+
+        Sphere() : sg::Shape() {
+        }
+
+        Sphere(float _radius, Pose _pose)
+        : r(_radius), sg::Shape(_pose) {
+        }
+
+        virtual ~Sphere() {
+        }
+
+        std::vector<cv::Vec3f> generateCoords() {
+            static int N = DEFAULT_RESOLUTION;
+            return generateCoords(N);
+        }
+
+        std::vector<cv::Vec3f> generateCoords(int N);
+
+        std::vector<int> generateCoordIndices() {
+            static int N = DEFAULT_RESOLUTION;
+            return generateCoordIndices(N);
+        }
+
+        std::vector<int> generateCoordIndices(int N);
+
+        std::vector<cv::Vec3f> generateNormals();
+
+        std::vector<int> generateNormalCoordIndices();
+
+        std::vector<cv::Vec3f> generateColorCoords();
+
+        std::vector<int> generateColorCoordIndices();
+
+        float matchDistance(Shape::Ptr qShape) {
+            sg::Sphere::Ptr sphere = boost::dynamic_pointer_cast<sg::Sphere> (qShape);
+            if (!sphere) {
+                return std::numeric_limits<float>::infinity();
+            }
+            float error = sphere->r - this->r;
+            return error;
+        }
+
+        std::string toString() {
+            std::ostringstream stringStream;
+            stringStream << "I AM A SPHERE";
+            return stringStream.str();
+        }
+
+        static Sphere::Ptr create() {
+            return Sphere::Ptr(boost::make_shared<Sphere>());
+        }
+    private:
+        // -------------------------
+        // Disabling default copy constructor and default
+        // assignment operator.
+        // -------------------------
+        //Sphere(const Sphere& ref);
+        //Sphere& operator=(const Sphere& ref);
+        static constexpr float DEFAULT_RESOLUTION = 16;
+        float r; // radius
+    };    
 } /* namespace sg */
 #endif /* __cplusplus */
 

@@ -13,7 +13,7 @@
 
 namespace cv {
     namespace rgbd {
-        float PLANE_FIT_ERROR_THRESHOLD = 0.0025;
+        float PLANE_FIT_ERROR_THRESHOLD = 0.0015;
 
         void SurfaceDetector::detect(const cv::rgbd::RgbdImage& rgbd_img,
                 cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
