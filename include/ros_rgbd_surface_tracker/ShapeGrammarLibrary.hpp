@@ -263,7 +263,7 @@ namespace sg {
             addCoords(uv_poly_coords);
         }
 
-        std::vector<cv::Vec<_Tpl, 2 >> getBoundary() {
+        std::vector<cv::Vec<_Tpl, 2 >> getBoundary() const {
             std::vector<cv::Vec<_Tpl, 2 >> uv_poly_coords;
             return (uv_coords.size() > 0) ? uv_coords[0] : uv_poly_coords;
         }

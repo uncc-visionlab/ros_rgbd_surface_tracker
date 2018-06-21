@@ -262,15 +262,15 @@ namespace sg {
     std::vector<int> Cylinder::generateCoordIndices(int N) {
         std::vector<int> tris; // reserve(N * 4 * 3);
         for (int i = 0; i < N - 1; ++i) {
-            tris.insert(tris.end(),{N, i + 1, i}); // top tri
-            tris.insert(tris.end(),{2 * N + 1, N + 1 + i, N + 2 + i}); // middle quad
-            tris.insert(tris.end(),{N + i + 1, i + 1, N + 2 + i});
-            tris.insert(tris.end(),{i + 1, N + i + 1, i}); // bottom tri
+            tris.insert(tris.end(),{N, i, i + 1}); // top tri
+            tris.insert(tris.end(),{2 * N + 1, N + 2 + i, N + 1 + i}); // middle quad
+            tris.insert(tris.end(),{i + 1, N + i + 1, N + 2 + i});
+            tris.insert(tris.end(),{N + i + 1, i + 1, i}); // bottom tri
         }
-        tris.insert(tris.end(),{N, 0, N - 1}); // close the shape top 
-        tris.insert(tris.end(),{2 * N + 1, 2 * N, N + 1}); // close the shape middle quad
-        tris.insert(tris.end(),{0, 2 * N, N - 1});
-        tris.insert(tris.end(),{2 * N, 0, N + 1}); // close the shape bottom
+        tris.insert(tris.end(),{0, N, N - 1}); // close the shape top 
+        tris.insert(tris.end(),{2 * N + 1, N + 1, 2 * N}); // close the shape middle quad
+        tris.insert(tris.end(),{0, N - 1, 2 * N});
+        tris.insert(tris.end(),{0, 2 * N, N + 1}); // close the shape bottom
         return tris;
     }
 
@@ -335,15 +335,16 @@ namespace sg {
 
     std::vector<cv::Vec3f> Sphere::generateCoords(int N) {
         double x, y, z;
-        std::vector<cv::Vec3f> pts(N * N / 2);
+        std::vector<cv::Vec3f> pts;
         cv::Vec3f north_pole = cv::Vec3f(0, 0, r);
         cv::Vec3f south_pole = cv::Vec3f(0, 0, -r);
         pts.push_back(north_pole);
         for (int i = 0; i < N; ++i) {
-            for (int j = 1; j < (N / 2) - 1; ++j) {
+            for (int j = 1; j <= (N / 2) - 1; ++j) {
                 x = r * std::cos(2 * CV_PI * i / N) * std::sin(CV_PI * j / (N / 2));
                 y = r * std::sin(2 * CV_PI * i / N) * std::sin(CV_PI * j / (N / 2));
                 z = r * std::cos(CV_PI * j / (N / 2));
+                pts.push_back(cv::Vec3f(x, y, z));
             }
         }
         pts.push_back(south_pole);
@@ -358,12 +359,12 @@ namespace sg {
         int phi_pts = (N / 2) - 1; // number of points in a meridian minus the north/south poles
         int last_idx = N * phi_pts + 1;
         for (int i = 0; i < N; ++i) {
-            tris.insert(tris.end(),{0, (((i + 1) % N) * phi_pts) + 1, (i * phi_pts) + 1}); // top tris
-            for (int j = 1; j < (N / 2) - 1; ++j) { // middle quads
+            tris.insert(tris.end(),{0, (i * phi_pts) + 1, (((i + 1) % N) * phi_pts) + 1}); // top tris
+            for (int j = 1; j <= (N / 2) - 2; ++j) { // middle quads
                 tris.insert(tris.end(),{(((i + 1) % N) * phi_pts) + j, (i * phi_pts) + j, (i * phi_pts) + j + 1});
-                tris.insert(tris.end(),{(((i + 1) % N) * phi_pts) + j, (i * phi_pts) + j, (((i + 1) % N) * phi_pts) + j + 1});
+                tris.insert(tris.end(),{(((i + 1) % N) * phi_pts) + j, (i * phi_pts) + j + 1, (((i + 1) % N) * phi_pts) + j + 1});
             }
-            tris.insert(tris.end(),{last_idx, ((i + 1) * phi_pts), (((i + 1) % N) + 1) * phi_pts}); // bottom tris
+            tris.insert(tris.end(),{last_idx, (((i + 1) % N) + 1) * phi_pts, ((i + 1) * phi_pts)}); // bottom tris
         }
         return tris;
     }
@@ -371,15 +372,16 @@ namespace sg {
     std::vector<cv::Vec3f> Sphere::generateNormals() {
         double x, y, z;
         static int N = DEFAULT_RESOLUTION;
-        std::vector<cv::Vec3f> norms(N * N / 2);
+        std::vector<cv::Vec3f> norms;
         cv::Vec3f north_pole = cv::Vec3f(0, 0, 1);
         cv::Vec3f south_pole = cv::Vec3f(0, 0, -1);
         norms.push_back(north_pole);
         for (int i = 0; i < N; ++i) {
-            for (int j = 1; j < (N / 2) - 1; ++j) {
+            for (int j = 1; j <= (N / 2) - 1; ++j) {
                 x = std::cos(2 * CV_PI * i / N) * std::sin(CV_PI * j / (N / 2));
                 y = std::sin(2 * CV_PI * i / N) * std::sin(CV_PI * j / (N / 2));
                 z = std::cos(CV_PI * j / (N / 2));
+                norms.push_back(cv::Vec3f(x, y, z));
             }
         }
         norms.push_back(south_pole);
@@ -396,7 +398,7 @@ namespace sg {
         int last_idx = N * (N / 2 - 1) + 1;
         for (int i = 0; i < N; ++i) {
             norms.insert(norms.end(),{0, (((i + 1) % N) * phi_pts) + 1, (i * phi_pts) + 1}); // top tris
-            for (int j = 1; j < (N / 2) - 1; ++j) { // middle quads
+            for (int j = 1; j <= (N / 2) - 2; ++j) { // middle quads
                 norms.insert(norms.end(),{(((i + 1) % N) * phi_pts) + j, (i * phi_pts) + j, (i * phi_pts) + j + 1});
                 norms.insert(norms.end(),{(((i + 1) % N) * phi_pts) + j, (i * phi_pts) + j, (((i + 1) % N) * phi_pts) + j + 1});
             }
@@ -420,7 +422,7 @@ namespace sg {
         std::vector<int> colorIdxs; //reserve(N * 4 * 3);
         for (int i = 0; i < N; ++i) {
             colorIdxs.insert(colorIdxs.end(),{0, 0, 0}); // top tris
-            for (int j = 1; j < (N / 2) - 1; ++j) {
+            for (int j = 1; j <= (N / 2) - 2; ++j) {
                 colorIdxs.insert(colorIdxs.end(),{1, 1, 1}); // middle quads
                 colorIdxs.insert(colorIdxs.end(),{2, 2, 2});
             }

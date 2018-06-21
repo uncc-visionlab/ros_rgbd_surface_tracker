@@ -372,7 +372,7 @@ namespace cv {
             //this->v /= cv::norm<_Tpl>(this->v);
         }
 
-        cv::Point3_<_Tpl> uvToXYZ(const cv::Point_<_Tpl>& uv) {
+        cv::Point3_<_Tpl> uvToXYZ(const cv::Point_<_Tpl>& uv) const {
             //coefficientsChanged();
             cv::Point3_<_Tpl> pt0(-d * this->x, -d * this->y, -d * this->z);
             pt0.x = pt0.x + uv.x * u[0] + uv.y * v[0];
@@ -381,7 +381,7 @@ namespace cv {
             return pt0;
         }
 
-        cv::Point_<_Tpl> xyzToUV(const Point3_<_Tpl>& p) {
+        cv::Point_<_Tpl> xyzToUV(const Point3_<_Tpl>& p) const {
             //coefficientsChanged();
             cv::Point3_<_Tpl> pt0(-d * this->x, -d * this->y, -d * this->z);
             pt0 = p - pt0;
