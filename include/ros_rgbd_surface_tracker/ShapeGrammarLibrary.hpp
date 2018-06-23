@@ -268,7 +268,7 @@ namespace sg {
             return (uv_coords.size() > 0) ? uv_coords[0] : uv_poly_coords;
         }
 
-        void setBoundary(std::vector<cv::Vec<_Tpl, 2 >>& boundary) {
+        void setBoundary(std::vector<cv::Vec<_Tpl, 2 >> &boundary) {
             if (uv_coords.size() == 0) {
                 uv_coords.push_back(boundary);
             } else {
@@ -908,13 +908,21 @@ namespace sg {
 
         std::string toString() {
             std::ostringstream stringStream;
-            stringStream << "I AM A CYLINDER";
+            stringStream << "Cylinder::r(" << r << "),h(" << h << ")";
             return stringStream.str();
         }
 
         static Cylinder::Ptr create() {
             return Cylinder::Ptr(boost::make_shared<Cylinder>());
         }
+        
+        float radius() {
+            return r;
+        };        
+
+        float height() {
+            return h;
+        };        
     private:
         // -------------------------
         // Disabling default copy constructor and default
@@ -925,7 +933,7 @@ namespace sg {
         static constexpr float DEFAULT_RESOLUTION = 16;
         float r, h; // radius, height
     };
-    
+
     class Sphere : public Shape {
     public:
         typedef boost::shared_ptr<Sphere> Ptr;
@@ -974,13 +982,17 @@ namespace sg {
 
         std::string toString() {
             std::ostringstream stringStream;
-            stringStream << "I AM A SPHERE";
+            stringStream << "Sphere::r(" << r << ")";
             return stringStream.str();
         }
 
         static Sphere::Ptr create() {
             return Sphere::Ptr(boost::make_shared<Sphere>());
         }
+
+        float radius() {
+            return r;
+        };
     private:
         // -------------------------
         // Disabling default copy constructor and default
@@ -990,7 +1002,7 @@ namespace sg {
         //Sphere& operator=(const Sphere& ref);
         static constexpr float DEFAULT_RESOLUTION = 16;
         float r; // radius
-    };    
+    };
 } /* namespace sg */
 #endif /* __cplusplus */
 
