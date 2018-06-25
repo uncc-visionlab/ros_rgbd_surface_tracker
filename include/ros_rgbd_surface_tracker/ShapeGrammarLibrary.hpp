@@ -85,11 +85,19 @@ namespace sg {
         virtual float matchDistance(Shape::Ptr qShape) = 0;
 
         virtual void serializeParameters(std::vector<float>& params) {
-            std::cout << "serializeParameters not implemented!" << std::endl;
+            std::cout << "serializeParameters() not implemented!" << std::endl;
         };
 
         virtual void serializeBoundary(std::vector<float>& boundary) {
-            std::cout << "serializeBoundary not implemented!" << std::endl;
+            std::cout << "serializeBoundary() not implemented!" << std::endl;
+        };
+
+        virtual void setBoundary(std::vector<cv::Vec2f>& boundary) {
+            std::cout << "setBoundary() not implemented!" << std::endl;
+        };
+
+        virtual std::vector<cv::Vec2f> getBoundary() const {
+            std::cout << "getBoundary() not implemented!" << std::endl;
         };
 
         void setPose(Pose _pose) {
@@ -860,6 +868,7 @@ namespace sg {
     };
 
     class Cylinder : public Shape {
+        std::vector< std::vector<cv::Vec2f>> uv_coords; // 2d parametric coords within the plane
     public:
         typedef boost::shared_ptr<Cylinder> Ptr;
         typedef boost::shared_ptr<Cylinder> ConstPtr;
@@ -872,6 +881,10 @@ namespace sg {
         }
 
         virtual ~Cylinder() {
+        }
+
+        void addCoords(std::vector<cv::Vec2f> &coordVec) {
+            uv_coords.push_back(coordVec);
         }
 
         std::vector<cv::Vec3f> generateCoords() {
@@ -915,14 +928,63 @@ namespace sg {
         static Cylinder::Ptr create() {
             return Cylinder::Ptr(boost::make_shared<Cylinder>());
         }
-        
+
+        void serializeBoundary(std::vector<float>& boundary) {
+            if (uv_coords.size() < 1) {
+                return;
+            }
+            std::vector<cv::Vec2f> uv_poly_coords = uv_coords[0];
+            for (cv::Vec2f uv_coord : uv_poly_coords) {
+                boundary.push_back(uv_coord[0]);
+                boundary.push_back(uv_coord[1]);
+            }
+        }
+
+        void deserializeBoundary(const std::vector<float>& boundary) {
+            std::vector<cv::Vec2f> uv_poly_coords;
+            for (int ptIdx = 0; ptIdx < boundary.size(); ptIdx += 2) {
+                cv::Vec2f uv_coord(boundary[ptIdx], boundary[ptIdx + 1]);
+                uv_poly_coords.push_back(uv_coord);
+            }
+            addCoords(uv_poly_coords);
+        }
+
+        std::vector<cv::Vec2f> getBoundary() const {
+            std::vector<cv::Vec2f> uv_poly_coords;
+            return (uv_coords.size() > 0) ? uv_coords[0] : uv_poly_coords;
+        }
+
+        void setBoundary(std::vector<cv::Vec2f> &boundary) {
+            if (uv_coords.size() == 0) {
+                uv_coords.push_back(boundary);
+            } else {
+                uv_coords[0] = boundary;
+            }
+        }
+
+        cv::Vec2f xyzToUV(const cv::Vec3f& xyz) const {
+            cv::Vec2f uv(0, 0);
+            cv::Vec3f center;
+            cv::Vec3f xVec(1, 0, 0);
+            cv::Vec3f yVec(0, 1, 0);
+            cv::Vec3f zVec(0, 0, 1);
+            pose.getTranslation(center);
+            pose.rotateInPlace(xVec);
+            pose.rotateInPlace(yVec);
+            pose.rotateInPlace(zVec);
+            uv[0] = (xyz - center).dot(zVec);
+            uv[1] = std::atan2((xyz - center).dot(yVec), (xyz - center).dot(xVec));
+            assert(!std::isnan(uv[0]) && !std::isnan(uv[1]));
+            return uv;
+        }
+
         float radius() {
             return r;
-        };        
+        };
 
         float height() {
             return h;
-        };        
+        };
     private:
         // -------------------------
         // Disabling default copy constructor and default
@@ -935,6 +997,7 @@ namespace sg {
     };
 
     class Sphere : public Shape {
+        std::vector< std::vector<cv::Vec2f>> uv_coords; // 2d parametric coords within the plane
     public:
         typedef boost::shared_ptr<Sphere> Ptr;
         typedef boost::shared_ptr<Sphere> ConstPtr;
@@ -947,6 +1010,10 @@ namespace sg {
         }
 
         virtual ~Sphere() {
+        }
+
+        void addCoords(std::vector<cv::Vec2f> &coordVec) {
+            uv_coords.push_back(coordVec);
         }
 
         std::vector<cv::Vec3f> generateCoords() {
@@ -988,6 +1055,57 @@ namespace sg {
 
         static Sphere::Ptr create() {
             return Sphere::Ptr(boost::make_shared<Sphere>());
+        }
+
+        cv::Vec2f xyzToUV(const cv::Vec3f& xyz) const {
+            cv::Vec2f uv;
+            cv::Vec3f normal;
+            cv::Vec3f xVec(1, 0, 0);
+            cv::Vec3f yVec(0, 1, 0);
+            cv::Vec3f zVec(0, 0, 1);
+            pose.getTranslation(normal);
+            pose.rotateInPlace(xVec);
+            pose.rotateInPlace(yVec);
+            pose.rotateInPlace(zVec);
+            normal = xyz - normal;
+            normal /= cv::norm(normal);
+            uv[0] = std::acos(normal.dot(zVec));
+            uv[1] = std::atan2(normal.dot(yVec), normal.dot(xVec));
+            assert(!std::isnan(uv[0]) && !std::isnan(uv[1]));
+            return uv;
+        }
+
+        void serializeBoundary(std::vector<float>& boundary) {
+            if (uv_coords.size() < 1) {
+                return;
+            }
+            std::vector<cv::Vec2f> uv_poly_coords = uv_coords[0];
+            for (cv::Vec2f uv_coord : uv_poly_coords) {
+                boundary.push_back(uv_coord[0]);
+                boundary.push_back(uv_coord[1]);
+            }
+        }
+
+        void deserializeBoundary(const std::vector<float>& boundary) {
+            std::vector<cv::Vec2f> uv_poly_coords;
+            for (int ptIdx = 0; ptIdx < boundary.size(); ptIdx += 2) {
+                cv::Vec2f uv_coord(boundary[ptIdx], boundary[ptIdx + 1]);
+                uv_poly_coords.push_back(uv_coord);
+            }
+            addCoords(uv_poly_coords);
+        }
+
+        std::vector<cv::Vec2f> getBoundary() const {
+            std::vector<cv::Vec2f> uv_poly_coords;
+            return (uv_coords.size() > 0) ? uv_coords[0] : uv_poly_coords;
+        }
+
+        void setBoundary(std::vector<cv::Vec2f> &boundary) {
+            if (uv_coords.size() == 0) {
+                uv_coords.push_back(boundary);
+            } else {
+                uv_coords[0] = boundary;
+            }
         }
 
         float radius() {

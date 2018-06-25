@@ -388,6 +388,7 @@ namespace cv {
             cv::Point_<_Tpl> uv;
             uv.x = pt0.dot(u);
             uv.y = pt0.dot(v);
+            assert(!std::isnan(uv.x) && !std::isnan(uv.y));
             return uv;
         }
 
