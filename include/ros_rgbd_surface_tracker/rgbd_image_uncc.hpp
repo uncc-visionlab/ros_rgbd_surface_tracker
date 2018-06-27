@@ -743,8 +743,8 @@ namespace cv {
 
                 //cv::Mat _M = cv::Mat::zeros(num_points, 3, cv::traits::Type<scalar_t>::value);
                 //cv::Mat _Z = cv::Mat::zeros(num_points, 1, cv::traits::Type<scalar_t>::value);
-                cv::Mat _M = cv::Mat::zeros(num_points, 3, cv::DataType<scalar_t>::value);
-                cv::Mat _Z = cv::Mat::zeros(num_points, 1, cv::DataType<scalar_t>::value);
+                cv::Mat _M = cv::Mat::zeros(num_points, 3, cv::DataType<scalar_t>::type);
+                cv::Mat _Z = cv::Mat::zeros(num_points, 1, cv::DataType<scalar_t>::type);
                 scalar_t* M = _M.ptr<scalar_t>();
                 scalar_t* Z = _Z.ptr<scalar_t>();
 
@@ -754,7 +754,7 @@ namespace cv {
                     M[3 * ptIdx + 1] = points[pt_begin + 1];
                     M[3 * ptIdx + 2] = 1.0;
                     Z[ptIdx] = points[pt_begin + 2];
-                    stats.noise += getDepthStandardDeviation(points[pt_begin + 2]);
+                    stats.noise += this->getErrorStandardDeviation(points[pt_begin + 2]);
                 }
                 cv::Mat _MtM = _M.t() * _M;
                 cv::Mat _planeCoeffs = _MtM.inv() * _M.t() * _Z;
@@ -764,7 +764,7 @@ namespace cv {
                 scalar_t* _err = _error.ptr<scalar_t>();
 
                 for (size_t ptIdx = 0; ptIdx < num_points; ptIdx++) {
-                    if (_err[ptIdx] < getDepthStandardDeviation(_z[ptIdx])) {
+                    if (_err[ptIdx] < this->getErrorStandardDeviation(_z[ptIdx])) {
                         stats.inliers++;
                     } else {
                         stats.outliers++;

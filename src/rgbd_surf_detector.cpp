@@ -13,7 +13,7 @@
 
 namespace cv {
     namespace rgbd {
-        float PLANE_FIT_ERROR_THRESHOLD = 0.0015;
+        float PLANE_FIT_ERROR_THRESHOLD = 0.003;
 
         void SurfaceDetector::detect(const cv::rgbd::RgbdImage& rgbd_img,
                 cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
@@ -161,13 +161,14 @@ namespace cv {
                         if (tile_data.size() > (numSamples >> 2)) {
                             cv::FitStatistics stats;
                             std::tie(plane3, stats) = rgbd_img.fitPlaneImplicitLeastSquaresWithStats(tile_data);
+                            //std::tie(plane3, stats) = rgbd_img.fitPlaneExplicitLeastSquaresWithStats(tile_data);
                             quad.error = stats.error;
                             quad.noise = stats.noise;
                             quad.inliers = stats.inliers;
                             quad.outliers = stats.outliers;
                             quad.invalid = stats.invalid;
-                            
-                            if (quad.error / (quad.inliers + quad.outliers) < PLANE_FIT_ERROR_THRESHOLD * avgDepth) {
+
+                            if (quad.error < PLANE_FIT_ERROR_THRESHOLD * avgDepth) {
                                 //&& plane3.d > 0 && abs(plane3.x) < 0.99 && abs(plane3.y) < 0.99) {
                                 //std::cout << "areaA " << planeA->area() << " errorA = " 
                                 //<< planeA->avgError() << " planeA = " << *planeA << std::endl;
@@ -175,7 +176,7 @@ namespace cv {
                                 tplane.addQuad(quad);
                                 sg::Plane<float>::Ptr planePtr(new sg::Plane<float>(tplane));
                                 bool checkPlanar = setPlaneUVCoords(planePtr, rgbd_img, quad);
-                                if (checkPlanar) {
+                                if (checkPlanar && quad.area() > 1200) {
                                     quadTree->insert_or_assign(x_tile, y_tile, planePtr);
                                     RectWithError newQuad = quad.clone();
                                     quad.clearStatistics();
@@ -183,11 +184,14 @@ namespace cv {
                                     quadQueue.push(newQuad);
                                 }
                             } else {
-                                // mark tile coordinates for subdivision
-                                recurseTileVec.push_back(Point2i((x_tile << 1) + 0, (y_tile << 1) + 0));
-                                recurseTileVec.push_back(Point2i((x_tile << 1) + 1, (y_tile << 1) + 0));
-                                recurseTileVec.push_back(Point2i((x_tile << 1) + 0, (y_tile << 1) + 1));
-                                recurseTileVec.push_back(Point2i((x_tile << 1) + 1, (y_tile << 1) + 1));
+                                if (quad.area() > 1200) {
+                                    // mark tile coordinates for subdivision
+                                    //std::cout << "recurse on quad dims = (" << quad.width << ", " << quad.height << ")" << std::endl;
+                                    recurseTileVec.push_back(Point2i((x_tile << 1) + 0, (y_tile << 1) + 0));
+                                    recurseTileVec.push_back(Point2i((x_tile << 1) + 1, (y_tile << 1) + 0));
+                                    recurseTileVec.push_back(Point2i((x_tile << 1) + 0, (y_tile << 1) + 1));
+                                    recurseTileVec.push_back(Point2i((x_tile << 1) + 1, (y_tile << 1) + 1));
+                                }
                             }
                         } else {
                             // not enough samples found in tile -> stop recursions
@@ -221,14 +225,15 @@ namespace cv {
                     rgbd_img.getTileData_Uniform(quad.x, quad.y,
                             quad.width, quad.height, tile_data, numSamples);
                     if (tile_data.size() > (numSamples >> 2)) {
-                            cv::FitStatistics stats;
-                            std::tie(plane3, stats) = rgbd_img.fitPlaneImplicitLeastSquaresWithStats(tile_data);
-                            quad.error = stats.error;
-                            quad.noise = stats.noise;
-                            quad.inliers = stats.inliers;
-                            quad.outliers = stats.outliers;
-                            quad.invalid = stats.invalid;
-                        if (quad.error / (quad.inliers + quad.outliers) < PLANE_FIT_ERROR_THRESHOLD * avgDepth) {
+                        cv::FitStatistics stats;
+                        std::tie(plane3, stats) = rgbd_img.fitPlaneImplicitLeastSquaresWithStats(tile_data);
+                        //std::tie(plane3, stats) = rgbd_img.fitPlaneExplicitLeastSquaresWithStats(tile_data);
+                        quad.error = stats.error;
+                        quad.noise = stats.noise;
+                        quad.inliers = stats.inliers;
+                        quad.outliers = stats.outliers;
+                        quad.invalid = stats.invalid;
+                        if (quad.error < PLANE_FIT_ERROR_THRESHOLD * avgDepth) {
                             //&& plane3.d > 0 && abs(plane3.x) < 0.99 && abs(plane3.y) < 0.99) {
                             //std::cout << "areaA " << planeA->area() << " errorA = " 
                             //<< planeA->avgError() << " planeA = " << *planeA << std::endl;
@@ -236,7 +241,7 @@ namespace cv {
                             tplane.addQuad(quad);
                             sg::Plane<float>::Ptr planePtr(new sg::Plane<float>(tplane));
                             bool checkPlanar = setPlaneUVCoords(planePtr, rgbd_img, quad);
-                            if (checkPlanar) {
+                            if (checkPlanar && quad.area() > 1200) {
                                 quadTree->insert_or_assign(tileIdx.x, tileIdx.y, planePtr);
                                 RectWithError newQuad = quad.clone();
                                 quad.clearStatistics();
@@ -244,10 +249,13 @@ namespace cv {
                                 quadQueue.push(newQuad);
                             }
                         } else { // tile error exceeds threshold -> subdivide                            
-                            recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 0, (tileIdx.y << 1) + 0));
-                            recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 1, (tileIdx.y << 1) + 0));
-                            recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 0, (tileIdx.y << 1) + 1));
-                            recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 1, (tileIdx.y << 1) + 1));
+                            if (quad.area() > 1200) {
+                                //std::cout << "recurse on quad dims = (" << quad.width << ", " << quad.height << ")" << std::endl;
+                                recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 0, (tileIdx.y << 1) + 0));
+                                recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 1, (tileIdx.y << 1) + 0));
+                                recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 0, (tileIdx.y << 1) + 1));
+                                recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 1, (tileIdx.y << 1) + 1));
+                            }
                         }
                     } else {
                         // not enough samples found in tile -> stop recursions
