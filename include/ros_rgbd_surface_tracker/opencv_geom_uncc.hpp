@@ -173,7 +173,6 @@ namespace cv {
         typedef boost::shared_ptr<const Plane3_<_Tpl> > ConstPtr;
 
         Plane3_() : d(0), Point3_<_Tpl>() {
-            coefficientsChanged();
         }
 
         Plane3_(_Tpl _x, _Tpl _y, _Tpl _z, _Tpl _d) : d(_d), Point3_<_Tpl>(_x, _y, _z) {
@@ -182,7 +181,7 @@ namespace cv {
 
         Plane3_(const Point3_<_Tpl>& pt1, const Point3_<_Tpl>& pt2,
                 const Point3_<_Tpl>& pt3) {
-            setCoeffs(pt1, pt2, pt3);
+            setCoeffs(pt1, pt2, pt3);            
         }
 
         Plane3_<_Tpl> clone() {
@@ -227,7 +226,6 @@ namespace cv {
 
             pt = -(line.p0 + ((line.p0.dot(plane_normal) + this->d) / (line_vec.dot(plane_normal))) * line_vec);
             return true;
-
         }
 
         void setCoeffs(_Tpl _x, _Tpl _y, _Tpl _z, _Tpl _d) {
@@ -349,6 +347,7 @@ namespace cv {
             cv::Vec<_Tpl, 3> planeNormal(this->x, this->y, this->z);
             _Tpl normalLen = cv::norm(planeNormal);
             if (normalLen < 1e-6) {
+                std::cout << "Plane " << this->toString() << " has indeterminant orientation! UV coords cannot be computed reliably." << std::endl;
                 u[0] = u[1] = u[2] = 0;
                 v[0] = v[1] = v[2] = 0;
                 return;
@@ -634,6 +633,7 @@ namespace cv {
 
     class FitStatistics : public Consensus {
     public:
+        float max_error = 0;
         float error = 0;
         float noise = 0;
 

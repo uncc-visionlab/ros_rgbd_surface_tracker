@@ -231,7 +231,7 @@ namespace cv {
             };
 
             bool staticDataOK();
-            
+
             bool isContinuous() const {
                 // Checks color and depth cv::Mats for memory continuity
                 return (this->img_I.isContinuous() and this->img_Z.isContinuous());
@@ -248,13 +248,13 @@ namespace cv {
             bool getPoint3f(const int ix, const int iy, Point3f& p3) const {
                 return getPoint3f(ix, iy, p3.x, p3.y, p3.z);
             }
-            
+
             bool getPoint3f(const int ix, const int iy, Vec3f& v) const {
                 return getPoint3f(ix, iy, v[0], v[1], v[2]);
             }
-            
+
             void getPointCloud(cv::Mat& pts, cv::Mat& colors) const;
-            
+
             void getPointCloud(cv::Mat& pts) const;
 
             bool getTileData_Random(int x0, int y0,
@@ -477,12 +477,12 @@ namespace cv {
                     }
                 }
             }
-            
+
             bool inImage(const float& px, const float& py) const {
                 // checks that the pixel is within the image bounds
                 return (py >= 0 && py < this->height && px >= 0 && px < this->width);
             }
-            
+
             bool inImage(cv::Point2f& pixel) const {
                 // checks that the pixel is within the image bounds
                 return this->inImage(pixel.x, pixel.y);
@@ -510,9 +510,9 @@ namespace cv {
             float getErrorStandardDeviation(int ix, int iy) const {
                 return getErrorStandardDeviation(zptr[iy * zstep + ix]);
             }
-            
+
             template <typename scalar_t>
-            static cv::Plane3_<scalar_t> fitPlaneImplicitLeastSquares(const std::vector<cv::Point3_<scalar_t>>& points) {
+            static cv::Plane3_<scalar_t> fitPlaneImplicitLeastSquares(const std::vector<cv::Point3_<scalar_t>>&points) {
                 return cv::uncc::SurfaceFitting::fitPlaneImplicitLeastSquares(points);
             }
 
@@ -522,17 +522,17 @@ namespace cv {
             }
 
             template <typename scalar_t>
-            std::pair<cv::Plane3_<scalar_t>, cv::FitStatistics> fitPlaneImplicitLeastSquaresWithStats(const std::vector<cv::Point3_<scalar_t>>& points) const {
-                return this->fitPlaneImplicitLeastSquaresWithStats(reinterpret_cast<const scalar_t*>(points.data()), points.size(), 3);
+            std::pair<cv::Plane3_<scalar_t>, cv::FitStatistics> fitPlaneImplicitLeastSquaresWithStats(const std::vector<cv::Point3_<scalar_t>>&points) const {
+                return this->fitPlaneImplicitLeastSquaresWithStats(reinterpret_cast<const scalar_t*> (points.data()), points.size(), 3);
             }
 
             template <typename scalar_t>
             std::pair<cv::Plane3_<scalar_t>, cv::FitStatistics> fitPlaneImplicitLeastSquaresWithStats(const Eigen::Matrix<scalar_t, 4, Eigen::Dynamic, Eigen::ColMajor>& points_homogeneous) const {
                 return this->fitPlaneImplicitLeastSquaresWithStats(points_homogeneous.data(), points_homogeneous.cols(), 4);
             }
-            
+
             template <typename scalar_t>
-            static cv::Plane3_<scalar_t> fitPlaneExplicitLeastSquares(const std::vector<cv::Point3_<scalar_t>>& points) {
+            static cv::Plane3_<scalar_t> fitPlaneExplicitLeastSquares(const std::vector<cv::Point3_<scalar_t>>&points) {
                 return cv::uncc::SurfaceFitting::fitPlaneExplicitLeastSquares(points);
             }
 
@@ -540,21 +540,21 @@ namespace cv {
             static cv::Plane3_<scalar_t> fitPlaneExplicitLeastSquares(const Eigen::Matrix<scalar_t, 4, Eigen::Dynamic, Eigen::ColMajor>& points_homogeneous) {
                 return cv::uncc::SurfaceFitting::fitPlaneExplicitLeastSquares(points_homogeneous);
             }
-            
+
             template <typename scalar_t>
-            std::pair<cv::Plane3_<scalar_t>, cv::FitStatistics> fitPlaneExplicitLeastSquaresWithStats(const std::vector<cv::Point3_<scalar_t>>& points) const {
-                return this->fitPlaneExplicitLeastSquaresWithStats(reinterpret_cast<const scalar_t*>(points.data()), points.size(), 3);
+            std::pair<cv::Plane3_<scalar_t>, cv::FitStatistics> fitPlaneExplicitLeastSquaresWithStats(const std::vector<cv::Point3_<scalar_t>>&points) const {
+                return this->fitPlaneExplicitLeastSquaresWithStats(reinterpret_cast<const scalar_t*> (points.data()), points.size(), 3);
             }
 
             template <typename scalar_t>
             std::pair<cv::Plane3_<scalar_t>, cv::FitStatistics> fitPlaneExplicitLeastSquaresWithStats(const Eigen::Matrix<scalar_t, 4, Eigen::Dynamic, Eigen::ColMajor>& points_homogeneous) const {
                 return this->fitPlaneExplicitLeastSquaresWithStats(points_homogeneous.data(), points_homogeneous.cols(), 4);
             }
-            
+
             std::pair<cv::Plane3f, cv::FitStatistics> fitPlaneRANSACWithStats(pcl::PointCloud<pcl::PointXYZ>::Ptr points, double distance_threshold = .01, size_t max_iterations = 1000, bool refine = true) const {
-        
-                pcl::SampleConsensusModelPlane<pcl::PointXYZ>::Ptr plane_model = 
-                        boost::make_shared<pcl::SampleConsensusModelPlane<pcl::PointXYZ>>(points);
+
+                pcl::SampleConsensusModelPlane<pcl::PointXYZ>::Ptr plane_model =
+                        boost::make_shared<pcl::SampleConsensusModelPlane < pcl::PointXYZ >> (points);
                 pcl::RandomSampleConsensus<pcl::PointXYZ> ransac(plane_model);
 
                 ransac.setDistanceThreshold(distance_threshold);
@@ -582,9 +582,12 @@ namespace cv {
                 stats.outliers = points->size() - stats.inliers;
                 for (int inlier_index : inlier_indicies) {
                     const pcl::PointXYZ& point = points->at(inlier_index);
-                    float point_error = plane.evaluate(point.x, point.y, point.z);
+                    float point_error = std::abs(plane.evaluate(point.x, point.y, point.z));
                     stats.error += point_error;
                     stats.noise += this->getErrorStandardDeviation(point.z);
+                    if (stats.max_error < stats.error) {
+                        stats.max_error = stats.error;
+                    }
                 }
                 stats.error /= stats.inliers;
                 stats.noise /= stats.inliers;
@@ -592,7 +595,7 @@ namespace cv {
                 return std::make_pair(plane, stats);
 
             }
-            
+
             const cv::Mat getDepthImage() const {
                 return img_Z;
             }
@@ -659,14 +662,14 @@ namespace cv {
             float cx, cy, inv_f;
             cv::Mat cameraMatrix;
             mutable cv::Ptr<RgbdNormals> normalsComputer;
-            
+
             template <typename scalar_t>
             std::pair<cv::Plane3_<scalar_t>, FitStatistics> fitPlaneImplicitLeastSquaresWithStats(const scalar_t* points, size_t num_points, size_t stride) const {
 
                 cv::Plane3_<scalar_t> plane3;
                 cv::FitStatistics stats;
 
-              //cv::Mat _M = cv::Mat::zeros(num_points, 3, cv::traits::Type<scalar_t>::value);
+                //cv::Mat _M = cv::Mat::zeros(num_points, 3, cv::traits::Type<scalar_t>::value);
                 cv::Mat _M = cv::Mat::zeros(num_points, 3, cv::DataType<scalar_t>::type);
                 scalar_t* M = _M.ptr<scalar_t>();
                 cv::Point3f centroid(0, 0, 0);
@@ -679,7 +682,7 @@ namespace cv {
                 centroid.x /= num_points;
                 centroid.y /= num_points;
                 centroid.z /= num_points;
-                for (size_t ptIdx = 0; ptIdx < num_points; ++ptIdx) {
+                for (size_t ptIdx = 0; ptIdx < num_points; ++ptIdx) { // remove centroid -> make coefficients uncorrelated
                     size_t pt_begin = stride*ptIdx;
                     M[3 * ptIdx] = points[pt_begin] - centroid.x;
                     M[3 * ptIdx + 1] = points[pt_begin + 1] - centroid.y;
@@ -690,6 +693,7 @@ namespace cv {
                 cv::Mat eigVals, eigVecs;
                 cv::eigen(_MtM, eigVals, eigVecs);
                 cv::Mat _planeCoeffs = eigVecs.row(2).t();
+                //cv::Mat _planeCoeffsCovariance = eigVals.at(2) * _MtM;
                 //std::cout << "E = " << E << std::endl;
                 //std::cout << "MtM = " << _MtM << std::endl;          
                 //std::cout << "V = " << eigVecs << std::endl;          
@@ -717,12 +721,15 @@ namespace cv {
                 scalar_t* _err = _error.ptr<scalar_t>();
 
                 for (size_t ptIdx = 0; ptIdx < num_points; ptIdx++) {
-                    if (_err[ptIdx] < getErrorStandardDeviation(points[stride*ptIdx + 2])) {
+                    if (_err[ptIdx] < getErrorStandardDeviation(points[stride * ptIdx + 2])) {
                         stats.inliers++;
                     } else {
                         stats.outliers++;
                     }
                     stats.error += std::abs(_err[ptIdx]);
+                    if (stats.max_error < stats.error) {
+                        stats.max_error = stats.error;
+                    }
                 }
                 stats.error /= num_points;
                 stats.noise /= num_points;
@@ -733,7 +740,7 @@ namespace cv {
                 return std::make_pair(plane3, stats);
 
             }
-            
+
             template <typename scalar_t>
             std::pair<cv::Plane3_<scalar_t>, cv::FitStatistics> fitPlaneExplicitLeastSquaresWithStats(
                     const scalar_t* points, size_t num_points, size_t stride) const {
@@ -759,7 +766,7 @@ namespace cv {
                 cv::Mat _MtM = _M.t() * _M;
                 cv::Mat _planeCoeffs = _MtM.inv() * _M.t() * _Z;
                 scalar_t* planeCoeffs = _planeCoeffs.ptr<scalar_t>();
-                cv::Mat _error = _M * _planeCoeffs - _Z;          
+                cv::Mat _error = _M * _planeCoeffs - _Z;
                 scalar_t* _z = _Z.ptr<scalar_t>();
                 scalar_t* _err = _error.ptr<scalar_t>();
 
@@ -770,10 +777,13 @@ namespace cv {
                         stats.outliers++;
                     }
                     stats.error += std::abs(_err[ptIdx]);
+                    if (stats.max_error < stats.error) {
+                        stats.max_error = stats.error;
+                    }
                 }
 
                 stats.error /= num_points;
-    //            stats.noise /= num_points;
+                //            stats.noise /= num_points;
                 plane3.x = planeCoeffs[0];
                 plane3.y = planeCoeffs[1];
                 plane3.z = -1;
@@ -786,7 +796,7 @@ namespace cv {
                 return std::make_pair(plane3, stats);
 
             }
-            
+
         public:
             static DepthIntegralImages iImgs;
         }; /* class RgbdImage */

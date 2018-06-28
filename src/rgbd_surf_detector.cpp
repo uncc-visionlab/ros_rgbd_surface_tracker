@@ -13,7 +13,9 @@
 
 namespace cv {
     namespace rgbd {
-        float PLANE_FIT_ERROR_THRESHOLD = 0.003;
+        float PLANE_AVG_FIT_ERROR_THRESHOLD = 0.003;
+        float PLANE_MAX_FIT_ERROR_THRESHOLD = 0.130;
+        int MIN_QUAD_PIXEL_AREA = 20 * 20;
 
         void SurfaceDetector::detect(const cv::rgbd::RgbdImage& rgbd_img,
                 cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
@@ -57,17 +59,25 @@ namespace cv {
             std::vector<cv::Vec2f> plane_uv_coords;
             cv::Vec3f meanPos = 0.25 * (pts[0] + pts[1] + pts[2] + pts[3]);
             cv::Point3f conv_error;
+            int numUV = 0;
             for (cv::Point3f pt : pts) {
                 cv::Point2f uv_coord = plane_ptr->xyzToUV(pt);
                 plane_uv_coords.push_back(uv_coord);
+                numUV++;
                 // TODO: This filter should not be necessary if other criteria were more appropriate
                 // improve PLANE_FIT_ERROR_THRESHOLD
                 // improve checkTilePlanar() 
                 cv::Point3f xyz3 = plane_ptr->uvToXYZ(uv_coord);
                 conv_error = xyz3 - pt;
                 float conv_error_lensq = conv_error.dot(conv_error);
-                if (conv_error_lensq > 0.01) {
+                if (conv_error_lensq > 0.005) { // corner is > 5mm out of the plane -> reject the plane
                     return false; // does not look square-like in UV coords! -> delete
+                }
+                if (numUV >= 2) {
+                    float sidelength = cv::norm(plane_uv_coords[numUV - 1] - plane_uv_coords[numUV - 2]);
+                    if (sidelength > 0.4) {
+                        return false;
+                    }
                 }
                 // TODO: Resolve circumstances when this conversion can have large error & fix/triage.
                 if (false) { // likely cause is fit error calculation, inliers & outliers
@@ -167,8 +177,9 @@ namespace cv {
                             quad.inliers = stats.inliers;
                             quad.outliers = stats.outliers;
                             quad.invalid = stats.invalid;
-
-                            if (quad.error < PLANE_FIT_ERROR_THRESHOLD * avgDepth) {
+                            float scalef = (avgDepth < 2) ? 2.0f : 1.0f;
+                            if (quad.error < PLANE_AVG_FIT_ERROR_THRESHOLD * avgDepth * scalef &&
+                                    quad.max_error < PLANE_MAX_FIT_ERROR_THRESHOLD * 0.5 * avgDepth * scalef) {
                                 //&& plane3.d > 0 && abs(plane3.x) < 0.99 && abs(plane3.y) < 0.99) {
                                 //std::cout << "areaA " << planeA->area() << " errorA = " 
                                 //<< planeA->avgError() << " planeA = " << *planeA << std::endl;
@@ -176,7 +187,7 @@ namespace cv {
                                 tplane.addQuad(quad);
                                 sg::Plane<float>::Ptr planePtr(new sg::Plane<float>(tplane));
                                 bool checkPlanar = setPlaneUVCoords(planePtr, rgbd_img, quad);
-                                if (checkPlanar && quad.area() > 1200) {
+                                if (checkPlanar && std::abs(planePtr->y) < 0.8 && quad.area() > MIN_QUAD_PIXEL_AREA) {
                                     quadTree->insert_or_assign(x_tile, y_tile, planePtr);
                                     RectWithError newQuad = quad.clone();
                                     quad.clearStatistics();
@@ -184,7 +195,7 @@ namespace cv {
                                     quadQueue.push(newQuad);
                                 }
                             } else {
-                                if (quad.area() > 1200) {
+                                if (quad.area() > MIN_QUAD_PIXEL_AREA << 2) {
                                     // mark tile coordinates for subdivision
                                     //std::cout << "recurse on quad dims = (" << quad.width << ", " << quad.height << ")" << std::endl;
                                     recurseTileVec.push_back(Point2i((x_tile << 1) + 0, (y_tile << 1) + 0));
@@ -197,10 +208,14 @@ namespace cv {
                             // not enough samples found in tile -> stop recursions
                         }
                     } else { // one or more tile corners is a NaN depth measurement -> subdivide
-                        //recurseTileVec.push_back(Point2i((x_tile << 1) + 0, (y_tile << 1) + 0));
-                        //recurseTileVec.push_back(Point2i((x_tile << 1) + 1, (y_tile << 1) + 0));
-                        //recurseTileVec.push_back(Point2i((x_tile << 1) + 0, (y_tile << 1) + 1));
-                        //recurseTileVec.push_back(Point2i((x_tile << 1) + 1, (y_tile << 1) + 1));
+                        if (quad.area() > MIN_QUAD_PIXEL_AREA << 2) {
+                            // mark tile coordinates for subdivision
+                            //std::cout << "recurse on quad dims = (" << quad.width << ", " << quad.height << ")" << std::endl;
+                            recurseTileVec.push_back(Point2i((x_tile << 1) + 0, (y_tile << 1) + 0));
+                            recurseTileVec.push_back(Point2i((x_tile << 1) + 1, (y_tile << 1) + 0));
+                            recurseTileVec.push_back(Point2i((x_tile << 1) + 0, (y_tile << 1) + 1));
+                            recurseTileVec.push_back(Point2i((x_tile << 1) + 1, (y_tile << 1) + 1));
+                        }
                     }
                 } // loop over tile columns
             } // loop over tile rows
@@ -233,7 +248,9 @@ namespace cv {
                         quad.inliers = stats.inliers;
                         quad.outliers = stats.outliers;
                         quad.invalid = stats.invalid;
-                        if (quad.error < PLANE_FIT_ERROR_THRESHOLD * avgDepth) {
+                        float scalef = (avgDepth < 2) ? 2.0f : 1.0f;
+                        if (quad.error < PLANE_AVG_FIT_ERROR_THRESHOLD * avgDepth * scalef &&
+                                quad.max_error < PLANE_MAX_FIT_ERROR_THRESHOLD * 0.5 * avgDepth * scalef) {
                             //&& plane3.d > 0 && abs(plane3.x) < 0.99 && abs(plane3.y) < 0.99) {
                             //std::cout << "areaA " << planeA->area() << " errorA = " 
                             //<< planeA->avgError() << " planeA = " << *planeA << std::endl;
@@ -241,7 +258,7 @@ namespace cv {
                             tplane.addQuad(quad);
                             sg::Plane<float>::Ptr planePtr(new sg::Plane<float>(tplane));
                             bool checkPlanar = setPlaneUVCoords(planePtr, rgbd_img, quad);
-                            if (checkPlanar && quad.area() > 1200) {
+                            if (checkPlanar && std::abs(planePtr->y) < 0.8 && quad.area() > MIN_QUAD_PIXEL_AREA) {
                                 quadTree->insert_or_assign(tileIdx.x, tileIdx.y, planePtr);
                                 RectWithError newQuad = quad.clone();
                                 quad.clearStatistics();
@@ -249,7 +266,7 @@ namespace cv {
                                 quadQueue.push(newQuad);
                             }
                         } else { // tile error exceeds threshold -> subdivide                            
-                            if (quad.area() > 1200) {
+                            if (quad.area() > (MIN_QUAD_PIXEL_AREA << 2)) {
                                 //std::cout << "recurse on quad dims = (" << quad.width << ", " << quad.height << ")" << std::endl;
                                 recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 0, (tileIdx.y << 1) + 0));
                                 recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 1, (tileIdx.y << 1) + 0));
@@ -261,10 +278,14 @@ namespace cv {
                         // not enough samples found in tile -> stop recursions
                     }
                 } else { // one or more tile corners is a NaN depth measurement -> subdivide
-                    //recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 0, (tileIdx.y << 1) + 0));
-                    //recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 1, (tileIdx.y << 1) + 0));
-                    //recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 0, (tileIdx.y << 1) + 1));
-                    //recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 1, (tileIdx.y << 1) + 1));
+                    if (quad.area() > MIN_QUAD_PIXEL_AREA << 2) {
+                        // mark tile coordinates for subdivision
+                        //std::cout << "recurse on quad dims = (" << quad.width << ", " << quad.height << ")" << std::endl;
+                        recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 0, (tileIdx.y << 1) + 0));
+                        recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 1, (tileIdx.y << 1) + 0));
+                        recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 0, (tileIdx.y << 1) + 1));
+                        recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 1, (tileIdx.y << 1) + 1));
+                    }
                 }
             } // loop over subdivision tiles
             return recurseTileVec;
