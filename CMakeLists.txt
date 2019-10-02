@@ -168,8 +168,8 @@ include_directories(
 ## The recommended prefix ensures that target names across packages don't collide
 # add_executable(${PROJECT_NAME}_node src/detect_depth_surflets_node.cpp)
 
-link_directories(/opt/ros/kinetic/lib
-    /home/arwillis/astra/OpenNI-Linux-x64-2.3/Redist) # needed to find OpenNI2Orbbec
+#link_directories(/opt/ros/kinetic/lib
+#    /home/arwillis/astra/OpenNI-Linux-x64-2.3/Redist) # needed to find OpenNI2Orbbec
 
 add_library(${PROJECT_NAME} 
     src/ros_rgbd_surface_tracker.cpp
@@ -235,8 +235,8 @@ target_link_libraries(run_rgbd_live_arm
    ${catkin_LIBRARIES} 
    ${Boost_LIBRARIES}
    ${OpenCV_LIBRARIES}  
-   ${Eigen3_LIBRARIES}  
-   OpenNI2Orbbec GL GLU glut)
+   ${Eigen3_LIBRARIES} OpenNI GL GLU glut)
+#   OpenNI2Orbbec GL GLU glut)
 
 add_executable(opengl_iothread 
     src/opengl_iothread.cpp)
