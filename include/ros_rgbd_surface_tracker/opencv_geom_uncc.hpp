@@ -22,7 +22,7 @@
 #else
 #define VERBOSE_SURFTRACK(x) 
 #endif
-
+        
 namespace cv {
 
     // coeffs are stored in implicit form
@@ -37,20 +37,20 @@ namespace cv {
             return os;
         }
 
-        Point_<_Tpl> getPoint(const _Tpl& lambda) const {
+        cv::Point_<_Tpl> getPoint(const _Tpl& lambda) const {
             Point_<_Tpl> p;
             p.x = lambda * v.x + p0.x;
             p.y = lambda * v.y + p0.y;
             return p;
         }
 
-        void setPoint(Point_<_Tpl>& p, const _Tpl& lambda) const {
+        void setPoint(cv::Point_<_Tpl>& p, const _Tpl& lambda) const {
             p.x = lambda * v.x + p0.x;
             p.y = lambda * v.y + p0.y;
         }
 
         static void intersect(const Line2_<_Tpl>& l1, const Line2_<_Tpl>& l2,
-                Point_<_Tpl>& p) {
+                cv::Point_<_Tpl>& p) {
             _Tpl ilambda = (l1.v.y * (l1.p0.x - l2.p0.x) - l1.v.x * (l1.p0.y - l2.p0.y)) / (l1.v.y * l2.v.x - l1.v.x * l2.v.y);
             p.x = l2.p0.x + ilambda * l2.v.x;
             p.y = l2.p0.y + ilambda * l2.v.y;
@@ -1019,7 +1019,7 @@ namespace cv {
             x = key - y * tileDims.width;
         }
     };
-}
+} /* namespace cv */
 #endif /* __cplusplus */
 #endif /* OPENCV_FUNCTION_DEV_H */
 

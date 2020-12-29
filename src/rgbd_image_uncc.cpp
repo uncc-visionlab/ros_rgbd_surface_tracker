@@ -47,7 +47,7 @@ namespace cv {
                 }
             }
         }
-        
+
         void RgbdImage::getPointCloud(cv::Mat& pts) const {
             pts.create(getDepthImage().size(), CV_32FC3);
             for (int r = 0; r < getDepthImage().rows; ++r) {
@@ -78,26 +78,31 @@ namespace cv {
             //                setNormalsComputer(normalsComputer);
             //
             //cv::Mat normals(getDepth().size(), CV_32FC3);
-            cv::Mat points(getDepthImage().size(), CV_32FC3);
-            for (int r = 0; r < getDepthImage().rows; ++r) {
-                for (int c = 0; c < getDepthImage().cols; ++c) {
-                    const float& depth = zptr[r * zstep + c];
-                    points.at<cv::Point3f>(r, c).x = (c - cx) * inv_f*depth;
-                    points.at<cv::Point3f>(r, c).y = (r - cy) * inv_f*depth;
-                    points.at<cv::Point3f>(r, c).z = depth;
-                }
-            }
+            //            cv::Mat points = cv::Mat::zeros(getDepthImage().size(), CV_32FC3);
+            //            for (int r = 0; r < getDepthImage().rows; ++r) {
+            //                for (int c = 0; c < getDepthImage().cols; ++c) {
+            //
+            //                    const float& depth = zptr[r * zstep + c];
+            //                    if (!std::isnan(depth)) {
+            //                        points.at<cv::Point3f>(r, c).x = (c - cx) * inv_f*depth;
+            //                        points.at<cv::Point3f>(r, c).y = (r - cy) * inv_f*depth;
+            //                        points.at<cv::Point3f>(r, c).z = depth;
+            //                    }
+            //                    points.at<cv::Point3f>(r, c).z = depth;
+            //                }
+            //            }
             //                (*normalsComputer)(points, normals);
 
             //                                cv::Mat normals2(getDepth().size(), CV_32FC3);
             //                                iImgs.computeImplicit_Impl(getDepth(), normals2);
-            cv::Mat normals3(getDepthImage().size(), CV_32FC3);
+            cv::Mat normals3 = cv::Mat::zeros(getDepthImage().size(), CV_32FC3);
             iImgs.computeExplicit_Impl(getDepthImage(), normals3);
+            //iImgs.computeImplicit_Impl(getDepthImage(), normals3);
             setNormals(normals3);
             //iImgs.computeCurvatureFiniteDiff_Impl(getDepth(), normals3);
-            cv::Mat axisVecs(1, 3, CV_32F);
-            cv::Mat axisDirs(1, 3, CV_32F);
-            iImgs.plucker(points, normals3, axisVecs, axisDirs);
+            //cv::Mat axisVecs(1, 3, CV_32F);
+            //cv::Mat axisDirs(1, 3, CV_32F);
+            //iImgs.plucker(points, normals3, axisVecs, axisDirs);
 
             //                cv::Point2i tlc(315, 235);
             //                cv::Rect roi(tlc.x, tlc.y, width - 2 * tlc.x, height - 2 * tlc.y);
@@ -193,6 +198,7 @@ namespace cv {
 
         // Estimate the axis of an axially symmetric surface from point and normal values
         // Pottmann & Wallner, Computational Line Geometry p. 197
+
         void DepthIntegralImages::plucker(cv::Mat& points, cv::Mat& normals,
                 cv::Mat& axisVecs, cv::Mat& axisDirs) {
             static cv::Mat quadraticConstraints = (cv::Mat_<float>(6, 6) <<
@@ -262,9 +268,9 @@ namespace cv {
             float error_std = 1.0f / std::sqrt(W.at<float>(0, 0) / (float) (numPts - 5));
             float threshold = 100;
             //if (error < threshold) {
-                std::cout << "Cylinder detected: error = " << error << " pt = "
-                        << linePt << " dir = " << lineDir
-                        << " pitch = " << linearComplexPitch << std::endl;
+            std::cout << "Cylinder detected: error = " << error << " pt = "
+                    << linePt << " dir = " << lineDir
+                    << " pitch = " << linearComplexPitch << std::endl;
             //}
         }
 
@@ -279,15 +285,15 @@ namespace cv {
             tickBefore = cv::getTickCount();
             cv::Mat dx(height, width, CV_32F);
             cv::Mat dy(height, width, CV_32F);
-            for (int y = 1; y < ntan_theta_x.rows - 1; ++y) {
+            for (int y = 1; y < tan_theta_x.rows - 1; ++y) {
                 const float *depth_ptr = depth.ptr<float>(y, 1);
                 float *dx_ptr = dx.ptr<float>(y, 1);
                 float *dy_ptr = dy.ptr<float>(y, 1);
                 float *dz_dx_ptr = dz_dx.ptr<float>(y, 1);
                 float *dz_dy_ptr = dz_dy.ptr<float>(y, 1);
-                float *ntan_theta_x_ptr = ntan_theta_x.ptr<float>(y, 1);
-                float *ntan_theta_y_ptr = ntan_theta_y.ptr<float>(y, 1);
-                for (int x = 1; x < ntan_theta_x.cols - 1; ++x) {
+                float *ntan_theta_x_ptr = tan_theta_x.ptr<float>(y, 1);
+                float *ntan_theta_y_ptr = tan_theta_y.ptr<float>(y, 1);
+                for (int x = 1; x < tan_theta_x.cols - 1; ++x) {
                     if (std::isnan(depth_ptr[x])) {
                         *dx_ptr = const_NAN;
                         *dy_ptr = const_NAN;
@@ -311,7 +317,7 @@ namespace cv {
             cv::Mat dx2(height, width, CV_32F);
             cv::Mat dy2(height, width, CV_32F);
             cv::Mat dxdy(height, width, CV_32F);
-            for (int y = 2; y < ntan_theta_x.rows - 2; ++y) {
+            for (int y = 2; y < tan_theta_x.rows - 2; ++y) {
                 float *dx_ptr = dx.ptr<float>(y, 2);
                 float *dy_ptr = dy.ptr<float>(y, 2);
                 float *dx2_ptr = dx2.ptr<float>(y, 2);
@@ -322,7 +328,7 @@ namespace cv {
                 float *d2z_dx2_ptr = d2z_dx2.ptr<float>(y, 2);
                 //float *d2z_dxdy_ptr = d2z_dx2.ptr<float>(y, 2);
                 float *d2z_dy2_ptr = d2z_dy2.ptr<float>(y, 2);
-                for (int x = 2; x < ntan_theta_x.cols - 2; ++x) {
+                for (int x = 2; x < tan_theta_x.cols - 2; ++x) {
                     if (std::isnan(dz_dx_ptr[0])) {
                         *dx2_ptr = const_NAN;
                         *dy2_ptr = const_NAN;
@@ -369,19 +375,19 @@ namespace cv {
 
             // sliding window on integral image 
             // the integral images have one more row and column than the source image
-            ImageWindow imWin(ntan_theta_x.size(), winSize);
+            ImageWindow imWin(ii_tan_theta_x.size(), winSize);
             cv::Point2i *ibegin = imWin.begin(), *iend = imWin.end();
             for (int y = ibegin->y; y < iend->y - 1; ++y) {
                 imWin.centerOn(ibegin->x, y);
                 int key = y * width + ibegin->x;
                 for (int x = ibegin->x; x < iend->x - 1; ++x, ++key) {
                     mtm_ptr = MtM.ptr<float>(0, 0);
-                    *mtm_ptr++ = GETSUM(tan_theta_x_sq, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
-                    *mtm_ptr++ = GETSUM(tan_theta_xy, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
-                    *mtm_ptr++ = GETSUM(tan_theta_x, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                    *mtm_ptr++ = GETSUM(ii_tan_theta_x_sq, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                    *mtm_ptr++ = GETSUM(ii_tan_theta_xy, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                    *mtm_ptr++ = GETSUM(ii_tan_theta_x, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
                     *mtm_ptr++ = MtM.at<float>(0, 1);
-                    *mtm_ptr++ = GETSUM(tan_theta_y_sq, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
-                    *mtm_ptr++ = GETSUM(tan_theta_y, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                    *mtm_ptr++ = GETSUM(ii_tan_theta_y_sq, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                    *mtm_ptr++ = GETSUM(ii_tan_theta_y, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
                     *mtm_ptr++ = MtM.at<float>(0, 2);
                     *mtm_ptr++ = MtM.at<float>(1, 2);
                     *mtm_ptr++ = numPts;
@@ -405,8 +411,8 @@ namespace cv {
             setWindowSize(_winSize);
             cv::Mat _tan_theta_x(height, width, CV_32F);
             cv::Mat _tan_theta_y(height, width, CV_32F);
-            ntan_theta_x = cv::Mat::zeros(height, width, CV_32F);
-            ntan_theta_y = cv::Mat::zeros(height, width, CV_32F);
+            tan_theta_x = cv::Mat::zeros(height, width, CV_32F);
+            tan_theta_y = cv::Mat::zeros(height, width, CV_32F);
             cv::Mat _tan_theta_xy(height, width, CV_32F);
             //cv::Mat _tan_theta_x_sq(height, width, CV_32F);
             //cv::Mat _tan_theta_y_sq(height, width, CV_32F);
@@ -416,11 +422,11 @@ namespace cv {
             _one_div_z_sq = cv::Mat::zeros(height, width, CV_32F);
             _ones_valid_mask = cv::Mat::zeros(height, width, CV_32F);
 
-            numValidPts = cv::Mat::zeros(height + 1, width + 1, CV_32F);
-            tan_theta_x_div_z = cv::Mat::zeros(height + 1, width + 1, CV_64F);
-            tan_theta_y_div_z = cv::Mat::zeros(height + 1, width + 1, CV_64F);
-            one_div_z = cv::Mat::zeros(height + 1, width + 1, CV_64F);
-            one_div_z_sq = cv::Mat::zeros(height + 1, width + 1, CV_64F);
+            ii_numValidPts = cv::Mat::zeros(height + 1, width + 1, CV_32F);
+            ii_tan_theta_x_div_z = cv::Mat::zeros(height + 1, width + 1, CV_64F);
+            ii_tan_theta_y_div_z = cv::Mat::zeros(height + 1, width + 1, CV_64F);
+            ii_one_div_z = cv::Mat::zeros(height + 1, width + 1, CV_64F);
+            ii_one_div_z_sq = cv::Mat::zeros(height + 1, width + 1, CV_64F);
             double ttxval, ttyval;
             for (int r = 0; r < height; ++r) {
                 for (int c = 0; c < width; ++c) {
@@ -428,8 +434,8 @@ namespace cv {
                     ttyval = (r - _cy) * _inv_f;
                     _tan_theta_x.at<float>(r, c) = ttxval;
                     _tan_theta_y.at<float>(r, c) = ttyval;
-                    ntan_theta_x.at<float>(r, c) = ttxval;
-                    ntan_theta_y.at<float>(r, c) = ttyval;
+                    tan_theta_x.at<float>(r, c) = ttxval;
+                    tan_theta_y.at<float>(r, c) = ttyval;
                     _tan_theta_xy.at<float>(r, c) = ttxval*ttyval;
                     //_tan_theta_x_sq.at<float>(r, c) = ttxval*ttxval;
                     //_tan_theta_y_sq.at<float>(r, c) = ttyval*ttyval;
@@ -445,9 +451,9 @@ namespace cv {
             //computeIntegralImage<double>(_tan_theta_xy, tan_theta_xy);
             //computeIntegralImage<double>(_tan_theta_x_sq, tan_theta_x_sq);
             //computeIntegralImage<double>(_tan_theta_y_sq, tan_theta_y_sq);
-            cv::integral(_tan_theta_x, tan_theta_x, tan_theta_x_sq, CV_64F, CV_64F);
-            cv::integral(_tan_theta_y, tan_theta_y, tan_theta_y_sq, CV_64F, CV_64F);
-            cv::integral(_tan_theta_xy, tan_theta_xy, CV_64F);
+            cv::integral(_tan_theta_x, ii_tan_theta_x, ii_tan_theta_x_sq, CV_64F, CV_64F);
+            cv::integral(_tan_theta_y, ii_tan_theta_y, ii_tan_theta_y_sq, CV_64F, CV_64F);
+            cv::integral(_tan_theta_xy, ii_tan_theta_xy, CV_64F);
 #ifdef CACHE_INVERSE
             computeMat_LUT();
 #endif
@@ -474,8 +480,8 @@ namespace cv {
             float *_tan_theta_y_div_z_ptr = _tan_theta_y_div_z.ptr<float>(0, 0);
             float *_one_div_z_ptr = _one_div_z.ptr<float>(0, 0);
             float *_one_div_z_sq_ptr = _one_div_z_sq.ptr<float>(0, 0);
-            float *ntan_theta_x_ptr = ntan_theta_x.ptr<float>(0, 0);
-            float *ntan_theta_y_ptr = ntan_theta_y.ptr<float>(0, 0);
+            float *ntan_theta_x_ptr = tan_theta_x.ptr<float>(0, 0);
+            float *ntan_theta_y_ptr = tan_theta_y.ptr<float>(0, 0);
             for (int pixNum = 0; pixNum < depth.rows * depth.cols; ++pixNum) {
                 if (std::isnan(depth_ptr[pixNum])) {
                     _one_div_z_ptr[pixNum] = 0;
@@ -494,10 +500,10 @@ namespace cv {
             //computeIntegralImage<double>(_one_div_z, one_div_z);
             //computeIntegralImage<double>(_one_div_z_sq, one_div_z_sq);
             //computeIntegralImage<float>(_ones_valid_mask, numValidPts);
-            cv::integral(_tan_theta_x_div_z, tan_theta_x_div_z, CV_64F);
-            cv::integral(_tan_theta_y_div_z, tan_theta_y_div_z, CV_64F);
-            cv::integral(_one_div_z, one_div_z, one_div_z_sq, CV_64F, CV_64F);
-            cv::integral(_ones_valid_mask, numValidPts, CV_32F);
+            cv::integral(_tan_theta_x_div_z, ii_tan_theta_x_div_z, CV_64F);
+            cv::integral(_tan_theta_y_div_z, ii_tan_theta_y_div_z, CV_64F);
+            cv::integral(_one_div_z, ii_one_div_z, ii_one_div_z_sq, CV_64F, CV_64F);
+            cv::integral(_ones_valid_mask, ii_numValidPts, CV_32F);
 
             int numPts = winSize.width * winSize.height;
             int numValidWinPts = 0;
@@ -511,7 +517,7 @@ namespace cv {
 
             // sliding window on integral image 
             // the integral images have one more row and column than the source image
-            ImageWindow imWin(one_div_z.size(), winSize);
+            ImageWindow imWin(ii_one_div_z.size(), winSize);
             cv::Point2i *ibegin = imWin.begin(), *iend = imWin.end();
             for (int y = ibegin->y; y < iend->y - 1; ++y) {
                 imWin.centerOn(ibegin->x, y);
@@ -519,25 +525,25 @@ namespace cv {
                 int key = y * width + ibegin->x;
                 for (int x = ibegin->x; x < iend->x - 1; ++x, ++key) {
                     if (!std::isnan(depth_ptr[key])) {
-                        numValidWinPts = GETSUM(numValidPts, float, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                        numValidWinPts = GETSUM(ii_numValidPts, float, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
                         if (numValidWinPts == numPts) {
                             s_ptr = (double *) sVals.data;
-                            *s_ptr++ = GETSUM(tan_theta_x_sq, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
-                            *s_ptr++ = GETSUM(tan_theta_xy, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
-                            *s_ptr++ = GETSUM(tan_theta_x, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
-                            *s_ptr++ = GETSUM(tan_theta_x_div_z, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                            *s_ptr++ = GETSUM(ii_tan_theta_x_sq, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                            *s_ptr++ = GETSUM(ii_tan_theta_xy, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                            *s_ptr++ = GETSUM(ii_tan_theta_x, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                            *s_ptr++ = GETSUM(ii_tan_theta_x_div_z, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
                             *s_ptr++ = sVals.at<double>(0, 1);
-                            *s_ptr++ = GETSUM(tan_theta_y_sq, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
-                            *s_ptr++ = GETSUM(tan_theta_y, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
-                            *s_ptr++ = GETSUM(tan_theta_y_div_z, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                            *s_ptr++ = GETSUM(ii_tan_theta_y_sq, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                            *s_ptr++ = GETSUM(ii_tan_theta_y, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                            *s_ptr++ = GETSUM(ii_tan_theta_y_div_z, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
                             *s_ptr++ = sVals.at<double>(0, 2);
                             *s_ptr++ = sVals.at<double>(1, 2);
                             *s_ptr++ = numPts;
-                            *s_ptr++ = GETSUM(one_div_z, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                            *s_ptr++ = GETSUM(ii_one_div_z, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
                             *s_ptr++ = sVals.at<double>(0, 3);
                             *s_ptr++ = sVals.at<double>(1, 3);
                             *s_ptr++ = sVals.at<double>(2, 3);
-                            *s_ptr++ = GETSUM(one_div_z_sq, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                            *s_ptr++ = GETSUM(ii_one_div_z_sq, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
                             //std::cout << "svals = " << sVals << std::endl;
                             cv::eigen(sVals, eVals, eVecs);
                             //std::cout << "evecs = " << eVecs << std::endl;
@@ -592,34 +598,25 @@ namespace cv {
 
             // sliding window on integral image 
             // the integral images have one more row and column than the source image
-            ImageWindow imWin(depth.size(), cv::Size(roi.width, roi.height));
+            ImageWindow imWin(ii_tan_theta_x.size(), cv::Size(roi.width, roi.height));
 
-            numValidWinPts = GETSUM(numValidPts, float, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+            numValidWinPts = GETSUM(ii_numValidPts, float, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
             if (numValidWinPts == numPts) {
-                if (queryWinSize.width != winSize.width ||
-                        queryWinSize.height != winSize.height) {
-                    mtm_ptr = MtM.ptr<float>(0, 0);
-                    *mtm_ptr++ = GETSUM(tan_theta_x_sq, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
-                    *mtm_ptr++ = GETSUM(tan_theta_xy, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
-                    *mtm_ptr++ = GETSUM(tan_theta_x, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
-                    *mtm_ptr++ = MtM.at<float>(0, 1);
-                    *mtm_ptr++ = GETSUM(tan_theta_y_sq, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
-                    *mtm_ptr++ = GETSUM(tan_theta_y, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
-                    *mtm_ptr++ = MtM.at<float>(0, 2);
-                    *mtm_ptr++ = MtM.at<float>(1, 2);
-                    *mtm_ptr++ = numPts;
-                    iMtM = MtM.inv();
-                    imtm_ptr = iMtM.ptr<float>(0, 0);
-                } else { // we've cached this matrix inverse when initializing
-                    int key = roi.y * width + roi.x;
-                    imtm_ptr = matMap[key].ptr<float>(0, 0);
-                }
-                //std::cout << "MtM = " << MtM << std::endl;
-                //std::cout << "iMtM" << winCenter << " = " << iMtM << std::endl;
-                //std::cout << "iMtM2 = " << iMtM2 << std::endl;
-                mtb_ptr[0] = GETSUM(tan_theta_x_div_z, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
-                mtb_ptr[1] = GETSUM(tan_theta_y_div_z, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
-                mtb_ptr[2] = GETSUM(one_div_z, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                mtm_ptr = MtM.ptr<float>(0, 0);
+                *mtm_ptr++ = GETSUM(ii_tan_theta_x_sq, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                *mtm_ptr++ = GETSUM(ii_tan_theta_xy, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                *mtm_ptr++ = GETSUM(ii_tan_theta_x, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                *mtm_ptr++ = MtM.at<float>(0, 1);
+                *mtm_ptr++ = GETSUM(ii_tan_theta_y_sq, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                *mtm_ptr++ = GETSUM(ii_tan_theta_y, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                *mtm_ptr++ = MtM.at<float>(0, 2);
+                *mtm_ptr++ = MtM.at<float>(1, 2);
+                *mtm_ptr++ = numValidWinPts;
+                iMtM = MtM.inv();
+                imtm_ptr = iMtM.ptr<float>(0, 0);
+                mtb_ptr[0] = GETSUM(ii_tan_theta_x_div_z, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                mtb_ptr[1] = GETSUM(ii_tan_theta_y_div_z, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                mtb_ptr[2] = GETSUM(ii_one_div_z, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
 
                 //cv::Mat sol = iMtM*Mtb;
                 sol_ptr[0] = imtm_ptr[0] * mtb_ptr[0] + imtm_ptr[1] * mtb_ptr[1] + imtm_ptr[2] * mtb_ptr[2];
@@ -653,37 +650,37 @@ namespace cv {
 
         void DepthIntegralImages::computeExplicit_Impl(const cv::Mat& depth, cv::Mat & normals) {
             const float *depth_ptr = depth.ptr<float>(0, 0);
-            float *_one_div_z_ptr = _one_div_z.ptr<float>(0, 0);
             float *_ones_valid_mask_ptr = _ones_valid_mask.ptr<float>(0, 0);
             float *_tan_theta_x_div_z_ptr = _tan_theta_x_div_z.ptr<float>(0, 0);
             float *_tan_theta_y_div_z_ptr = _tan_theta_y_div_z.ptr<float>(0, 0);
-            float *ntan_theta_x_ptr = ntan_theta_x.ptr<float>(0, 0);
-            float *ntan_theta_y_ptr = ntan_theta_y.ptr<float>(0, 0);
+            float *_one_div_z_ptr = _one_div_z.ptr<float>(0, 0);
+            float *tan_theta_x_ptr = tan_theta_x.ptr<float>(0, 0);
+            float *tan_theta_y_ptr = tan_theta_y.ptr<float>(0, 0);
             for (int pixNum = 0; pixNum < depth.rows * depth.cols; ++pixNum) {
                 if (std::isnan(depth_ptr[pixNum])) {
                     _one_div_z_ptr[pixNum] = 0;
                     _ones_valid_mask_ptr[pixNum] = 0;
                 } else {
-                    _one_div_z_ptr[pixNum] = 1.0f / depth_ptr[pixNum];
+                    _one_div_z_ptr[pixNum] = -1.0f / depth_ptr[pixNum];
                     _ones_valid_mask_ptr[pixNum] = 1;
                 }
-                _tan_theta_x_div_z_ptr[pixNum] = ntan_theta_x_ptr[pixNum] * _one_div_z_ptr[pixNum];
-                _tan_theta_y_div_z_ptr[pixNum] = ntan_theta_y_ptr[pixNum] * _one_div_z_ptr[pixNum];
+                _tan_theta_x_div_z_ptr[pixNum] = tan_theta_x_ptr[pixNum] * _one_div_z_ptr[pixNum];
+                _tan_theta_y_div_z_ptr[pixNum] = tan_theta_y_ptr[pixNum] * _one_div_z_ptr[pixNum];
             }
-            cv::integral(_tan_theta_x_div_z, tan_theta_x_div_z, CV_64F);
-            cv::integral(_tan_theta_y_div_z, tan_theta_y_div_z, CV_64F);
-            cv::integral(_one_div_z, one_div_z, CV_64F);
-            cv::integral(_ones_valid_mask, numValidPts, CV_32F);
+            cv::integral(_tan_theta_x_div_z, ii_tan_theta_x_div_z, CV_64F);
+            cv::integral(_tan_theta_y_div_z, ii_tan_theta_y_div_z, CV_64F);
+            cv::integral(_one_div_z, ii_one_div_z, CV_64F);
+            cv::integral(_ones_valid_mask, ii_numValidPts, CV_32F);
 
-            int numPts = winSize.width * winSize.height;
+            int numPts = winSize.area();
             int numValidWinPts = 0;
             cv::Mat MtM(3, 3, CV_32F);
             cv::Mat iMtM(3, 3, CV_32F);
             cv::Mat Mtb(3, 1, CV_32F);
             cv::Mat sol(3, 1, CV_32F);
             cv::Mat coeffs(1, 4, CV_32F);
-            float *mtm_ptr, *mtb_ptr, *imtm_ptr, *sol_ptr, *coeffs_ptr;
-            imtm_ptr = iMtM.ptr<float>(0, 0);
+            float *mtm_ptr, *mtb_ptr, *sol_ptr, *coeffs_ptr, *imtm_ptr;
+            //imtm_ptr = iMtM.ptr<float>(0, 0);
             mtb_ptr = Mtb.ptr<float>(0);
             sol_ptr = sol.ptr<float>(0);
             coeffs_ptr = coeffs.ptr<float>(0);
@@ -692,7 +689,7 @@ namespace cv {
 
             // sliding window on integral image 
             // the integral images have one more row and column than the source image
-            ImageWindow imWin(one_div_z.size(), winSize);
+            ImageWindow imWin(ii_tan_theta_x.size(), winSize);
             cv::Point2i *ibegin = imWin.begin(), *iend = imWin.end();
             for (int y = ibegin->y; y < iend->y - 1; ++y) {
                 imWin.centerOn(ibegin->x, y);
@@ -700,33 +697,36 @@ namespace cv {
                 int key = y * width + ibegin->x;
                 for (int x = ibegin->x; x < iend->x - 1; ++x, ++key) {
                     if (!std::isnan(depth_ptr[key])) {
-                        numValidWinPts = GETSUM(numValidPts, float, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                        numValidWinPts = GETSUM(ii_numValidPts, float, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
                         if (numValidWinPts == numPts) {
 #ifndef CACHE_INVERSE
                             mtm_ptr = MtM.ptr<float>(0, 0);
-                            *mtm_ptr++ = GETSUM(tan_theta_x_sq, double, offset_tlc, offset_trc, offset_blc, offset_brc);
-                            *mtm_ptr++ = GETSUM(tan_theta_xy, double, offset_tlc, offset_trc, offset_blc, offset_brc);
-                            *mtm_ptr++ = GETSUM(tan_theta_x, double, offset_tlc, offset_trc, offset_blc, offset_brc);
+                            *mtm_ptr++ = GETSUM(ii_tan_theta_x_sq, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                            *mtm_ptr++ = GETSUM(ii_tan_theta_xy, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                            *mtm_ptr++ = GETSUM(ii_tan_theta_x, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
                             *mtm_ptr++ = MtM.at<float>(0, 1);
-                            *mtm_ptr++ = GETSUM(tan_theta_y_sq, double, offset_tlc, offset_trc, offset_blc, offset_brc);
-                            *mtm_ptr++ = GETSUM(tan_theta_y, double, offset_tlc, offset_trc, offset_blc, offset_brc);
+                            *mtm_ptr++ = GETSUM(ii_tan_theta_y_sq, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                            *mtm_ptr++ = GETSUM(ii_tan_theta_y, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
                             *mtm_ptr++ = MtM.at<float>(0, 2);
                             *mtm_ptr++ = MtM.at<float>(1, 2);
-                            *mtm_ptr++ = numPts;
+                            *mtm_ptr++ = numValidWinPts;
                             iMtM = MtM.inv();
                             imtm_ptr = iMtM.ptr<float>(0, 0);
 #else
+                            //cv::Mat iMtM2 = matMap[key];
                             imtm_ptr = matMap[key].ptr<float>(0, 0);
-                            //if (iMtM.empty()) {
-                            //    std::cout << "Key for matrix inverse not found!" << std::endl;
-                            //}
+                            if (iMtM.empty()) {
+                                std::cout << "Key for matrix inverse not found!" << std::endl;
+                            }
 #endif                            
                             //std::cout << "MtM = " << MtM << std::endl;
-                            //std::cout << "iMtM" << winCenter << " = " << iMtM << std::endl;
-                            //std::cout << "iMtM2 = " << iMtM2 << std::endl;
-                            mtb_ptr[0] = GETSUM(tan_theta_x_div_z, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
-                            mtb_ptr[1] = GETSUM(tan_theta_y_div_z, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
-                            mtb_ptr[2] = GETSUM(one_div_z, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                            //if (x%100==0 && y%100==0) {
+                            //    std::cout << "iMtM = " << iMtM << std::endl;
+                            //    std::cout << "iMtM2 = " << iMtM2 << std::endl;
+                            //}
+                            mtb_ptr[0] = GETSUM(ii_tan_theta_x_div_z, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                            mtb_ptr[1] = GETSUM(ii_tan_theta_y_div_z, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
+                            mtb_ptr[2] = GETSUM(ii_one_div_z, double, imWin.tlc, imWin.trc, imWin.blc, imWin.brc);
 
                             //cv::Mat sol = iMtM*Mtb;
                             sol_ptr[0] = imtm_ptr[0] * mtb_ptr[0] + imtm_ptr[1] * mtb_ptr[1] + imtm_ptr[2] * mtb_ptr[2];
@@ -734,18 +734,13 @@ namespace cv {
                             sol_ptr[2] = imtm_ptr[6] * mtb_ptr[0] + imtm_ptr[7] * mtb_ptr[1] + imtm_ptr[8] * mtb_ptr[2];
 
                             float normf = 0;
-                            for (int dim = 0; dim < 2; ++dim) {
+                            for (int dim = 0; dim < 3; ++dim) {
                                 coeffs_ptr[dim] = sol_ptr[dim];
                                 normf += coeffs_ptr[dim] * coeffs_ptr[dim];
                             }
-                            coeffs_ptr[3] = coeffs_ptr[2];
-                            coeffs_ptr[2] = 1.0f;
-                            for (int dim = 0; dim < 4; ++dim) {
-                                coeffs_ptr[dim] = -coeffs_ptr[dim];
-                            }
-                            normf += 1;
                             normf = sqrt(normf);
                             coeffs /= normf;
+                            coeffs_ptr[4] = 1.0 / normf;
                             //std::cout << "normf = " << normf << std::endl;
                             //std::cout << "coeffs = " << coeffs << std::endl;
                             //float error = sqrt(eVals.at<double>(3, 0)) / (normf * numPts);

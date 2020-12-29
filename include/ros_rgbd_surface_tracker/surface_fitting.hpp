@@ -104,8 +104,8 @@ namespace cv {
                 plane3.y = _planeCoeffs.at<scalar_t>(1);
                 plane3.z = _planeCoeffs.at<scalar_t>(2);
                 plane3.d = -(plane3.x * centroid.x + plane3.y * centroid.y + plane3.z * centroid.z);
-
-                plane3.scale((plane3.z > 0) ? -1.0 : 1.0);
+                
+                plane3.scale((plane3.d > 0) ? -1.0 : 1.0);
 
                 return plane3;
 

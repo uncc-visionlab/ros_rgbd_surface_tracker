@@ -61,9 +61,9 @@ namespace cv {
 
         class DepthIntegralImages {
         private:
-            cv::Mat ntan_theta_x, ntan_theta_y;
             cv::Mat tan_theta_x, tan_theta_y;
-            cv::Mat tan_theta_xy, tan_theta_x_sq, tan_theta_y_sq;
+            cv::Mat ii_tan_theta_x, ii_tan_theta_y;
+            cv::Mat ii_tan_theta_xy, ii_tan_theta_x_sq, ii_tan_theta_y_sq;
             int width, height;
             cv::Size winSize;
 
@@ -73,11 +73,11 @@ namespace cv {
             cv::Mat _one_div_z_sq;
             cv::Mat _ones_valid_mask;
 
-            cv::Mat numValidPts;
-            cv::Mat tan_theta_x_div_z;
-            cv::Mat tan_theta_y_div_z;
-            cv::Mat one_div_z;
-            cv::Mat one_div_z_sq;
+            cv::Mat ii_numValidPts;
+            cv::Mat ii_tan_theta_x_div_z;
+            cv::Mat ii_tan_theta_y_div_z;
+            cv::Mat ii_one_div_z;
+            cv::Mat ii_one_div_z_sq;
 
             cv::Mat dz_dx, dz_dy, d2z_dx2, d2z_dxdy, d2z_dy2;
             cv::Mat idz_dx, idz_dy, id2z_dx2, id2z_dxdy, id2z_dy2;
@@ -109,18 +109,18 @@ namespace cv {
                 }
 
                 void centerOn(int x, int y) {
-                    tlc = y * imSize.width + x;
+                    tlc = (y - (winSize.height >> 1)) * imSize.width + (x - (winSize.width >> 1));
                     trc = tlc + winSize.width;
                     blc = tlc + winSize.height * imSize.width;
                     brc = blc + winSize.width;
-                    ctr = (y + (winSize.height >> 1)) * imSize.width + (winSize.width >> 1);
+                    ctr = (y + (winSize.height >> 1)) * imSize.width + (x + (winSize.width >> 1));
                 }
 
-                Point2i* end() {
+                cv::Point2i* end() {
                     return &_end;
                 }
 
-                Point2i* begin() {
+                cv::Point2i* begin() {
                     return &_begin;
                 }
             };
@@ -153,7 +153,7 @@ namespace cv {
                 return height;
             }
 
-            int setWindowSize(cv::Size& _winSize) {
+            void setWindowSize(cv::Size& _winSize) {
                 winSize = _winSize;
             }
 
@@ -196,7 +196,7 @@ namespace cv {
             }
         }; /*class DepthIntegralImages */
 
-        class RgbdImage {
+        class CV_EXPORTS_W RgbdImage {
         public:
             static constexpr float DEPTH_NOISE_CONSTANT = (1.425e-3f);
 
@@ -205,7 +205,7 @@ namespace cv {
             RgbdImage() {
             }
 
-            RgbdImage(const cv::Mat &_img_I, const cv::Mat &_img_Z, // Mat& _img_L, 
+            CV_WRAP RgbdImage(const cv::Mat &_img_I, const cv::Mat &_img_Z, // Mat& _img_L, 
                     float _cx, float _cy, float _f) :
             img_I(_img_I), img_Z(_img_Z), // img_L(_img_L), 
             cx(_cx), cy(_cy), inv_f(1.f / _f),
@@ -245,11 +245,11 @@ namespace cv {
                 return std::isnan(z3) ? false : true;
             }
 
-            bool getPoint3f(const int ix, const int iy, Point3f& p3) const {
+            bool getPoint3f(const int ix, const int iy, cv::Point3f& p3) const {
                 return getPoint3f(ix, iy, p3.x, p3.y, p3.z);
             }
 
-            bool getPoint3f(const int ix, const int iy, Vec3f& v) const {
+            bool getPoint3f(const int ix, const int iy, cv::Vec3f& v) const {
                 return getPoint3f(ix, iy, v[0], v[1], v[2]);
             }
 
@@ -259,7 +259,7 @@ namespace cv {
 
             bool getTileData_Random(int x0, int y0,
                     int loc_width, int loc_height,
-                    std::vector<Point3f>& data, int numSamples = -1) const {
+                    std::vector<cv::Point3f>& data, int numSamples = -1) const {
                 //            if (x0 + loc_width > width) {
                 //                loc_width = width - x0;
                 //            }
@@ -370,7 +370,7 @@ namespace cv {
 
             bool getTileData_Uniform(int x0, int y0,
                     int width, int height,
-                    std::vector<Point3f>& data, int numSamples = -1) const {
+                    std::vector<cv::Point3f>& data, int numSamples = -1) const {
                 int tileArea = width*height;
                 float aspectRatio = (float) width / (float) height;
                 float downSample = ((float) tileArea) / numSamples;
@@ -498,7 +498,7 @@ namespace cv {
                 return getErrorStandardDeviation(re.x + (width / 2), re.y + (height / 2));
             }
 
-            bool checkVisibility(cv::Vec3f pt, cv::Rect r) {
+            void checkVisibility(cv::Vec3f pt, cv::Rect r) {
 
 
             }
@@ -616,11 +616,11 @@ namespace cv {
                 img_N = _normals;
             }
 
-            cv::Mat getNormals() const {
+            CV_WRAP cv::Mat getNormals() const {
                 return img_N;
             }
 
-            bool computeNormals();
+            CV_WRAP bool computeNormals();
 
             const float& getDepth(int x, int y) const {
                 return zptr[y * zstep + x];

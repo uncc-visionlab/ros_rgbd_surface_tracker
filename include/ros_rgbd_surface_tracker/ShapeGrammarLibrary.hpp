@@ -98,6 +98,7 @@ namespace sg {
 
         virtual std::vector<cv::Vec2f> getBoundary() const {
             std::cout << "getBoundary() not implemented!" << std::endl;
+            return std::vector<cv::Vec2f>();
         };
 
         void setPose(Pose _pose) {
@@ -456,6 +457,7 @@ namespace sg {
 
         bool setReal(bool realFlag) {
             _isReal = realFlag;
+            return true;
         }
 
         bool isInside(const std::vector<cv::Point3f>& pts) {
@@ -713,7 +715,7 @@ namespace sg {
             return _isReal;
         }
 
-        bool setReal(bool realFlag) {
+        void setReal(bool realFlag) {
             _isReal = realFlag;
         }
 
