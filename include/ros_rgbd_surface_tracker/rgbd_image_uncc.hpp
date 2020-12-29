@@ -622,6 +622,16 @@ namespace cv {
 
             CV_WRAP bool computeNormals();
 
+            void setPlanes(cv::Mat & _planes) {
+                img_P = _planes;
+            }
+
+            CV_WRAP cv::Mat getPlanes() const {
+                return img_P;
+            }
+
+            CV_WRAP bool computePlanes();
+
             const float& getDepth(int x, int y) const {
                 return zptr[y * zstep + x];
             }
@@ -651,6 +661,7 @@ namespace cv {
             int zstep;
             cv::Mat img_I;
             cv::Mat img_N;
+            cv::Mat img_P;
             const uchar* iptr;
             int istep;
 

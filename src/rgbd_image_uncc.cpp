@@ -64,8 +64,8 @@ namespace cv {
         }
 
         bool RgbdImage::computeNormals() {
-            int normalWinSize = iImgs.getWindowSize().width;
-            int normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_FALS; // 7.0 fps
+            //int normalWinSize = iImgs.getWindowSize().width;
+            //int normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_FALS; // 7.0 fps
             //int normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_LINEMOD;
             //int normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_SRI; // 1.14 fps
             //                cv::Ptr<RgbdNormals> normalsComputer;
@@ -93,8 +93,6 @@ namespace cv {
             //            }
             //                (*normalsComputer)(points, normals);
 
-            //                                cv::Mat normals2(getDepth().size(), CV_32FC3);
-            //                                iImgs.computeImplicit_Impl(getDepth(), normals2);
             cv::Mat normals3 = cv::Mat::zeros(getDepthImage().size(), CV_32FC3);
             iImgs.computeExplicit_Impl(getDepthImage(), normals3);
             //iImgs.computeImplicit_Impl(getDepthImage(), normals3);
@@ -103,30 +101,14 @@ namespace cv {
             //cv::Mat axisVecs(1, 3, CV_32F);
             //cv::Mat axisDirs(1, 3, CV_32F);
             //iImgs.plucker(points, normals3, axisVecs, axisDirs);
+            return true;
+        }
 
-            //                cv::Point2i tlc(315, 235);
-            //                cv::Rect roi(tlc.x, tlc.y, width - 2 * tlc.x, height - 2 * tlc.y);
-            //                cv::Point2i winCenter;
-            //                cv::Vec3f *normptr, *normptr2, *normptr3;
-            //                for (winCenter.y = roi.y; winCenter.y < roi.y + roi.height; ++winCenter.y) {
-            //                    normptr = normals.ptr<cv::Vec3f>(winCenter.y, roi.x);
-            //                    normptr2 = normals2.ptr<cv::Vec3f>(winCenter.y, roi.x);
-            //                    normptr3 = normals3.ptr<cv::Vec3f>(winCenter.y, roi.x);
-            //                    for (winCenter.x = roi.x; winCenter.x < roi.x + roi.width; ++winCenter.x) {
-            //                        std::cout << " normals_fals(" << winCenter.x << ","
-            //                                << winCenter.y << ") = " << *normptr << std::endl;
-            //                        std::cout << " normals_impl(" << winCenter.x << ","
-            //                                << winCenter.y << ") = " << *normptr2 << std::endl;
-            //                        std::cout << " normals_expl(" << winCenter.x << ","
-            //                                << winCenter.y << ") = " << *normptr3 << std::endl;
-            //                        std::cout << " normals diff_error(" << (*normptr - *normptr2) << ")" << std::endl;
-            //                        normptr++;
-            //                        normptr2++;
-            //                        normptr3++;
-            //                    }
-            //                }
-
-            //std::cout << "normals computed " << std::endl;
+        bool RgbdImage::computePlanes() {
+            cv::Mat planes = cv::Mat::zeros(getDepthImage().size(), CV_32FC4);
+            iImgs.computeExplicit_Impl(getDepthImage(), planes);
+            //iImgs.computeImplicit_Impl(getDepthImage(), planes);
+            setPlanes(planes);
             return true;
         }
 
@@ -512,7 +494,9 @@ namespace cv {
             cv::Mat eVecs = cv::Mat::zeros(4, 4, CV_64F);
             cv::Mat eVals = cv::Mat::zeros(4, 1, CV_64F);
             //cv::Mat coeffs = cv::Mat(eVecs, Rect(0, 3, eVecs.cols, 1));
+            int numChannels = normals.channels();
             cv::Vec3f *normptr;
+            cv::Vec4f *planeptr;
             int numcomp = 0;
 
             // sliding window on integral image 
@@ -521,7 +505,11 @@ namespace cv {
             cv::Point2i *ibegin = imWin.begin(), *iend = imWin.end();
             for (int y = ibegin->y; y < iend->y - 1; ++y) {
                 imWin.centerOn(ibegin->x, y);
-                normptr = normals.ptr<cv::Vec3f>(y, ibegin->x);
+                if (numChannels == 3) {
+                    normptr = normals.ptr<cv::Vec3f>(y, ibegin->x);
+                } else {
+                    planeptr = normals.ptr<cv::Vec4f>(y, ibegin->x);
+                }
                 int key = y * width + ibegin->x;
                 for (int x = ibegin->x; x < iend->x - 1; ++x, ++key) {
                     if (!std::isnan(depth_ptr[key])) {
@@ -564,16 +552,28 @@ namespace cv {
                             //std::cout << "normf = " << normf << std::endl;
                             //std::cout << "coeffs = " << coeffs << std::endl;
                             float error = sqrt(eVals.at<double>(3, 0)) / (normf * numPts);
-                            cv::Vec3f& normVal = *normptr;
-                            normVal[0] = coeffs_ptr[0];
-                            normVal[1] = coeffs_ptr[1];
-                            normVal[2] = coeffs_ptr[2];
+                            if (numChannels == 3) {
+                                cv::Vec3f& normVal = *normptr;
+                                normVal[0] = coeffs_ptr[0];
+                                normVal[1] = coeffs_ptr[1];
+                                normVal[2] = coeffs_ptr[2];
+                            } else {
+                                cv::Vec4f& planeVal = *planeptr;
+                                planeVal[0] = coeffs_ptr[0];
+                                planeVal[1] = coeffs_ptr[1];
+                                planeVal[2] = coeffs_ptr[2];
+                                planeVal[3] = coeffs_ptr[3];
+                            }
                             //std::cout << "normval = " << normals.at<cv::Vec3f>(winCenter.y, winCenter.x) << std::endl;
                             numcomp++;
                         } // numValidPts = windowArea 
                     } // depth at wincenter != nan
                     imWin.shiftRight();
-                    normptr++;
+                    if (numChannels == 3) {
+                        normptr++;
+                    } else {
+                        planeptr++;
+                    }
                 }
             }
         }
@@ -684,7 +684,9 @@ namespace cv {
             mtb_ptr = Mtb.ptr<float>(0);
             sol_ptr = sol.ptr<float>(0);
             coeffs_ptr = coeffs.ptr<float>(0);
+            int numChannels = normals.channels();
             cv::Vec3f *normptr;
+            cv::Vec4f *planeptr;
             int numcomp = 0;
 
             // sliding window on integral image 
@@ -693,7 +695,11 @@ namespace cv {
             cv::Point2i *ibegin = imWin.begin(), *iend = imWin.end();
             for (int y = ibegin->y; y < iend->y - 1; ++y) {
                 imWin.centerOn(ibegin->x, y);
-                normptr = normals.ptr<cv::Vec3f>(y, ibegin->x);
+                if (numChannels == 3) {
+                    normptr = normals.ptr<cv::Vec3f>(y, ibegin->x);
+                } else {
+                    planeptr = normals.ptr<cv::Vec4f>(y, ibegin->x);
+                }
                 int key = y * width + ibegin->x;
                 for (int x = ibegin->x; x < iend->x - 1; ++x, ++key) {
                     if (!std::isnan(depth_ptr[key])) {
@@ -740,20 +746,32 @@ namespace cv {
                             }
                             normf = sqrt(normf);
                             coeffs /= normf;
-                            coeffs_ptr[4] = 1.0 / normf;
+                            coeffs_ptr[3] = 1.0 / normf;
                             //std::cout << "normf = " << normf << std::endl;
                             //std::cout << "coeffs = " << coeffs << std::endl;
                             //float error = sqrt(eVals.at<double>(3, 0)) / (normf * numPts);
-                            cv::Vec3f& normVal = *normptr;
-                            normVal[0] = coeffs_ptr[0];
-                            normVal[1] = coeffs_ptr[1];
-                            normVal[2] = coeffs_ptr[2];
+                            if (numChannels == 3) {
+                                cv::Vec3f& normVal = *normptr;
+                                normVal[0] = coeffs_ptr[0];
+                                normVal[1] = coeffs_ptr[1];
+                                normVal[2] = coeffs_ptr[2];
+                            } else {
+                                cv::Vec4f& planeVal = *planeptr;
+                                planeVal[0] = coeffs_ptr[0];
+                                planeVal[1] = coeffs_ptr[1];
+                                planeVal[2] = coeffs_ptr[2];
+                                planeVal[3] = coeffs_ptr[3];
+                            }
                             //std::cout << "normval = " << normals.at<cv::Vec3f>(winCenter.y, winCenter.x) << std::endl;
                             numcomp++;
                         } // numValidPts = windowArea 
                     } // depth at wincenter != nan
                     imWin.shiftRight();
-                    normptr++;
+                    if (numChannels == 3) {
+                        normptr++;
+                    } else {
+                        planeptr++;
+                    }
                 }
             }
         }
