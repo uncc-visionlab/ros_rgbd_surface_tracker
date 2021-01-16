@@ -9,7 +9,7 @@
     
     <arg name="live_sensor" default="false" />
     <arg name="ARM_HOST" default="false" />
-    <arg name="play_bagfile" default="false" />
+    <arg name="play_bagfile" default="true" />
        
     <arg name="record_cameras" default="false" />
     <arg name="run_rviz" default="true" />
@@ -18,7 +18,8 @@
     <arg name="run_profiler" value="false" />
 
     <arg name="file_A" default="$(env HOME)/bagfiles/rgbd_dataset_freiburg1_xyz.bag" />
-    <arg name="file_1" default="$(arg file_A)" />  
+    <arg name="file_C" default="/home/arwillis/NetBeansProjects/bagfiles/rgbd-slam_2018-06-28-14-08-49.bag"/> 
+    <arg name="file_1" default="$(arg file_C)" />  
     <arg name="rviz_config_file" default="ros_rgbd_surface_tracker.rviz" />    
     
     <param name="use_sim_time" value="true" />
@@ -114,14 +115,14 @@
         <node name="camera_info_relay" pkg="topic_tools" type="relay" output="screen"
               args="rgb/camera_info ir/camera_info"/>
         <node name="ros_rgbd_surface_tracker" pkg="ros_rgbd_surface_tracker" 
-              type="ros_rgbd_surface_tracker" launch-prefix="$(arg profile_attribute)"
+              type="ros_rgbd_surface_tracker_run" launch-prefix="$(arg profile_attribute)"
               output="screen" if="$(arg run_surface_tracker)">
-            <!--
+            <!--            
             <remap from="rgb/input_image" to="rgb/image_raw"/>
             <remap from="depth_registered/input_image" to="depth_registered/image_raw"/>
-            -->
             <remap from="rgb/input_image" to="rgb/image_color"/>
             <remap from="depth_registered/input_image" to="depth/image"/>
+            -->
             <param name="use_rgb_stream" value = "false" if="$(arg ARM_HOST)"/>
             <param name="use_rgb_stream" value = "true" unless="$(arg ARM_HOST)"/>
             <param name="map_frame" value = "$(arg map_frame)"/>

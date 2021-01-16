@@ -329,7 +329,7 @@ int main(int argc, char **argv) {
      */
     ROS_RgbdSurfaceTracker surf_tracker;
     //surf_tracker_ptr = &surf_tracker;
-
+    
     surf_tracker.initializeSubscribersAndPublishers();
     ros::spin();
     return EXIT_SUCCESS;
