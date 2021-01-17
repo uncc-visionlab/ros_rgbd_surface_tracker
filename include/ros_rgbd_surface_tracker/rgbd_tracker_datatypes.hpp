@@ -84,6 +84,32 @@ namespace cv {
             }
         };
 
+        class PlaneImage {
+            cv::Mat img;
+        public:
+            //typedef boost::shared_ptr<std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>> Ptr;
+            typedef boost::shared_ptr<PlaneImage> Ptr;
+            typedef boost::shared_ptr<const PlaneImage> ConstPtr;
+
+            PlaneImage() {
+            }
+
+            virtual ~PlaneImage() {
+            }
+
+            void setImage(const cv::Mat& planeImage) {
+                img = planeImage.clone();
+            }
+            
+            cv::Mat& getImage() {
+                return img;
+            }
+            
+            static PlaneImage::Ptr create() {
+                return PlaneImage::Ptr(boost::make_shared<PlaneImage>());
+            }
+        };
+
         class ShapeMap : public std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>
         {
             public:
@@ -92,11 +118,9 @@ namespace cv {
             typedef boost::shared_ptr<const ShapeMap> ConstPtr;
 
             ShapeMap() {
-
             }
 
             virtual ~ShapeMap() {
-
             }
 
             void insert(std::vector<sg::Shape::Ptr>& newShapes, Pose global_pose);
