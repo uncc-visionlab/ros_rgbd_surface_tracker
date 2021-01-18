@@ -84,10 +84,21 @@ namespace cv {
             }
         };
 
-        class PlaneImage {
+        class ocvImage {
+        protected:
             cv::Mat img;
         public:
-            //typedef boost::shared_ptr<std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>> Ptr;
+            void setImage(const cv::Mat& planeImage) {
+                img = planeImage;
+            }
+            
+            cv::Mat& getImage() {
+                return img;
+            }
+        };
+        
+        class PlaneImage : public ocvImage {
+        public:
             typedef boost::shared_ptr<PlaneImage> Ptr;
             typedef boost::shared_ptr<const PlaneImage> ConstPtr;
 
@@ -96,24 +107,63 @@ namespace cv {
 
             virtual ~PlaneImage() {
             }
-
-            void setImage(const cv::Mat& planeImage) {
-                img = planeImage.clone();
-            }
-            
-            cv::Mat& getImage() {
-                return img;
-            }
             
             static PlaneImage::Ptr create() {
                 return PlaneImage::Ptr(boost::make_shared<PlaneImage>());
             }
         };
 
+        class RGB8Image : public ocvImage {
+        public:
+            typedef boost::shared_ptr<RGB8Image> Ptr;
+            typedef boost::shared_ptr<const RGB8Image> ConstPtr;
+
+            RGB8Image() {
+            }
+
+            virtual ~RGB8Image() {
+            }
+            
+            static RGB8Image::Ptr create() {
+                return RGB8Image::Ptr(boost::make_shared<RGB8Image>());
+            }
+        };
+
+        class DepthImage : public ocvImage {
+        public:
+            typedef boost::shared_ptr<DepthImage> Ptr;
+            typedef boost::shared_ptr<const DepthImage> ConstPtr;
+
+            DepthImage() {
+            }
+
+            virtual ~DepthImage() {
+            }
+            
+            static DepthImage::Ptr create() {
+                return DepthImage::Ptr(boost::make_shared<DepthImage>());
+            }
+        };
+        
+        class PlaneNetLabelImage : public ocvImage {
+        public:
+            typedef boost::shared_ptr<PlaneNetLabelImage> Ptr;
+            typedef boost::shared_ptr<const PlaneNetLabelImage> ConstPtr;
+
+            PlaneNetLabelImage() {
+            }
+
+            virtual ~PlaneNetLabelImage() {
+            }
+            
+            static PlaneNetLabelImage::Ptr create() {
+                return PlaneNetLabelImage::Ptr(boost::make_shared<PlaneNetLabelImage>());
+            }
+        };        
+
         class ShapeMap : public std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>
         {
             public:
-            //typedef boost::shared_ptr<std::unordered_map<SurfaceType, std::vector < sg::Shape::Ptr>>> Ptr;
             typedef boost::shared_ptr<ShapeMap> Ptr;
             typedef boost::shared_ptr<const ShapeMap> ConstPtr;
 
