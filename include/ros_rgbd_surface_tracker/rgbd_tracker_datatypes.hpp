@@ -84,20 +84,38 @@ namespace cv {
             }
         };
 
-        class ocvImage {
+        class ocvMat {
         protected:
-            cv::Mat img;
+            cv::Mat data;
         public:
-            void setImage(const cv::Mat& planeImage) {
-                img = planeImage;
+
+            void setData(const cv::Mat& _data) {
+                data = _data;
             }
-            
-            cv::Mat& getImage() {
-                return img;
+
+            cv::Mat& getData() {
+                return data;
             }
         };
-        
-        class PlaneImage : public ocvImage {
+
+        class CameraInfo : public ocvMat {
+        public:
+            typedef boost::shared_ptr<CameraInfo> Ptr;
+            typedef boost::shared_ptr<const CameraInfo> ConstPtr;
+
+            CameraInfo() {
+            }
+
+            virtual ~CameraInfo() {
+            }
+
+            static CameraInfo::Ptr create() {
+                return CameraInfo::Ptr(boost::make_shared<CameraInfo>());
+            }
+        };
+
+        class PlaneImage : public ocvMat {
+            CameraInfo::Ptr cameraInfo;
         public:
             typedef boost::shared_ptr<PlaneImage> Ptr;
             typedef boost::shared_ptr<const PlaneImage> ConstPtr;
@@ -107,13 +125,25 @@ namespace cv {
 
             virtual ~PlaneImage() {
             }
-            
+
             static PlaneImage::Ptr create() {
                 return PlaneImage::Ptr(boost::make_shared<PlaneImage>());
             }
+
+            cv::Mat visualizeAsImage() {
+                cv::Mat abcd[4];
+                cv::split(data, abcd);
+                std::vector<cv::Mat> abc = {abcd[0], abcd[1], abcd[2]};
+                cv::Mat normMat(abcd[0].rows, abcd[0].cols, CV_8UC3);
+                cv::merge(abc, normMat);
+                cv::Mat visImageU8C3;
+                cv::normalize(normMat, visImageU8C3, 0, 255, cv::NORM_MINMAX, CV_8UC3);
+                return visImageU8C3;
+            }
         };
 
-        class RGB8Image : public ocvImage {
+        class RGB8Image : public ocvMat {
+            CameraInfo::Ptr cameraInfo;
         public:
             typedef boost::shared_ptr<RGB8Image> Ptr;
             typedef boost::shared_ptr<const RGB8Image> ConstPtr;
@@ -123,13 +153,14 @@ namespace cv {
 
             virtual ~RGB8Image() {
             }
-            
+
             static RGB8Image::Ptr create() {
                 return RGB8Image::Ptr(boost::make_shared<RGB8Image>());
             }
         };
 
-        class DepthImage : public ocvImage {
+        class DepthImage : public ocvMat {
+            CameraInfo::Ptr cameraInfo;
         public:
             typedef boost::shared_ptr<DepthImage> Ptr;
             typedef boost::shared_ptr<const DepthImage> ConstPtr;
@@ -139,13 +170,13 @@ namespace cv {
 
             virtual ~DepthImage() {
             }
-            
+
             static DepthImage::Ptr create() {
                 return DepthImage::Ptr(boost::make_shared<DepthImage>());
             }
         };
-        
-        class PlaneNetLabelImage : public ocvImage {
+
+        class PlaneNetLabelImage : public ocvMat {
         public:
             typedef boost::shared_ptr<PlaneNetLabelImage> Ptr;
             typedef boost::shared_ptr<const PlaneNetLabelImage> ConstPtr;
@@ -155,11 +186,11 @@ namespace cv {
 
             virtual ~PlaneNetLabelImage() {
             }
-            
+
             static PlaneNetLabelImage::Ptr create() {
                 return PlaneNetLabelImage::Ptr(boost::make_shared<PlaneNetLabelImage>());
             }
-        };        
+        };
 
         class ShapeMap : public std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>
         {
