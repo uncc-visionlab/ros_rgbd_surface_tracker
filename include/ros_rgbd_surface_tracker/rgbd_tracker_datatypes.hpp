@@ -179,7 +179,10 @@ namespace cv {
             typedef boost::shared_ptr<const ocvMat> ConstPtr;
 
             void setData(const cv::Mat& _data) {
-                data = _data;
+                if (_data.empty())
+                    data.release();
+                else
+                    data = _data;
             }
 
             cv::Mat& getData() {
@@ -187,6 +190,9 @@ namespace cv {
             }
 
             std::vector<int8_t> toByteArray() {
+                if (data.empty()) {
+                    return std::vector<int8_t>();
+                }
                 namespace io = boost::iostreams;
                 std::string serial_str;
                 {
@@ -206,8 +212,11 @@ namespace cv {
             }
 
             static ocvMat::Ptr fromByteArray(std::vector<int8_t> byteVec) {
-                namespace io = boost::iostreams;
                 ocvMat::Ptr _ocvMat = ocvMat::create();
+                if (byteVec.size()==0) {
+                    return _ocvMat;
+                }
+                namespace io = boost::iostreams;
                 membuf _membuf(reinterpret_cast<const char*> (byteVec.data()), byteVec.size());
                 {
                     io::filtering_streambuf<io::input> in;

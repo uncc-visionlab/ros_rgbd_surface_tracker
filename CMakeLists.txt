@@ -220,22 +220,22 @@ target_link_libraries(${PROJECT_NAME}_run
    ${OpenCV_LIBRARIES}
    ${Eigen3_LIBRARIES} GL GLU glut)
 
-add_executable(run_rgbd_live_arm
-    src/run_rgbd_live_arm.cpp
-    src/rgbd_tracker_uncc.cpp
-    src/rgbd_image_uncc.cpp
-    src/rgbd_surf_detector.cpp
-    src/ShapeGrammarLibrary.cpp
-    src/surf_descriptor_proc.cpp
-    src/surface_alignment_optimizer.cpp
-    src/surface_fitting.cpp
-    src/opengl_renderer.cpp)
+#add_executable(run_rgbd_live_arm
+#    src/run_rgbd_live_arm.cpp
+#    src/rgbd_tracker_uncc.cpp
+#    src/rgbd_image_uncc.cpp
+#    src/rgbd_surf_detector.cpp
+#    src/ShapeGrammarLibrary.cpp
+#    src/surf_descriptor_proc.cpp
+#    src/surface_alignment_optimizer.cpp
+#    src/surface_fitting.cpp
+#    src/opengl_renderer.cpp)
 
-target_link_libraries(run_rgbd_live_arm
-   ${catkin_LIBRARIES} 
-   ${Boost_LIBRARIES}
-   ${OpenCV_LIBRARIES}  
-   ${Eigen3_LIBRARIES} OpenNI GL GLU glut)
+#target_link_libraries(run_rgbd_live_arm
+#   ${catkin_LIBRARIES} 
+#   ${Boost_LIBRARIES}
+#   ${OpenCV_LIBRARIES}  
+#   ${Eigen3_LIBRARIES} OpenNI GL GLU glut)
 #   OpenNI2Orbbec GL GLU glut)
 
 add_executable(opengl_iothread 
