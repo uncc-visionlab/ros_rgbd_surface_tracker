@@ -11,8 +11,23 @@
 
 #include <map>
 
+// smart pointer implementation for classes
 #include <boost/make_shared.hpp>
 #include <boost/shared_ptr.hpp>
+
+// to serialize cv::Mat objects for transfer
+#include <boost/archive/binary_oarchive.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/iostreams/stream.hpp>
+#include <boost/iostreams/device/back_inserter.hpp>
+#include <boost/iostreams/filtering_streambuf.hpp>
+#include <boost/iostreams/filter/zlib.hpp>
+#include <boost/serialization/split_free.hpp>
+#include <boost/serialization/vector.hpp>
+
+// for imemstream bytestream source for unpacking data
+#include <streambuf>
+#include <istream>
 
 #include <ros_rgbd_surface_tracker/opencv_geom_uncc.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
@@ -51,6 +66,78 @@ namespace std {
     };
 }
 
+BOOST_SERIALIZATION_SPLIT_FREE(::cv::Mat)
+
+namespace boost {
+    namespace serialization {
+
+        /** Serialization support for cv::Mat */
+        template<class Archive>
+        void save(Archive & ar, const ::cv::Mat& m, const unsigned int version) {
+            size_t elem_size = m.elemSize();
+            size_t elem_type = m.type();
+
+            ar & m.cols;
+            ar & m.rows;
+            ar & elem_size;
+            ar & elem_type;
+
+            const size_t data_size = m.cols * m.rows * elem_size;
+            ar & boost::serialization::make_array(m.ptr(), data_size);
+        }
+
+        /** Serialization support for cv::Mat */
+        template<class Archive>
+        void load(Archive & ar, ::cv::Mat& m, const unsigned int version) {
+            int cols, rows;
+            size_t elem_size, elem_type;
+
+            ar & cols;
+            ar & rows;
+            ar & elem_size;
+            ar & elem_type;
+
+            m.create(rows, cols, elem_type);
+
+            size_t data_size = m.cols * m.rows * elem_size;
+            ar & boost::serialization::make_array(m.ptr(), data_size);
+        }
+        // Try read next object from archive
+
+        template<class Archive>
+        bool try_stream_next(Archive &ar, const std::istream &s, ::cv::Mat &o) {
+            bool success = false;
+
+            try {
+                ar >> o;
+                success = true;
+            } catch (const boost::archive::archive_exception &e) {
+                if (e.code != boost::archive::archive_exception::input_stream_error) {
+                    throw;
+                }
+            }
+
+            return success;
+        }
+    }
+}
+
+struct membuf : std::streambuf {
+
+    membuf(char const* base, size_t size) {
+        char* p(const_cast<char*> (base));
+        this->setg(p, p, p + size);
+    }
+};
+
+//class imemstream : virtual membuf, public std::istream {
+//public:
+//    imemstream(char const* base, size_t size)
+//    : membuf(base, size)
+//    , std::istream(static_cast<std::streambuf*> (this)) {
+//    }
+//};
+
 namespace cv {
     namespace rgbd {
 
@@ -88,6 +175,8 @@ namespace cv {
         protected:
             cv::Mat data;
         public:
+            typedef boost::shared_ptr<ocvMat> Ptr;
+            typedef boost::shared_ptr<const ocvMat> ConstPtr;
 
             void setData(const cv::Mat& _data) {
                 data = _data;
@@ -95,6 +184,45 @@ namespace cv {
 
             cv::Mat& getData() {
                 return data;
+            }
+
+            std::vector<int8_t> toByteArray() {
+                namespace io = boost::iostreams;
+                std::string serial_str;
+                {
+                    io::back_insert_device<std::string> inserter(serial_str);
+                    io::stream<io::back_insert_device<std::string> > s(inserter);
+
+                    io::filtering_streambuf<io::output> out;
+                    out.push(io::zlib_compressor(io::zlib::best_speed));
+                    out.push(s);
+
+                    //boost::archive::binary_oarchive oa(s);
+                    boost::archive::binary_oarchive oa(out);
+                    oa << data;
+                    s.flush();
+                }
+                return std::vector<int8_t>(serial_str.begin(), serial_str.end());
+            }
+
+            static ocvMat::Ptr fromByteArray(std::vector<int8_t> byteVec) {
+                namespace io = boost::iostreams;
+                ocvMat::Ptr _ocvMat = ocvMat::create();
+                membuf _membuf(reinterpret_cast<const char*> (byteVec.data()), byteVec.size());
+                {
+                    io::filtering_streambuf<io::input> in;
+                    in.push(io::zlib_decompressor());
+                    in.push(_membuf);
+
+                    //boost::archive::binary_iarchive ia(_membuf);
+                    boost::archive::binary_iarchive ia(in);
+                    ia >> _ocvMat->data;
+                }
+                return _ocvMat;
+            }
+
+            static ocvMat::Ptr create() {
+                return ocvMat::Ptr(boost::make_shared<ocvMat>());
             }
         };
 

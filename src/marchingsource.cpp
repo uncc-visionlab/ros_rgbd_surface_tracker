@@ -149,7 +149,7 @@ GLvoid vMarchCube1(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale, PlaneVisu
 GLvoid vMarchCube2(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale, PlaneVisualizationData& vis_data);
 GLvoid(*vMarchCube)(GLfloat fX, GLfloat fY, GLfloat fZ, GLfloat fScale, PlaneVisualizationData& vis_data) = vMarchCube1;
 
-int supermain(AlgebraicSurface<float>& surf, PlaneVisualizationData& vis_data, 
+void supermain(AlgebraicSurface<float>& surf, PlaneVisualizationData& vis_data, 
         const Eigen::Matrix<float, 8, 3>& cube, float cubesize, float levelset) {
     
     vis_data_ptr = &vis_data;
