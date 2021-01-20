@@ -410,6 +410,40 @@ namespace cv {
             static PlaneNetLabelImage::Ptr create() {
                 return PlaneNetLabelImage::Ptr(boost::make_shared<PlaneNetLabelImage>());
             }
+
+            cv::Mat visualizeAsImage() {
+                cv::Mat labelImage(data.rows, data.cols, CV_8UC3);
+                // Color Mapping Method #1
+                //cv::applyColorMap(label_img, labelImage, cv::COLORMAP_JET);
+                //cv::imwrite("rgb_1.jpg", labelImage);
+
+                // Color Mapping Method #2
+                /*int labelNum = 37;
+                cv::Mat lookupTable(1, 256, CV_8UC3);
+                for(int i = 0; i < 256; i++)
+                {
+                    lookupTable.at<cv::Vec3b>(0, i) = cv::Vec3b(255 - i * int(255 / labelNum), 0, 255 + i * int(255 / labelNum));
+                }          
+                cv::Mat label3(label_img.rows, label_img.cols, CV_8UC3);
+                std::vector<cv::Mat> channel3 = {label_img, label_img, label_img};
+                cv::merge(channel3, label3);
+                cv::LUT(label3, lookupTable, labelImage);  */
+
+                // Color Mapping Method #3
+                int golden_angle = (int) (180 * (3 - sqrt(5))) % 360;
+                cv::Mat label_hue(data.rows, data.cols, CV_8UC1);
+                for (int i = 0; i < data.rows; i++) {
+                    for (int j = 0; j < data.cols; j++) {
+                        label_hue.at<uchar>(i, j) = data.at<uchar>(i, j) * golden_angle; // each label will be nearly maximally different in hue
+                    }
+                }
+                cv::Mat blank(label_hue.rows, label_hue.cols, CV_8UC1, cv::Scalar(255));
+                std::vector<cv::Mat> hsvChannels = {label_hue, blank, blank};
+                cv::Mat hsvImage(label_hue.rows, label_hue.cols, CV_8UC3);
+                cv::merge(hsvChannels, hsvImage);
+                cv::cvtColor(hsvImage, labelImage, cv::COLOR_HSV2BGR);
+                return labelImage;
+            }
         };
 
         class ShapeMap : public std::unordered_map<SurfaceType, std::vector<sg::Shape::Ptr>>
