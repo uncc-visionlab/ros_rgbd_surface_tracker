@@ -32,7 +32,7 @@
 #include <ros_rgbd_surface_tracker/opencv_geom_uncc.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
 #include <ros_rgbd_surface_tracker/ShapeGrammarLibrary.hpp>
-#include <ros_rgbd_surface_tracker/PlaneImageCompressor.hpp>
+#include <ros_rgbd_surface_tracker/PlaneImageQuantizer.hpp>
 
 namespace cv {
     namespace rgbd {
@@ -291,13 +291,12 @@ namespace cv {
         };
 
         class PlaneImage : public ocvMat {
-            PlaneImageCompressor myZlib;
             CameraInfo::Ptr cameraInfo;
         public:
             typedef boost::shared_ptr<PlaneImage> Ptr;
             typedef boost::shared_ptr<const PlaneImage> ConstPtr;
 
-            PlaneImage() : myZlib(11, 9, 12) {
+            PlaneImage() {
                 cameraInfo = CameraInfo::create();
             }
 
@@ -323,13 +322,30 @@ namespace cv {
                 return planeImage;
             }
 
-            std::vector<int8_t> compress() {
-                std::vector<int8_t> byteVec = myZlib.compress(data);
-                return byteVec;
+            void toQuantizedByteArray(std::vector<int8_t>& dataVec, PlaneImageQuantizer& myZlib) {
+                dataVec.push_back((int8_t) ((data.rows & 0x0000ff00) >> 8));
+                dataVec.push_back((int8_t) ((data.rows & 0x000000ff) >> 0));
+                dataVec.push_back((int8_t) ((data.cols & 0x0000ff00) >> 8));
+                dataVec.push_back((int8_t) ((data.cols & 0x000000ff) >> 0));
+                myZlib.compress(data, dataVec, 4);
+                std::vector<int8_t> infoVec = cameraInfo->toByteArray();
+                dataVec.insert(dataVec.end(), infoVec.begin(), infoVec.end());
             }
 
-            cv::Mat decompress(std::vector<int8_t> byteVec, int rows, int cols) {
-                return myZlib.decompress(byteVec, rows, cols);
+            static PlaneImage::Ptr fromQuantizedByteArray(const std::vector<int8_t>& byteVec, PlaneImageQuantizer& myZlib) {
+                int rows = (uint8_t) byteVec[0];
+                rows <<= 8;
+                rows |= (uint8_t) byteVec[1];
+                int cols = (uint8_t) byteVec[2];
+                cols <<= 8;
+                cols |= (uint8_t) byteVec[3];
+                PlaneImage::Ptr planeImage = create();
+                planeImage->setData(myZlib.decompress(byteVec, rows, cols, 4));
+                uint32_t vecPos = myZlib.getPos();
+                std::vector<int8_t> remainder;
+                remainder.insert(remainder.begin(), byteVec.begin() + vecPos, byteVec.end());
+                planeImage->cameraInfo->setData(ocvMat::fromByteArray(remainder));
+                return planeImage;
             }
 
             cv::Mat visualizeAsImage() {

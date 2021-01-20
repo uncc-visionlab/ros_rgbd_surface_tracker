@@ -11,27 +11,30 @@
  * Created on January 19, 2021, 10:08 PM
  */
 
-#ifndef PLANEIMAGECOMPRESSOR_HPP
-#define PLANEIMAGECOMPRESSOR_HPP
+#ifndef PLANEIMAGEQUANTIZER_HPP
+#define PLANEIMAGEQUANTIZER_HPP
 
 #include <vector>
 #include <math.h>
 
 #include <opencv2/core/mat.hpp>
 
-class PlaneImageCompressor {
+class PlaneImageQuantizer {
 #define PI 3.14159265f
     uint8_t nbitsAZ, nbitsEL, nbitsD;
     uint32_t az_scalef, el_scalef, d_scalef;
     static const int MAX_DISTANCE = 10;
-
+    uint32_t streamPos;
+    std::vector<float> azimuthLUT_sin;
+    std::vector<float> azimuthLUT_cos;
+    std::vector<float> elevationLUT_sin;
+    std::vector<float> elevationLUT_cos;
     // Azimuth is a value [-pi, pi]
     // Elevation is a value [0, pi/2]
     // D(istance) is a value [0, MAX_DISTANCE)
-    // IMPORTANT: input can never be equal to MAX_DISTANCE
 public:
 
-    void compressVec4f(cv::Vec4f vec, std::vector<int8_t>& byteVec, int& vecIdx) {
+    void compressVec4f(const cv::Vec4f& vec, std::vector<int8_t>& byteVec, uint32_t& vecIdx) {
         //std::cout << "compress(4f) " << "vec = " << vec << std::endl;
         float azf = atan2(vec[1], vec[0]);
         float elf = acos(-vec[2]);
@@ -53,7 +56,7 @@ public:
         vecIdx += 4;
     }
 
-    void decompressVec4f(std::vector<int8_t> byteVec, int& vecIdx, cv::Vec4f& vec) {
+    void decompressVec4f(const std::vector<int8_t>& byteVec, uint32_t& vecIdx, cv::Vec4f& vec) {
         //std::cout << std::hex << "compress(int8) " << "bytes ("
         //        << (uint16_t) byteVec[vecIdx] << ", " << (uint16_t) byteVec[vecIdx + 1] << ", "
         //        << (uint16_t) byteVec[vecIdx + 2] << ", " << (uint16_t) byteVec[vecIdx + 3] << ")" << std::endl;
@@ -72,48 +75,63 @@ public:
         uint32_t el = (compVal << nbitsD) >> (nbitsD + nbitsAZ);
         uint32_t az = (compVal << (nbitsD + nbitsEL)) >> (nbitsD + nbitsEL);
         //std::cout << std::dec << "decompress(int) " << "az = " << az << " el = " << el << " d = " << d << std::endl;
-        float azf = ((((float) az) / (az_scalef >> 1)) - 1.0f) * PI;
-        float elf = (((float) el) * PI) / (2.0f * el_scalef);
+        //float azf = ((((float) az) / (az_scalef >> 1)) - 1.0f) * PI;
+        //float elf = (((float) el) * PI) / (2.0f * el_scalef);
         float df = (float) (d * MAX_DISTANCE) / d_scalef;
         //std::cout << std::dec << "compress(float) " << "az = " << azf << " el = " << elf << " d = " << df << std::endl;
-        vec[0] = sin(elf) * cos(azf);
-        vec[1] = sin(elf) * sin(azf);
-        vec[2] = -cos(elf);
+        //vec[0] = sin(elf) * cos(azf);
+        //vec[1] = sin(elf) * sin(azf);
+        //vec[2] = -cos(elf);
+        vec[0] = elevationLUT_sin[el] * azimuthLUT_cos[az];
+        vec[1] = elevationLUT_sin[el] * azimuthLUT_sin[az];
+        vec[2] = -elevationLUT_cos[el];
         vec[3] = df;
         //std::cout << "decompress(4f) " << "vec = " << vec << std::endl;
     }
 public:
 
-    PlaneImageCompressor(int _nbitsAZ, int _nbitsEL, int _nbitsD) :
+    PlaneImageQuantizer(int _nbitsAZ, int _nbitsEL, int _nbitsD) :
     nbitsAZ(_nbitsAZ), nbitsEL(_nbitsEL), nbitsD(_nbitsD) {
         az_scalef = pow(2, nbitsAZ) - 1;
         el_scalef = pow(2, nbitsEL) - 1;
         d_scalef = pow(2, nbitsD) - 1;
+        for (uint32_t az = 0; az <= az_scalef; az++) {
+            float azf = ((((float) az) / (az_scalef >> 1)) - 1.0f) * PI;
+            azimuthLUT_cos.push_back(cos(azf));
+            azimuthLUT_sin.push_back(sin(azf));
+        }
+        for (uint32_t el = 0; el <= el_scalef; el++) {
+            float elf = (((float) el) * PI) / (2.0f * el_scalef);
+            elevationLUT_cos.push_back(cos(elf));
+            elevationLUT_sin.push_back(sin(elf));
+        }
     }
 
-    virtual ~PlaneImageCompressor() {
+    virtual ~PlaneImageQuantizer() {
     }
 
-    std::vector<int8_t> compress(cv::Mat_<cv::Vec4f> planeImage) {
-        std::vector<int8_t> byteVec;
-        int vecIdx = 0;
+    uint32_t getPos() {
+        return streamPos;
+    }
+
+    void compress(cv::Mat_<cv::Vec4f> planeImage, std::vector<int8_t>& byteVec, uint32_t initialBytePos = 0) {
+        streamPos = initialBytePos;
         for (int r = 0; r < planeImage.rows; r++) {
             cv::Vec4f* ptr = planeImage.ptr<cv::Vec4f>(r);
             for (int c = 0; c < planeImage.cols; c++) {
-                compressVec4f(ptr[c], byteVec, vecIdx);
+                compressVec4f(ptr[c], byteVec, streamPos);
             }
         }
-        return byteVec;
     }
 
-    cv::Mat decompress(std::vector<int8_t> byteVec, int rows, int cols) {
+    cv::Mat decompress(const std::vector<int8_t>& byteVec, int rows, int cols, uint32_t initialBytePos = 0) {
         cv::Mat_<cv::Vec4f> planeImage(rows, cols);
-        int vecIdx = 0;
+        streamPos = initialBytePos;
         for (int r = 0; r < planeImage.rows; r++) {
             // We obtain a pointer to the beginning of row r
             cv::Vec4f* ptr = planeImage.ptr<cv::Vec4f>(r);
             for (int c = 0; c < planeImage.cols; c++) {
-                decompressVec4f(byteVec, vecIdx, ptr[c]);
+                decompressVec4f(byteVec, streamPos, ptr[c]);
             }
         }
         return planeImage;
@@ -145,5 +163,5 @@ public:
     }
 };
 
-#endif /* PLANEIMAGECOMPRESSOR_HPP */
+#endif /* PLANEIMAGEQUANTIZER_HPP */
 
