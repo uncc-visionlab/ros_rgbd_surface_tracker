@@ -32,6 +32,7 @@
 #include <ros_rgbd_surface_tracker/opencv_geom_uncc.hpp>
 #include <ros_rgbd_surface_tracker/rgbd_image_uncc.hpp>
 #include <ros_rgbd_surface_tracker/ShapeGrammarLibrary.hpp>
+#include <ros_rgbd_surface_tracker/PlaneImageCompressor.hpp>
 
 namespace cv {
     namespace rgbd {
@@ -105,9 +106,8 @@ namespace boost {
         // Try read next object from archive
 
         template<class Archive>
-        bool try_stream_next(Archive &ar, const std::istream &s, ::cv::Mat &o) {
+        bool try_stream_next(Archive &ar, ::cv::Mat &o) {
             bool success = false;
-
             try {
                 ar >> o;
                 success = true;
@@ -116,7 +116,20 @@ namespace boost {
                     throw;
                 }
             }
+            return success;
+        }
 
+        template<class Archive>
+        bool try_stream_next(Archive &ar, const std::istream &s, ::cv::Mat &o) {
+            bool success = false;
+            try {
+                ar >> o;
+                success = true;
+            } catch (const boost::archive::archive_exception &e) {
+                if (e.code != boost::archive::archive_exception::input_stream_error) {
+                    throw;
+                }
+            }
             return success;
         }
     }
@@ -211,9 +224,9 @@ namespace cv {
                 return std::vector<int8_t>(serial_str.begin(), serial_str.end());
             }
 
-            static ocvMat::Ptr fromByteArray(std::vector<int8_t> byteVec) {
-                ocvMat::Ptr _ocvMat = ocvMat::create();
-                if (byteVec.size()==0) {
+            static cv::Mat fromByteArray(std::vector<int8_t> byteVec) {
+                cv::Mat _ocvMat;
+                if (byteVec.size() == 0) {
                     return _ocvMat;
                 }
                 namespace io = boost::iostreams;
@@ -225,9 +238,35 @@ namespace cv {
 
                     //boost::archive::binary_iarchive ia(_membuf);
                     boost::archive::binary_iarchive ia(in);
-                    ia >> _ocvMat->data;
+                    ia >> _ocvMat;
                 }
                 return _ocvMat;
+            }
+
+            static std::vector<cv::Mat> fromByteArray(std::vector<int8_t> byteVec, int numMats) {
+                std::vector<cv::Mat> _ocvMatVec(numMats);
+                if (byteVec.size() == 0) {
+                    return _ocvMatVec;
+                }
+                namespace io = boost::iostreams;
+                membuf _membuf(reinterpret_cast<const char*> (byteVec.data()), byteVec.size());
+                {
+                    io::filtering_streambuf<io::input> in;
+                    in.push(io::zlib_decompressor());
+                    in.push(_membuf);
+
+                    boost::archive::binary_iarchive ia(in);
+                    //boost::archive::binary_iarchive ia(_membuf);
+                    //ia >> _ocvMat;
+                    bool cont = true;
+                    int matIdx = 0;
+                    while (cont && matIdx < numMats) {
+                        cont = boost::serialization::try_stream_next(ia, _ocvMatVec[matIdx++]);
+                        //_ocvMatVec.push_back(_ocvMat);
+                        //_ocvMat.release();
+                    }
+                }
+                return _ocvMatVec;
             }
 
             static ocvMat::Ptr create() {
@@ -252,12 +291,14 @@ namespace cv {
         };
 
         class PlaneImage : public ocvMat {
+            PlaneImageCompressor myZlib;
             CameraInfo::Ptr cameraInfo;
         public:
             typedef boost::shared_ptr<PlaneImage> Ptr;
             typedef boost::shared_ptr<const PlaneImage> ConstPtr;
 
-            PlaneImage() {
+            PlaneImage() : myZlib(11, 9, 12) {
+                cameraInfo = CameraInfo::create();
             }
 
             virtual ~PlaneImage() {
@@ -265,6 +306,30 @@ namespace cv {
 
             static PlaneImage::Ptr create() {
                 return PlaneImage::Ptr(boost::make_shared<PlaneImage>());
+            }
+
+            std::vector<int8_t> toByteArray() {
+                std::vector<int8_t> dataVec = ocvMat::toByteArray();
+                std::vector<int8_t> infoVec = cameraInfo->toByteArray();
+                dataVec.insert(dataVec.end(), infoVec.begin(), infoVec.end());
+                return dataVec;
+            }
+
+            static PlaneImage::Ptr fromByteArray(std::vector<int8_t> byteVec) {
+                std::vector<cv::Mat> _ocvMats = ocvMat::fromByteArray(byteVec, 2);
+                PlaneImage::Ptr planeImage = create();
+                planeImage->setData(_ocvMats[0]);
+                planeImage->cameraInfo->setData(_ocvMats[1]);
+                return planeImage;
+            }
+
+            std::vector<int8_t> compress() {
+                std::vector<int8_t> byteVec = myZlib.compress(data);
+                return byteVec;
+            }
+
+            cv::Mat decompress(std::vector<int8_t> byteVec, int rows, int cols) {
+                return myZlib.decompress(byteVec, rows, cols);
             }
 
             cv::Mat visualizeAsImage() {
@@ -286,6 +351,7 @@ namespace cv {
             typedef boost::shared_ptr<const RGB8Image> ConstPtr;
 
             RGB8Image() {
+                cameraInfo = CameraInfo::create();
             }
 
             virtual ~RGB8Image() {
@@ -303,6 +369,7 @@ namespace cv {
             typedef boost::shared_ptr<const DepthImage> ConstPtr;
 
             DepthImage() {
+                cameraInfo = CameraInfo::create();
             }
 
             virtual ~DepthImage() {
