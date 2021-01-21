@@ -412,7 +412,7 @@ namespace cv {
             }
 
             cv::Mat visualizeAsImage() {
-                cv::Mat labelImage(data.rows, data.cols, CV_8UC3);  // labelImage: [labelData; labelConfidnece]
+                cv::Mat labelImage(data.rows, data.cols, CV_8UC3);  // label_data: [label; probability]
                 // Color Mapping Method #1
                 //cv::applyColorMap(label_img, labelImage, cv::COLORMAP_JET);
                 //cv::imwrite("rgb_1.jpg", labelImage);
