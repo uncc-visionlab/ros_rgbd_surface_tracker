@@ -412,7 +412,7 @@ namespace cv {
             }
 
             cv::Mat visualizeAsImage() {
-                cv::Mat labelImage(data.rows, data.cols, CV_8UC3);
+                cv::Mat labelImage(data.rows, data.cols, CV_8UC3);  // labelImage: [labelData; labelConfidnece]
                 // Color Mapping Method #1
                 //cv::applyColorMap(label_img, labelImage, cv::COLORMAP_JET);
                 //cv::imwrite("rgb_1.jpg", labelImage);
@@ -434,7 +434,7 @@ namespace cv {
                 cv::Mat label_hue(data.rows, data.cols, CV_8UC1);
                 for (int i = 0; i < data.rows; i++) {
                     for (int j = 0; j < data.cols; j++) {
-                        label_hue.at<uchar>(i, j) = data.at<uchar>(i, j) * golden_angle; // each label will be nearly maximally different in hue
+                        label_hue.at<uchar>(i, j) = (int)(data.at<cv::Vec2f>(i, j)[0]) * golden_angle; // each label will be nearly maximally different in hue
                     }
                 }
                 cv::Mat blank(label_hue.rows, label_hue.cols, CV_8UC1, cv::Scalar(255));
