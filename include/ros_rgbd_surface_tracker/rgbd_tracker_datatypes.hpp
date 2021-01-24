@@ -198,11 +198,11 @@ namespace cv {
                     data = _data;
             }
 
-            cv::Mat& getData() {
+            const cv::Mat& getData() const {
                 return data;
             }
 
-            std::vector<int8_t> toByteArray() {
+            std::vector<int8_t> toByteArray() const {
                 if (data.empty()) {
                     return std::vector<int8_t>();
                 }
@@ -307,7 +307,7 @@ namespace cv {
                 return PlaneImage::Ptr(boost::make_shared<PlaneImage>());
             }
 
-            std::vector<int8_t> toByteArray() {
+            std::vector<int8_t> toByteArray() const {
                 std::vector<int8_t> dataVec = ocvMat::toByteArray();
                 std::vector<int8_t> infoVec = cameraInfo->toByteArray();
                 dataVec.insert(dataVec.end(), infoVec.begin(), infoVec.end());
@@ -322,17 +322,17 @@ namespace cv {
                 return planeImage;
             }
 
-            void toQuantizedByteArray(std::vector<int8_t>& dataVec, PlaneImageQuantizer& myZlib) {
+            void toQuantizedByteArray(std::vector<int8_t>& dataVec, PlaneImageQuantizer& myQuantizer) const {
                 dataVec.push_back((int8_t) ((data.rows & 0x0000ff00) >> 8));
                 dataVec.push_back((int8_t) ((data.rows & 0x000000ff) >> 0));
                 dataVec.push_back((int8_t) ((data.cols & 0x0000ff00) >> 8));
                 dataVec.push_back((int8_t) ((data.cols & 0x000000ff) >> 0));
-                myZlib.compress(data, dataVec, 4);
+                myQuantizer.compress(data, dataVec, 4);
                 std::vector<int8_t> infoVec = cameraInfo->toByteArray();
                 dataVec.insert(dataVec.end(), infoVec.begin(), infoVec.end());
             }
 
-            static PlaneImage::Ptr fromQuantizedByteArray(const std::vector<int8_t>& byteVec, PlaneImageQuantizer& myZlib) {
+            static PlaneImage::Ptr fromQuantizedByteArray(const std::vector<int8_t>& byteVec, PlaneImageQuantizer& myQuantizer) {
                 int rows = (uint8_t) byteVec[0];
                 rows <<= 8;
                 rows |= (uint8_t) byteVec[1];
@@ -340,15 +340,15 @@ namespace cv {
                 cols <<= 8;
                 cols |= (uint8_t) byteVec[3];
                 PlaneImage::Ptr planeImage = create();
-                planeImage->setData(myZlib.decompress(byteVec, rows, cols, 4));
-                uint32_t vecPos = myZlib.getPos();
+                planeImage->setData(myQuantizer.decompress(byteVec, rows, cols, 4));
+                uint32_t vecPos = myQuantizer.getPos();
                 std::vector<int8_t> remainder;
                 remainder.insert(remainder.begin(), byteVec.begin() + vecPos, byteVec.end());
                 planeImage->cameraInfo->setData(ocvMat::fromByteArray(remainder));
                 return planeImage;
             }
 
-            cv::Mat visualizeAsImage() {
+            cv::Mat visualizeAsImage() const {
                 cv::Mat abcd[4];
                 cv::split(data, abcd);
                 std::vector<cv::Mat> abc = {abcd[0], abcd[1], abcd[2]};
