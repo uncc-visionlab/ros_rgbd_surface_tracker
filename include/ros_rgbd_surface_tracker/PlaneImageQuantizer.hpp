@@ -114,7 +114,7 @@ public:
         return streamPos;
     }
 
-    void compress(cv::Mat_<cv::Vec4f> planeImage, std::vector<int8_t>& byteVec, uint32_t initialBytePos = 0) {
+    void quantize(cv::Mat_<cv::Vec4f> planeImage, std::vector<int8_t>& byteVec, uint32_t initialBytePos = 0) {
         streamPos = initialBytePos;
         for (int r = 0; r < planeImage.rows; r++) {
             cv::Vec4f* ptr = planeImage.ptr<cv::Vec4f>(r);
@@ -124,7 +124,7 @@ public:
         }
     }
 
-    cv::Mat decompress(const std::vector<int8_t>& byteVec, int rows, int cols, uint32_t initialBytePos = 0) {
+    cv::Mat dequantize(const std::vector<int8_t>& byteVec, int rows, int cols, uint32_t initialBytePos = 0) {
         cv::Mat_<cv::Vec4f> planeImage(rows, cols);
         streamPos = initialBytePos;
         for (int r = 0; r < planeImage.rows; r++) {

@@ -151,6 +151,48 @@ struct membuf : std::streambuf {
 //    }
 //};
 
+class VectorCompressor {
+public:
+
+    static std::vector<int8_t> compress(std::vector<int8_t> uncompressedData) {
+        namespace io = boost::iostreams;
+        //char* uncompressedChars = new char[uncompressedData.size()]; //init this with the correct size
+        //std::copy(uncompressedData.begin(), uncompressedData.end(), uncompressedChars);
+        std::string serial_str;
+        {
+            io::back_insert_device<std::string> inserter(serial_str);
+            io::stream<io::back_insert_device<std::string> > s(inserter);
+
+            io::filtering_streambuf<io::output> out;
+            out.push(io::zlib_compressor());
+            out.push(s);
+
+            //boost::archive::binary_oarchive oa(s);
+            boost::archive::binary_oarchive oa(out);
+            oa << uncompressedData;
+            s.flush();
+        }
+        return std::vector<int8_t>(serial_str.begin(), serial_str.end());
+    }
+
+    static std::vector<int8_t> decompress(std::vector<int8_t> compressed) {
+        namespace io = boost::iostreams;
+        std::vector<int8_t> decompressed;
+        membuf _membuf(reinterpret_cast<const char*> (compressed.data()), compressed.size());
+        {
+            io::filtering_streambuf<io::input> in;
+            in.push(io::zlib_decompressor());
+            in.push(_membuf);
+
+            //boost::archive::binary_iarchive ia(_membuf);
+            boost::archive::binary_iarchive ia(in);
+            ia >> decompressed;
+        }
+        return decompressed;
+    }
+};
+
+
 namespace cv {
     namespace rgbd {
 
@@ -323,27 +365,31 @@ namespace cv {
             }
 
             void toQuantizedByteArray(std::vector<int8_t>& dataVec, PlaneImageQuantizer& myQuantizer) const {
-                dataVec.push_back((int8_t) ((data.rows & 0x0000ff00) >> 8));
-                dataVec.push_back((int8_t) ((data.rows & 0x000000ff) >> 0));
-                dataVec.push_back((int8_t) ((data.cols & 0x0000ff00) >> 8));
-                dataVec.push_back((int8_t) ((data.cols & 0x000000ff) >> 0));
-                myQuantizer.compress(data, dataVec, 4);
+                std::vector<int8_t> localData;
+                localData.push_back((int8_t) ((data.rows & 0x0000ff00) >> 8));
+                localData.push_back((int8_t) ((data.rows & 0x000000ff) >> 0));
+                localData.push_back((int8_t) ((data.cols & 0x0000ff00) >> 8));
+                localData.push_back((int8_t) ((data.cols & 0x000000ff) >> 0));
+                myQuantizer.quantize(data, localData, 4);
                 std::vector<int8_t> infoVec = cameraInfo->toByteArray();
-                dataVec.insert(dataVec.end(), infoVec.begin(), infoVec.end());
+                localData.insert(localData.end(), infoVec.begin(), infoVec.end());
+                std::vector<int8_t> zlocalData = ::VectorCompressor::compress(localData);
+                dataVec.insert(dataVec.end(), zlocalData.begin(), zlocalData.end());
             }
 
             static PlaneImage::Ptr fromQuantizedByteArray(const std::vector<int8_t>& byteVec, PlaneImageQuantizer& myQuantizer) {
-                int rows = (uint8_t) byteVec[0];
+                std::vector<int8_t> localData = ::VectorCompressor::decompress(byteVec);
+                int rows = (uint8_t) localData[0];
                 rows <<= 8;
-                rows |= (uint8_t) byteVec[1];
-                int cols = (uint8_t) byteVec[2];
+                rows |= (uint8_t) localData[1];
+                int cols = (uint8_t) localData[2];
                 cols <<= 8;
-                cols |= (uint8_t) byteVec[3];
+                cols |= (uint8_t) localData[3];
                 PlaneImage::Ptr planeImage = create();
-                planeImage->setData(myQuantizer.decompress(byteVec, rows, cols, 4));
+                planeImage->setData(myQuantizer.dequantize(localData, rows, cols, 4));
                 uint32_t vecPos = myQuantizer.getPos();
                 std::vector<int8_t> remainder;
-                remainder.insert(remainder.begin(), byteVec.begin() + vecPos, byteVec.end());
+                remainder.insert(remainder.begin(), localData.begin() + vecPos, localData.end());
                 planeImage->cameraInfo->setData(ocvMat::fromByteArray(remainder));
                 return planeImage;
             }
@@ -412,7 +458,7 @@ namespace cv {
             }
 
             cv::Mat visualizeAsImage() {
-                cv::Mat labelImage(data.rows, data.cols, CV_8UC3);  // label_data: [label; probability]
+                cv::Mat labelImage(data.rows, data.cols, CV_8UC3); // label_data: [label; probability]
                 // Color Mapping Method #1
                 //cv::applyColorMap(label_img, labelImage, cv::COLORMAP_JET);
                 //cv::imwrite("rgb_1.jpg", labelImage);
@@ -434,7 +480,7 @@ namespace cv {
                 cv::Mat label_hue(data.rows, data.cols, CV_8UC1);
                 for (int i = 0; i < data.rows; i++) {
                     for (int j = 0; j < data.cols; j++) {
-                        label_hue.at<uchar>(i, j) = (int)(data.at<cv::Vec2f>(i, j)[0]) * golden_angle; // each label will be nearly maximally different in hue
+                        label_hue.at<uchar>(i, j) = (int) (data.at<cv::Vec2f>(i, j)[0]) * golden_angle; // each label will be nearly maximally different in hue
                     }
                 }
                 cv::Mat blank(label_hue.rows, label_hue.cols, CV_8UC1, cv::Scalar(255));
