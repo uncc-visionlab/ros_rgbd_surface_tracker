@@ -345,6 +345,10 @@ namespace cv {
             virtual ~PlaneImage() {
             }
 
+            CameraInfo::Ptr getCameraInfo() const {
+                return cameraInfo;
+            }
+
             static PlaneImage::Ptr create() {
                 return PlaneImage::Ptr(boost::make_shared<PlaneImage>());
             }
