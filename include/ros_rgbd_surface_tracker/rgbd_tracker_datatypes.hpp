@@ -423,6 +423,25 @@ namespace cv {
             virtual ~RGB8Image() {
             }
 
+            CameraInfo::Ptr getCameraInfo() const {
+                return cameraInfo;
+            }
+            
+            std::vector<int8_t> toByteArray() const {
+                std::vector<int8_t> dataVec = ocvMat::toByteArray();
+                std::vector<int8_t> infoVec = cameraInfo->toByteArray();
+                dataVec.insert(dataVec.end(), infoVec.begin(), infoVec.end());
+                return dataVec;
+            }
+
+            static RGB8Image::Ptr fromByteArray(std::vector<int8_t> byteVec) {
+                std::vector<cv::Mat> _ocvMats = ocvMat::fromByteArray(byteVec, 2);
+                RGB8Image::Ptr rgbImage = create();
+                rgbImage->setData(_ocvMats[0]);
+                rgbImage->cameraInfo->setData(_ocvMats[1]);
+                return rgbImage;
+            }
+            
             static RGB8Image::Ptr create() {
                 return RGB8Image::Ptr(boost::make_shared<RGB8Image>());
             }
@@ -439,6 +458,25 @@ namespace cv {
             }
 
             virtual ~DepthImage() {
+            }
+
+            CameraInfo::Ptr getCameraInfo() const {
+                return cameraInfo;
+            }
+
+            std::vector<int8_t> toByteArray() const {
+                std::vector<int8_t> dataVec = ocvMat::toByteArray();
+                std::vector<int8_t> infoVec = cameraInfo->toByteArray();
+                dataVec.insert(dataVec.end(), infoVec.begin(), infoVec.end());
+                return dataVec;
+            }
+
+            static DepthImage::Ptr fromByteArray(std::vector<int8_t> byteVec) {
+                std::vector<cv::Mat> _ocvMats = ocvMat::fromByteArray(byteVec, 2);
+                DepthImage::Ptr depthImage = create();
+                depthImage->setData(_ocvMats[0]);
+                depthImage->cameraInfo->setData(_ocvMats[1]);
+                return depthImage;
             }
 
             static DepthImage::Ptr create() {
