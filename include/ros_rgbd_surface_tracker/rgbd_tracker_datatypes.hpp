@@ -118,20 +118,6 @@ namespace boost {
             }
             return success;
         }
-
-        template<class Archive>
-        bool try_stream_next(Archive &ar, const std::istream &s, ::cv::Mat &o) {
-            bool success = false;
-            try {
-                ar >> o;
-                success = true;
-            } catch (const boost::archive::archive_exception &e) {
-                if (e.code != boost::archive::archive_exception::input_stream_error) {
-                    throw;
-                }
-            }
-            return success;
-        }
     }
 }
 
@@ -285,6 +271,27 @@ namespace cv {
                 return _ocvMat;
             }
 
+            static std::vector<int8_t> toByteArray(std::vector<cv::Mat> matVec) {
+                namespace io = boost::iostreams;
+                std::string serial_str;
+                {
+                    io::back_insert_device<std::string> inserter(serial_str);
+                    io::stream<io::back_insert_device<std::string> > s(inserter);
+
+                    io::filtering_streambuf<io::output> out;
+                    out.push(io::zlib_compressor(io::zlib::best_speed));
+                    out.push(s);
+
+                    //boost::archive::binary_oarchive oa(s);
+                    boost::archive::binary_oarchive oa(out);
+                    for (std::vector<cv::Mat>::iterator it = matVec.begin(); it != matVec.end(); ++it) {
+                        oa << *it;
+                    }
+                    s.flush();
+                }
+                return std::vector<int8_t>(serial_str.begin(), serial_str.end());
+            }
+
             static std::vector<cv::Mat> fromByteArray(std::vector<int8_t> byteVec, int numMats) {
                 std::vector<cv::Mat> _ocvMatVec(numMats);
                 if (byteVec.size() == 0) {
@@ -299,13 +306,10 @@ namespace cv {
 
                     boost::archive::binary_iarchive ia(in);
                     //boost::archive::binary_iarchive ia(_membuf);
-                    //ia >> _ocvMat;
                     bool cont = true;
                     int matIdx = 0;
                     while (cont && matIdx < numMats) {
                         cont = boost::serialization::try_stream_next(ia, _ocvMatVec[matIdx++]);
-                        //_ocvMatVec.push_back(_ocvMat);
-                        //_ocvMat.release();
                     }
                 }
                 return _ocvMatVec;
@@ -354,9 +358,8 @@ namespace cv {
             }
 
             std::vector<int8_t> toByteArray() const {
-                std::vector<int8_t> dataVec = ocvMat::toByteArray();
-                std::vector<int8_t> infoVec = cameraInfo->toByteArray();
-                dataVec.insert(dataVec.end(), infoVec.begin(), infoVec.end());
+                std::vector<cv::Mat> matVec = {data, cameraInfo->getData()};
+                std::vector<int8_t> dataVec = ocvMat::toByteArray(matVec);
                 return dataVec;
             }
 
@@ -426,11 +429,10 @@ namespace cv {
             CameraInfo::Ptr getCameraInfo() const {
                 return cameraInfo;
             }
-            
+
             std::vector<int8_t> toByteArray() const {
-                std::vector<int8_t> dataVec = ocvMat::toByteArray();
-                std::vector<int8_t> infoVec = cameraInfo->toByteArray();
-                dataVec.insert(dataVec.end(), infoVec.begin(), infoVec.end());
+                std::vector<cv::Mat> matVec = {data, cameraInfo->getData()};
+                std::vector<int8_t> dataVec = ocvMat::toByteArray(matVec);
                 return dataVec;
             }
 
@@ -441,7 +443,7 @@ namespace cv {
                 rgbImage->cameraInfo->setData(_ocvMats[1]);
                 return rgbImage;
             }
-            
+
             static RGB8Image::Ptr create() {
                 return RGB8Image::Ptr(boost::make_shared<RGB8Image>());
             }
@@ -465,9 +467,8 @@ namespace cv {
             }
 
             std::vector<int8_t> toByteArray() const {
-                std::vector<int8_t> dataVec = ocvMat::toByteArray();
-                std::vector<int8_t> infoVec = cameraInfo->toByteArray();
-                dataVec.insert(dataVec.end(), infoVec.begin(), infoVec.end());
+                std::vector<cv::Mat> matVec = {data, cameraInfo->getData()};
+                std::vector<int8_t> dataVec = ocvMat::toByteArray(matVec);
                 return dataVec;
             }
 
