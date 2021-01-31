@@ -401,6 +401,35 @@ namespace cv {
                 return planeImage;
             }
 
+            PlaneImage::Ptr transform(const cv::Mat_<float>& tf) const {
+                cv::Mat invtf_t = tf.inv().t();
+                PlaneImage::Ptr planeImage = create();
+                cv::Mat coeffs;
+                const cv::Vec4f* planesptr;
+                cv::Vec4f* xformed_planesptr;
+                cv::Mat transformedPlaneImage = cv::Mat_<cv::Vec4f>::zeros(data.rows, data.cols);
+                float *tf0 = invtf_t.ptr<float>(0), *tf1 = invtf_t.ptr<float>(1), *tf2 = invtf_t.ptr<float>(2), *tf3 = invtf_t.ptr<float>(3);
+		for (int y = 0; y < data.rows; y++) {
+                    planesptr = data.ptr<cv::Vec4f>(y, 0);
+                    xformed_planesptr = transformedPlaneImage.ptr<cv::Vec4f>(y, 0);
+                    for (int x = 0; x < data.cols; x++) {
+                        if (planesptr[x][0] == 0 && planesptr[x][1] == 0 && planesptr[x][2] == 0 && planesptr[x][3] == 0) {
+                            continue;
+                        } else {
+                            xformed_planesptr[x][0] = tf0[0]* planesptr[x][0] + tf0[1]* planesptr[x][1] + tf0[2]* planesptr[x][2] + tf0[3]* planesptr[x][3]; 
+                            xformed_planesptr[x][1] = tf1[0]* planesptr[x][0] + tf1[1]* planesptr[x][1] + tf1[2]* planesptr[x][2] + tf1[3]* planesptr[x][3]; 
+                            xformed_planesptr[x][2] = tf2[0]* planesptr[x][0] + tf2[1]* planesptr[x][1] + tf2[2]* planesptr[x][2] + tf2[3]* planesptr[x][3]; 
+                            xformed_planesptr[x][3] = tf3[0]* planesptr[x][0] + tf3[1]* planesptr[x][1] + tf3[2]* planesptr[x][2] + tf3[3]* planesptr[x][3]; 
+                        }
+                    }
+                    planesptr++;
+                    xformed_planesptr++;
+                }
+                planeImage->setData(transformedPlaneImage);
+                planeImage->getCameraInfo()->setData(cameraInfo->getData());
+                return planeImage;
+            }
+
             cv::Mat visualizeAsImage() const {
                 cv::Mat abcd[4];
                 cv::split(data, abcd);
