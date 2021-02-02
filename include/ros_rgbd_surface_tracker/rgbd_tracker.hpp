@@ -20,9 +20,6 @@ class RgbdCameraTracker : public RgbdDriverClient {
 public:
     typedef boost::shared_ptr<RgbdCameraTracker> Ptr;
 
-    virtual void callback(cv::Mat& _ocv_rgbframe, cv::Mat& _ocv_depthframe_float,
-            cv::Mat& _rgb_distortionCoeffs, cv::Mat& _rgb_cameraMatrix) = 0;
-
     virtual Pose getPose() = 0;
     
     virtual Pose getDeltaPose() = 0;
