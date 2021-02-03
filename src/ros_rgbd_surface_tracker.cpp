@@ -108,7 +108,7 @@ void ROS_RgbdSurfaceTracker::publishResults(const sensor_msgs::ImageConstPtr& de
     //    plane_vis.clearMarkerList();
     //    plane_vis.publishTriangleMesh(*vis_data, depth_msg->header.stamp);
 
-    Pose pose = rgbdCameraTrackerPtr->getPose();
+    Pose pose = RgbdCameraTracker::fromEigen(rgbdCameraTrackerPtr->getPose());
     tf::Transform pose_transformTF = convertPoseToTFTransform(pose);
     tf::StampedTransform pose_stampedTF(pose_transformTF, frame_time,
             parent_frame_id_str, rgbd_frame_id_str);
@@ -141,7 +141,7 @@ void ROS_RgbdSurfaceTracker::publishResults(const sensor_msgs::ImageConstPtr& de
     }
 
     if (pubOdom_w_cov.getNumSubscribers() > 0) {
-        Pose delta_pose = rgbdCameraTrackerPtr->getDeltaPose();
+        Pose delta_pose = RgbdCameraTracker::fromEigen(rgbdCameraTrackerPtr->getDeltaPose());
         tf::Transform delta_pose_transformTF = convertPoseToTFTransform(delta_pose);
         tf::StampedTransform delta_pose_stampedTF(delta_pose_transformTF, frame_time,
                 parent_frame_id_str, rgbd_frame_id_str);
@@ -329,7 +329,7 @@ int main(int argc, char **argv) {
      */
     ROS_RgbdSurfaceTracker surf_tracker;
     //surf_tracker_ptr = &surf_tracker;
-    
+
     surf_tracker.initializeSubscribersAndPublishers();
     ros::spin();
     return EXIT_SUCCESS;

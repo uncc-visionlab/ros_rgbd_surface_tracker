@@ -135,12 +135,12 @@ namespace cv {
             //void updateSurfaces(cv::rgbd::RgbdImage& rgbd_img, cv::Mat& rgb_result);
             void updateSurfaces(cv::rgbd::RgbdImage::Ptr rgbd_img, cv::Mat& rgb_result);
             
-            Pose getPose() {
-                return global_pose_estimate;
+            Eigen::Affine3d getPose() {
+                return RgbdCameraTracker::toEigen(global_pose_estimate);
             }
 
-            Pose getDeltaPose() {
-                return delta_pose_estimate;
+            Eigen::Affine3d getDeltaPose() {
+                return RgbdCameraTracker::toEigen(delta_pose_estimate);
             }
 
             void callback(cv::Mat& _ocv_rgbframe, cv::Mat& _ocv_depthframe_float,
