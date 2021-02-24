@@ -63,40 +63,54 @@ namespace cv {
             }
         }
 
-        bool RgbdImage::computeNormals() {
-            //int normalWinSize = iImgs.getWindowSize().width;
-            //int normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_FALS; // 7.0 fps
-            //int normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_LINEMOD;
-            //int normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_SRI; // 1.14 fps
-            //                cv::Ptr<RgbdNormals> normalsComputer;
-            //                normalsComputer = makePtr<RgbdNormals>(getDepth().rows,
-            //                        getDepth().cols,
-            //                        getDepth().depth(),
-            //                        getCameraMatrix(),
-            //                        normalWinSize,
-            //                        normalMethod);
-            //                setNormalsComputer(normalsComputer);
-            //
-            //cv::Mat normals(getDepth().size(), CV_32FC3);
-            //            cv::Mat points = cv::Mat::zeros(getDepthImage().size(), CV_32FC3);
-            //            for (int r = 0; r < getDepthImage().rows; ++r) {
-            //                for (int c = 0; c < getDepthImage().cols; ++c) {
-            //
-            //                    const float& depth = zptr[r * zstep + c];
-            //                    if (!std::isnan(depth)) {
-            //                        points.at<cv::Point3f>(r, c).x = (c - cx) * inv_f*depth;
-            //                        points.at<cv::Point3f>(r, c).y = (r - cy) * inv_f*depth;
-            //                        points.at<cv::Point3f>(r, c).z = depth;
-            //                    }
-            //                    points.at<cv::Point3f>(r, c).z = depth;
-            //                }
-            //            }
-            //                (*normalsComputer)(points, normals);
+        bool RgbdImage::computeNormals(int method = 0) {
+            cv::Mat normals = cv::Mat::zeros(getDepthImage().size(), CV_32FC3);
+            if (method > 1) {
+                int normalWinSize = iImgs.getWindowSize().width;
+                int normalMethod;
+                switch (method) {
+                    case 2:
+                        normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_LINEMOD;
+                        break;
+                    case 3:
+                        normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_SRI; // 1.14 fps
+                        break;
+                    case 4:
+                    default:
+                        normalMethod = RgbdNormals::RGBD_NORMALS_METHOD_FALS; // 7.0 fps
+                        break;
+                }
+                cv::Ptr<RgbdNormals> normalsComputer;
+                normalsComputer = makePtr<RgbdNormals>(getDepthImage().rows,
+                        getDepthImage().cols,
+                        getDepthImage().depth(),
+                        getCameraMatrix(),
+                        normalWinSize,
+                        normalMethod);
+                setNormalsComputer(normalsComputer);
 
-            cv::Mat normals3 = cv::Mat::zeros(getDepthImage().size(), CV_32FC3);
-            iImgs.computeExplicit_Impl(getDepthImage(), normals3);
-            //iImgs.computeImplicit_Impl(getDepthImage(), normals3);
-            setNormals(normals3);
+                cv::Mat points = cv::Mat::zeros(getDepthImage().size(), CV_32FC3);
+                for (int r = 0; r < getDepthImage().rows; ++r) {
+                    for (int c = 0; c < getDepthImage().cols; ++c) {
+
+                        const float& depth = zptr[r * zstep + c];
+                        if (!std::isnan(depth)) {
+                            points.at<cv::Point3f>(r, c).x = (c - cx) * inv_f*depth;
+                            points.at<cv::Point3f>(r, c).y = (r - cy) * inv_f*depth;
+                            points.at<cv::Point3f>(r, c).z = depth;
+                        }
+                        points.at<cv::Point3f>(r, c).z = depth;
+                    }
+                }
+                (*normalsComputer)(points, normals);
+            } else {
+                if (method == 1) {
+                    iImgs.computeImplicit_Impl(getDepthImage(), normals);
+                } else { // method == 0
+                    iImgs.computeExplicit_Impl(getDepthImage(), normals);
+                }
+            }
+            setNormals(normals);
             //iImgs.computeCurvatureFiniteDiff_Impl(getDepth(), normals3);
             //cv::Mat axisVecs(1, 3, CV_32F);
             //cv::Mat axisDirs(1, 3, CV_32F);
@@ -104,7 +118,7 @@ namespace cv {
             return true;
         }
 
-        bool RgbdImage::computePlanes() {
+        bool RgbdImage::computePlanes(int method) {
             cv::Mat planes = cv::Mat::zeros(getDepthImage().size(), CV_32FC4);
             iImgs.computeExplicit_Impl(getDepthImage(), planes);
             //iImgs.computeImplicit_Impl(getDepthImage(), planes);

@@ -134,7 +134,7 @@ namespace cv {
             void computeImplicit_Impl(const cv::Mat& depth, cv::Mat & normals);
 
             void computeExplicit_Impl(const cv::Mat& depth, cv::Mat & normals);
-
+            
             bool computeNormalExplicit(cv::Rect roi, const
                     cv::Mat& depth, cv::Vec3f& normals);
 
@@ -620,7 +620,7 @@ namespace cv {
                 return img_N;
             }
 
-            CV_WRAP bool computeNormals();
+            CV_WRAP bool computeNormals(int method);
 
             void setPlanes(cv::Mat & _planes) {
                 img_P = _planes;
@@ -630,7 +630,7 @@ namespace cv {
                 return img_P;
             }
 
-            CV_WRAP bool computePlanes();
+            CV_WRAP bool computePlanes(int method);
 
             const float& getDepth(int x, int y) const {
                 return zptr[y * zstep + x];
