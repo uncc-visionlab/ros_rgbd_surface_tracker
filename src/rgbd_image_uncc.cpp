@@ -63,8 +63,9 @@ namespace cv {
             }
         }
 
-        bool RgbdImage::computeNormals(int method = 0) {
+        bool RgbdImage::computeNormals(double& time, int method = 0) {
             cv::Mat normals = cv::Mat::zeros(getDepthImage().size(), CV_32FC3);
+            long e1 = cv::getTickCount();
             if (method > 1) {
                 int normalWinSize = iImgs.getWindowSize().width;
                 int normalMethod;
@@ -110,6 +111,8 @@ namespace cv {
                     iImgs.computeExplicit_Impl(getDepthImage(), normals);
                 }
             }
+            long e2 = cv::getTickCount();
+            time = (e2 - e1) / cv::getTickFrequency();
             setNormals(normals);
             //iImgs.computeCurvatureFiniteDiff_Impl(getDepth(), normals3);
             //cv::Mat axisVecs(1, 3, CV_32F);
@@ -118,10 +121,13 @@ namespace cv {
             return true;
         }
 
-        bool RgbdImage::computePlanes(int method) {
+        bool RgbdImage::computePlanes(double& time, int method = 0) {
             cv::Mat planes = cv::Mat::zeros(getDepthImage().size(), CV_32FC4);
+            long e1 = cv::getTickCount();
             iImgs.computeExplicit_Impl(getDepthImage(), planes);
             //iImgs.computeImplicit_Impl(getDepthImage(), planes);
+            long e2 = cv::getTickCount();
+            time = (e2 - e1) / cv::getTickFrequency();
             setPlanes(planes);
             return true;
         }
