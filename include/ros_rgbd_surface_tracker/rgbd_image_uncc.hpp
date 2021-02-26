@@ -128,7 +128,7 @@ namespace cv {
             typedef boost::shared_ptr<DepthIntegralImages> Ptr;
 
             void computeMat_LUT();
-            void initialize(int _width, int _height, float _cx, float _cy, float _inv_f,
+            CV_WRAP void initialize(int _width, int _height, float _cx, float _cy, float _inv_f,
                     cv::Size _winSize);
 
             void computeImplicit_Impl(const cv::Mat& depth, cv::Mat & normals);
