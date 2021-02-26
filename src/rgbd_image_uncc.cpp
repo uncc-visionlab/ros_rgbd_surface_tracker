@@ -63,7 +63,7 @@ namespace cv {
             }
         }
 
-        double RgbdImage::computeNormals(int method = 0) {
+        double RgbdImage::computeNormals(int method) {
             cv::Mat normals = cv::Mat::zeros(getDepthImage().size(), CV_32FC3);
             long e1 = cv::getTickCount();
             if (method > 1) {
@@ -122,7 +122,7 @@ namespace cv {
 
         }
 
-        double RgbdImage::computePlanes(int method = 0) {
+        double RgbdImage::computePlanes(int method) {
             cv::Mat planes = cv::Mat::zeros(getDepthImage().size(), CV_32FC4);
             long e1 = cv::getTickCount();
             if (method == 0) {
