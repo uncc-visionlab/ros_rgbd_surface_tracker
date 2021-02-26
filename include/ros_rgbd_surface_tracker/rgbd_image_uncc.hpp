@@ -92,7 +92,7 @@ namespace cv {
             public:
                 int tlc, trc, blc, brc, ctr;
 
-                ImageWindow(cv::Size _imSize, cv::Size _winSize) :
+                CV_WRAP ImageWindow(cv::Size _imSize, cv::Size _winSize) :
                 imSize(_imSize),
                 winSize(_winSize),
                 _begin(winSize.width >> 1, winSize.height >> 1),
@@ -128,6 +128,7 @@ namespace cv {
             typedef boost::shared_ptr<DepthIntegralImages> Ptr;
 
             void computeMat_LUT();
+            
             CV_WRAP void initialize(int _width, int _height, float _cx, float _cy, float _inv_f,
                     cv::Size _winSize);
 
@@ -809,7 +810,7 @@ namespace cv {
             }
 
         public:
-            static DepthIntegralImages iImgs;
+            CV_EXPORTS_W static DepthIntegralImages iImgs;
         }; /* class RgbdImage */
     } /* namespace rgbd */
 } /* namespace cv */
