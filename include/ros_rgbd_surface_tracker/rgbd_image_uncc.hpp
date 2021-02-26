@@ -59,7 +59,7 @@ namespace cv {
         // When active a significant speedup is obtained.
 #define CACHE_INVERSE
 
-        class DepthIntegralImages {
+        class CV_EXPORTS_W DepthIntegralImages {
         private:
             cv::Mat tan_theta_x, tan_theta_y;
             cv::Mat ii_tan_theta_x, ii_tan_theta_y;
@@ -85,7 +85,7 @@ namespace cv {
             std::unordered_map<int, cv::Mat> matMap;
         public:
 
-            class ImageWindow {
+            class CV_EXPORTS_W ImageWindow {
                 cv::Size winSize;
                 cv::Size imSize;
                 cv::Point2i _begin, _end;
