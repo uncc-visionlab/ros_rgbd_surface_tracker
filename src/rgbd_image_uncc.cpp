@@ -63,7 +63,7 @@ namespace cv {
             }
         }
 
-        bool RgbdImage::computeNormals(double& time, int method = 0) {
+        double RgbdImage::computeNormals(int method = 0) {
             cv::Mat normals = cv::Mat::zeros(getDepthImage().size(), CV_32FC3);
             long e1 = cv::getTickCount();
             if (method > 1) {
@@ -112,24 +112,28 @@ namespace cv {
                 }
             }
             long e2 = cv::getTickCount();
-            time = (e2 - e1) / cv::getTickFrequency();
             setNormals(normals);
             //iImgs.computeCurvatureFiniteDiff_Impl(getDepth(), normals3);
             //cv::Mat axisVecs(1, 3, CV_32F);
             //cv::Mat axisDirs(1, 3, CV_32F);
             //iImgs.plucker(points, normals3, axisVecs, axisDirs);
-            return true;
+            //return true;
+            return (e2 - e1) / cv::getTickFrequency();
+
         }
 
-        bool RgbdImage::computePlanes(double& time, int method = 0) {
+        double RgbdImage::computePlanes(int method = 0) {
             cv::Mat planes = cv::Mat::zeros(getDepthImage().size(), CV_32FC4);
             long e1 = cv::getTickCount();
-            iImgs.computeExplicit_Impl(getDepthImage(), planes);
-            //iImgs.computeImplicit_Impl(getDepthImage(), planes);
+            if (method == 0) {
+                iImgs.computeExplicit_Impl(getDepthImage(), planes);
+            } else {
+                iImgs.computeImplicit_Impl(getDepthImage(), planes);
+            }
             long e2 = cv::getTickCount();
-            time = (e2 - e1) / cv::getTickFrequency();
             setPlanes(planes);
-            return true;
+            return (e2 - e1) / cv::getTickFrequency();
+            //return true;
         }
 
         bool RgbdImage::fitPlane(RectWithError& r, Plane3f& plane3) const {

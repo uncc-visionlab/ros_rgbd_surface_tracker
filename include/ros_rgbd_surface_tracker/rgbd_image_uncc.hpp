@@ -620,7 +620,7 @@ namespace cv {
                 return img_N;
             }
 
-            CV_WRAP bool computeNormals(double& time, int method);
+            CV_WRAP double computeNormals(int method);
 
             void setPlanes(cv::Mat & _planes) {
                 img_P = _planes;
@@ -630,7 +630,7 @@ namespace cv {
                 return img_P;
             }
 
-            CV_WRAP bool computePlanes(double& time, int method);
+            CV_WRAP double computePlanes(int method);
 
             const float& getDepth(int x, int y) const {
                 return zptr[y * zstep + x];
