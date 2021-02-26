@@ -224,13 +224,18 @@ namespace cv {
                 cameraMatrix.at<float>(0, 2) = _cx;
                 cameraMatrix.at<float>(1, 2) = _cy;
                 if (!staticDataOK()) {
-                    iImgs.initialize(width, height, cx, cy, inv_f, cv::Size(5, 5));
+                    initializeIntegralImages(cv::Size(5, 5));
+                    //iImgs.initialize(width, height, cx, cy, inv_f, cv::Size(5, 5));
                 }
             }
 
             virtual ~RgbdImage() {
             };
 
+            CV_WRAP void initializeIntegralImages(cv::Size _winSize) {
+                iImgs.initialize(width, height, cx, cy, inv_f, _winSize);
+            }
+            
             bool staticDataOK();
 
             bool isContinuous() const {
@@ -810,7 +815,7 @@ namespace cv {
             }
 
         public:
-            CV_EXPORTS_W static DepthIntegralImages iImgs;
+            static DepthIntegralImages iImgs;
         }; /* class RgbdImage */
     } /* namespace rgbd */
 } /* namespace cv */
