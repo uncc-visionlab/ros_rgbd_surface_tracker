@@ -58,6 +58,27 @@ namespace cv {
                     Mat& img_labels, int& numLabels) const;
 
         }; /* class SurfaceDetector */
+        
+        class SurfaceSegmentor {
+        public:
+            void detect(const cv::rgbd::RgbdImage& rgbd_img,
+                    cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
+                    int timeBudget_ms, cv::Mat& rgb_result, cv::Mat& img_labels) const;
+
+            std::vector<cv::Point2i> mergePlanes(ErrorSortedRectQueue& quadQueue,
+                    const RgbdImage& rgbd_img,
+                    const QuadTreeLevel<sg::Plane<float>::Ptr>::Ptr& quadTree,
+                    Mat& img_labels, int& numLabels, int& new_label) const;
+
+            std::vector<cv::Point2i> recursiveMergeSubdivision(ErrorSortedRectQueue& quadQueue,
+                    const RgbdImage& rgbd_img,
+                    QuadTreeLevel<sg::Plane<float>::Ptr>* quadTree,
+                    const std::vector<cv::Point2i>& subdivideTileVec,
+                    Mat& img_labels, int& numLabels,
+                    const QuadTreeLevel<sg::Plane<float>::Ptr>::Ptr& full_quadTree,
+                    int& new_label) const;
+
+        }; /* class SurfaceSegmentor */
 
         class SurfaceDescriptorExtractor {
         public:

@@ -176,6 +176,7 @@ add_library(${PROJECT_NAME}
     src/rgbd_tracker_uncc.cpp
     src/rgbd_image_uncc.cpp
     src/rgbd_surf_detector.cpp
+    src/rgbd_surf_segmentor.cpp
     src/ShapeGrammarLibrary.cpp
     src/surf_descriptor_proc.cpp
     src/surface_alignment_optimizer.cpp
@@ -194,6 +195,7 @@ add_executable(${PROJECT_NAME}_run
     src/rgbd_tracker_uncc.cpp
     src/rgbd_image_uncc.cpp
     src/rgbd_surf_detector.cpp
+    src/rgbd_surf_segmentor.cpp
     src/ShapeGrammarLibrary.cpp
     src/surf_descriptor_proc.cpp
     src/surface_alignment_optimizer.cpp
