@@ -63,12 +63,15 @@ namespace cv {
         public:
             void detect(const cv::rgbd::RgbdImage& rgbd_img,
                     cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
-                    int timeBudget_ms, cv::Mat& rgb_result, cv::Mat& img_labels) const;
+                    int timeBudget_ms, cv::Mat& rgb_result, cv::Mat& img_labels, 
+                    std::unordered_map<int, float*>& quadtreeMap) const;
 
             std::vector<cv::Point2i> mergePlanes(ErrorSortedRectQueue& quadQueue,
                     const RgbdImage& rgbd_img,
                     const QuadTreeLevel<sg::Plane<float>::Ptr>::Ptr& quadTree,
-                    Mat& img_labels, int& numLabels, int& new_label) const;
+                    Mat& img_labels, int& numLabels, int& new_label,
+                    std::unordered_map<int, float*>& quadtreeMap,
+                    const float cx, const float cy, const float fx, const float fy) const;
 
             std::vector<cv::Point2i> recursiveMergeSubdivision(ErrorSortedRectQueue& quadQueue,
                     const RgbdImage& rgbd_img,
@@ -76,7 +79,8 @@ namespace cv {
                     const std::vector<cv::Point2i>& subdivideTileVec,
                     Mat& img_labels, int& numLabels,
                     const QuadTreeLevel<sg::Plane<float>::Ptr>::Ptr& full_quadTree,
-                    int& new_label) const;
+                    int& new_label, std::unordered_map<int, float*>& quadtreeMap,
+                    const float cx, const float cy, const float fx, const float fy) const;
 
         }; /* class SurfaceSegmentor */
 

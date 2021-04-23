@@ -34,17 +34,25 @@ namespace cv {
 
         void SurfaceSegmentor::detect(const cv::rgbd::RgbdImage& rgbd_img,
                 cv::QuadTree<sg::Plane<float>::Ptr>::Ptr& quadTree,
-                int timeBudget_ms, cv::Mat& rgb_result, cv::Mat& img_L) const {
+                int timeBudget_ms, cv::Mat& rgb_result, cv::Mat& img_L, 
+                std::unordered_map<int, float*>& quadtreeMap) const {
             cv::ErrorSortedRectQueue quadQueue;
             //cv::Mat img_L = cv::Mat::zeros(rgbd_img.getHeight(), rgbd_img.getWidth() , CV_32SC1);
             int numLabels = 1;
             int new_label = 1;
 
             bool timeBudgetExpired = false;
-            int64 timeBudgetTicks = timeBudget_ms * cv::getTickFrequency() / 100;
+            int64 timeBudgetTicks = timeBudget_ms * cv::getTickFrequency() / 200;
             int64 ticksNow, ticksStart = cv::getTickCount();
+            
+            const cv::Mat cameraMatrix = rgbd_img.getCameraMatrix();
+            float cx = cameraMatrix.at<float>(0, 2);
+            float cy = cameraMatrix.at<float>(1, 2);
+            float fx = cameraMatrix.at<float>(0, 0);
+            float fy = cameraMatrix.at<float>(1, 1);
 
-            std::vector<Point2i> recurseTileVec = mergePlanes(quadQueue, rgbd_img, quadTree, img_L, numLabels, new_label);
+            std::vector<Point2i> recurseTileVec = mergePlanes(quadQueue, rgbd_img, quadTree, img_L, numLabels, 
+                                                        new_label, quadtreeMap, cx, cy, fx, fy);
             //populateGeometries(rgbd_img, &quadTree, geometries);
 
             ticksNow = cv::getTickCount();
@@ -56,27 +64,26 @@ namespace cv {
                 if (!nextLevel_ptr) {
                     break;
                 }
-                recurseTileVec = recursiveMergeSubdivision(quadQueue, rgbd_img, nextLevel_ptr, recurseTileVec, img_L, numLabels, quadTree, new_label);
+                recurseTileVec = recursiveMergeSubdivision(quadQueue, rgbd_img, nextLevel_ptr, recurseTileVec, img_L, 
+                                        numLabels, quadTree, new_label, quadtreeMap, cx, cy, fx, fy);
                 //populateGeometries(rgbd_img, nextLevel_ptr, geometries);
 
                 ticksNow = cv::getTickCount();
                 timeBudgetExpired = (ticksNow - ticksStart) > timeBudgetTicks;
             }
-//            cv::Mat segLabelImg(img_L.rows, img_L.cols, CV_8UC3);
-//            int golden_angle = (int) (180 * (3 - sqrt(5))) % 360;
-//            cv::Mat label_hue(img_L.rows, img_L.cols, CV_8UC1);
-//            for (int i = 0; i < img_L.rows; i++) {
-//                for (int j = 0; j < img_L.cols; j++) {
-//                    label_hue.at<uchar>(i, j) = img_L.at<int>(i, j) * golden_angle; // each label will be nearly maximally different in hue
-//                }
-//            }
-//            cv::Mat blank(label_hue.rows, label_hue.cols, CV_8UC1, cv::Scalar(255));
-//            std::vector<cv::Mat> hsvChannels = {label_hue, blank, blank};
-//            cv::Mat hsvImage(label_hue.rows, label_hue.cols, CV_8UC3);
-//            cv::merge(hsvChannels, hsvImage);
-//            cv::cvtColor(hsvImage, segLabelImg, cv::COLOR_HSV2BGR);
-//            cv::imwrite("SegLabels.jpg", segLabelImg);
+            
+            cv::ErrorSortedRectQueue quadQueue_copy = quadQueue;
+            float totalArea = 0.0;
+            while (!quadQueue_copy.empty()) {
+                RectWithError quad = quadQueue_copy.top();
+                totalArea = totalArea + quad.area();
+                quadQueue_copy.pop();
+            }
             std::cout << "QuadTree level = " << level << std::endl;
+            std::cout << "Number of nodes in the quadtree = " << quadQueue.size() << std::endl;
+            std::cout << "Total area covered by quadtree = " <<  totalArea << std::endl;
+            std::cout << "Area coverage rate = " <<  totalArea/(rgbd_img.getHeight() * rgbd_img.getWidth()) << std::endl;
+            std::cout << "Number of labels of the segmentation results = " << new_label << std::endl;
             std::cout << "Detector time used = " << ((double) (ticksNow - ticksStart) / cv::getTickFrequency())
                     << " sec time allocated = " << ((double) timeBudgetTicks / cv::getTickFrequency()) << " sec" << std::endl;
         }
@@ -155,8 +162,8 @@ namespace cv {
             rgbd_img.getPoint3f(quad.x + quad.width, quad.y + quad.height, pts[2][0], pts[2][1], pts[2][2]);
             rgbd_img.getPoint3f(quad.x, quad.y + quad.height, pts[3][0], pts[3][1], pts[3][2]);
             rgbd_img.getPoint3f((quad.x + quad.width) >> 1, (quad.y + quad.height) >> 1, pts[4][0], pts[4][1], pts[4][2]);
-            avgDepth = 0.25f * (pts[0][2] + pts[1][2] + pts[2][2] + pts[3][2]);
-            //avgDepth = 0.20f * (pts[0][2] + pts[1][2] + pts[2][2] + pts[3][2] + pts[4][2]);
+            //avgDepth = 0.25f * (pts[0][2] + pts[1][2] + pts[2][2] + pts[3][2]);
+            avgDepth = 0.20f * (pts[0][2] + pts[1][2] + pts[2][2] + pts[3][2] + pts[4][2]);
             if (std::isnan(avgDepth)) {
                 if (!std::isnan(pts[0][2]) && !std::isnan(pts[4][2])) {
                     recurseTileVec.push_back(Point2i((x_tile << 1) + 0, (y_tile << 1) + 0));
@@ -185,7 +192,9 @@ namespace cv {
                 const RgbdImage& rgbd_img,
                 const QuadTreeLevel<sg::Plane<float>::Ptr>::Ptr& quadTree,
                 Mat& img_labels, int& numLabels,
-                int& new_label) const {
+                int& new_label,
+                std::unordered_map<int, float*>& quadtreeMap,
+                const float cx, const float cy, const float fx, const float fy) const {
             std::vector<cv::Point2i> recurseTileVec;
             cv::Plane3f plane3;
             RectWithError quad;
@@ -194,29 +203,36 @@ namespace cv {
             for (int y_tile = 0; y_tile < tileDims.height; ++y_tile) {
                 for (int x_tile = 0; x_tile < tileDims.width; ++x_tile) {
                     quadTree->setRect(x_tile, y_tile, quad);
-                    //if (checkTilePlanar2(rgbd_img, quad, avgDepth, recurseTileVec, x_tile, y_tile) || 
-                    //        (quad.area() <= MIN_QUAD_PIXEL_AREA_QUADTREE_SPLIT)) {
+                    //if (checkTilePlanar2(rgbd_img, quad, avgDepth, recurseTileVec, x_tile, y_tile)) {                        
                     if(1) {
-                        std::vector<cv::Point3f> tile_data; // data for each tile in array of vectors
+                        //std::vector<cv::Point3f> tile_data; // data for each tile in array of vectors
                         int numSamples = std::max((quad.width * quad.height) / 2, 3);
-                        tile_data.reserve(numSamples);
-                        rgbd_img.getTileData_Uniform(quad.x, quad.y,
-                                quad.width, quad.height, tile_data, numSamples);
-                        if (tile_data.size() > (numSamples >> 2)) {
+                        //tile_data.reserve(numSamples);
+                        //rgbd_img.getTileData_Uniform(quad.x, quad.y,
+                        //        quad.width, quad.height, tile_data, numSamples);
+                        //if (tile_data.size() > (numSamples >> 2)) {
                             cv::FitStatistics stats;
-                            std::tie(plane3, stats) = rgbd_img.fitPlaneImplicitLeastSquaresWithStats(tile_data);
+                            int blockRange[4] = {quad.y, quad.y+quad.height-1, quad.x, quad.x+quad.width-1};
+                            cv::Mat depthImg = rgbd_img.getDepthImage().clone();
+                            cv::Mat blockDepth = cv::Mat(depthImg, cv::Rect(quad.x, quad.y, quad.width, quad.height));
+                            cv::Mat mask = cv::Mat(blockDepth == blockDepth) / 255;
+                            int numValid = cv::sum(mask)[0];
+                            //cv::patchNaNs(blockDepth, 0.0);
+                            //int numValid = cv::countNonZero(blockDepth);
+                            //std::cout << "tile data size = " << tile_data.size() << std::endl;
+                            //std::cout << "valid numbers = " << valid_nums << std::endl;
+                            if (numValid > (numSamples >> 2)) {
+                            //std::tie(plane3, stats) = rgbd_img.fitPlaneImplicitLeastSquaresWithStats(tile_data);
                             //std::tie(plane3, stats) = rgbd_img.fitPlaneExplicitLeastSquaresWithStats(tile_data);
+                            std::tie(plane3, stats) = rgbd_img.fitPlaneExplicitLeastSquaresWithStats_newImpl(blockDepth, blockRange, cx, cy, fx, fy, numValid);                        
                             quad.error = stats.error;
                             quad.noise = stats.noise;
                             quad.inliers = stats.inliers;
                             quad.outliers = stats.outliers;
                             quad.invalid = stats.invalid;
-                            for (int num = 1; num < tile_data.size(); num++) {
-                                avgDepth = avgDepth + tile_data[num].z;
-                            }
-                            avgDepth /= tile_data.size();
+                            avgDepth = cv::mean(blockDepth)[0];
                             float scalef = (avgDepth < 2.5) ? 2.0f : 1.0f;
-                            if (quad.error < 0.0014*avgDepth*avgDepth || //PLANE_AVG_FIT_ERROR_THRESHOLD_QUADTREE_SPLIT * avgDepth * scalef ||
+                            if (quad.error < 5*0.0014*avgDepth*avgDepth || //PLANE_AVG_FIT_ERROR_THRESHOLD_QUADTREE_SPLIT * avgDepth * scalef ||
                                     (quad.area() <= MIN_QUAD_PIXEL_AREA_QUADTREE_SPLIT)) {
                                 //&& plane3.d > 0 && abs(plane3.x) < 0.99 && abs(plane3.y) < 0.99) {
                                 //std::cout << "areaA " << planeA->area() << " errorA = " 
@@ -257,7 +273,7 @@ namespace cv {
                                                 float ang_err = abs(asin(1 - coff_err))*180/PI; // get the ang error of the fitted planes from two blocks
                                                 //std::cout << "angular error = " << ang_err << std::endl;
                                                 float d_err = abs(searchCoeffs[3] - curCoeffs[3]);
-                                                if (ang_err < 5 && d_err < 0.05*scalef) {
+                                                if (ang_err < 5*scalef && d_err < 0.05*scalef) {
                                                     foundLabel = true;
                                                     // extract the label of current searchBlock for label assignment later
                                                     label = img_labels.at<int>(tlc.y, tlc.x); // set labels to current block in current level (need to modify the search_level_ptr level)
@@ -265,6 +281,7 @@ namespace cv {
                                                     for (int col = quad.x; col < quad.x+quad.width; col++) {
                                                         for (int row = quad.y; row < quad.y+quad.height; row++) {
                                                             img_labels.at<int>(row, col) = label;
+                                                            quadtreeMap[label] = curCoeffs;
                                                         }
                                                     }
                                                     //std::cout << "current label = " << label << std::endl;
@@ -281,6 +298,7 @@ namespace cv {
                                         for (int col = x_tile; col < quad.x+quad.width; col++) {
                                             for (int row = y_tile; row < quad.y+quad.height; row++) {
                                                 img_labels.at<int>(row, col) = new_label;
+                                                quadtreeMap[new_label] = curCoeffs;
                                             }
                                         }                                   
                                         new_label += 1;
@@ -325,36 +343,45 @@ namespace cv {
                 const std::vector<cv::Point2i>& subdivideTileVec,
                 Mat& img_labels, int& numLabels,
                 const QuadTreeLevel<sg::Plane<float>::Ptr>::Ptr& full_quadTree,
-                int& new_label) const {
+                int& new_label,
+                std::unordered_map<int, float*>& quadtreeMap,
+                const float cx, const float cy, const float fx, const float fy) const {
             std::vector<cv::Point2i> recurseTileVec;
             cv::Plane3f plane3;
             RectWithError quad;
             float avgDepth = 0.0;
             for (cv::Point2i tileIdx : subdivideTileVec) {
                 quadTree->setRect(tileIdx.x, tileIdx.y, quad);
-                //if (checkTilePlanar2(rgbd_img, quad, avgDepth, recurseTileVec, tileIdx.x, tileIdx.y) || 
-                //            (quad.area() <= MIN_QUAD_PIXEL_AREA_QUADTREE_SPLIT)) {
+                //if (checkTilePlanar2(rgbd_img, quad, avgDepth, recurseTileVec, tileIdx.x, tileIdx.y)) {
                 if(1) {
-                    std::vector<cv::Point3f> tile_data; // data for each tile in array of vectors
+                    //std::vector<cv::Point3f> tile_data; // data for each tile in array of vectors
                     int numSamples = std::max((quad.width * quad.height) / 2, 3);
-                    tile_data.reserve(numSamples);
-                    rgbd_img.getTileData_Uniform(quad.x, quad.y,
-                            quad.width, quad.height, tile_data, numSamples);
-                    if (tile_data.size() > (numSamples >> 2)) {
+                    //tile_data.reserve(numSamples);
+                    //rgbd_img.getTileData_Uniform(quad.x, quad.y,
+                    //       quad.width, quad.height, tile_data, numSamples);
+                    //if (tile_data.size() > (numSamples >> 2)) {
                         cv::FitStatistics stats;
+                        int blockRange[4] = {quad.y, quad.y+quad.height-1, quad.x, quad.x+quad.width-1};
+                        cv::Mat depthImg = rgbd_img.getDepthImage().clone();
+                        cv::Mat blockDepth = cv::Mat(depthImg, cv::Rect(quad.x, quad.y, quad.width, quad.height));
+                        cv::Mat mask = cv::Mat(blockDepth == blockDepth) / 255;
+                        int numValid = cv::sum(mask).val[0];
+                        //cv::patchNaNs(blockDepth, 0.0);
+                        //int numValid = cv::countNonZero(blockDepth);
+                        //std::cout << "tile data size = " << tile_data.size() << std::endl;
+                        //    std::cout << "valid numbers = " << valid_nums << std::endl;
+                        if (numValid > (numSamples >> 2)) {
                         //std::tie(plane3, stats) = rgbd_img.fitPlaneImplicitLeastSquaresWithStats(tile_data);
-                        std::tie(plane3, stats) = rgbd_img.fitPlaneExplicitLeastSquaresWithStats(tile_data);
+                        //std::tie(plane3, stats) = rgbd_img.fitPlaneExplicitLeastSquaresWithStats(tile_data);
+                        std::tie(plane3, stats) = rgbd_img.fitPlaneExplicitLeastSquaresWithStats_newImpl(blockDepth, blockRange, cx, cy, fx, fy, numValid);                        
                         quad.error = stats.error;
                         quad.noise = stats.noise;
                         quad.inliers = stats.inliers;
                         quad.outliers = stats.outliers;
                         quad.invalid = stats.invalid;
-                        for (int num = 1; num < tile_data.size(); num++) {
-                            avgDepth = avgDepth + tile_data[num].z;
-                        }
-                        avgDepth /= tile_data.size();
+                        avgDepth = cv::mean(blockDepth)[0];
                         float scalef = (avgDepth < 2.5) ? 2.0f : 1.0f;
-                        if (quad.error < 0.0014*avgDepth*avgDepth || // PLANE_AVG_FIT_ERROR_THRESHOLD_QUADTREE_SPLIT * avgDepth * scalef || 
+                        if (quad.error < 5*0.0014*avgDepth*avgDepth || // PLANE_AVG_FIT_ERROR_THRESHOLD_QUADTREE_SPLIT * avgDepth * scalef || 
                             (quad.area() <= MIN_QUAD_PIXEL_AREA_QUADTREE_SPLIT)) {
                             //&& plane3.d > 0 && abs(plane3.x) < 0.99 && abs(plane3.y) < 0.99) {
                             //std::cout << "areaA " << planeA->area() << " errorA = " 
@@ -396,7 +423,7 @@ namespace cv {
                                             float ang_err = abs(asin(1 - coff_err))*180/PI; // get the ang error of the fitted planes from two blocks
                                             //std::cout << "angular error = " << ang_err << std::endl;
                                             float d_err = abs(searchCoeffs[3] - curCoeffs[3]);
-                                            if (ang_err < 5 && d_err < 0.05*scalef) {
+                                            if (ang_err < 5*scalef && d_err < 0.05*scalef) {
                                                 foundLabel = true;
                                                 // extract the label of current searchBlock for label assignment later
                                                 label = img_labels.at<int>(tlc.y, tlc.x); // set labels to current block in current level (need to modify the search_level_ptr level)
@@ -404,6 +431,7 @@ namespace cv {
                                                 for (int col = quad.x; col < quad.x+quad.width; col++) {
                                                     for (int row = quad.y; row < quad.y+quad.height; row++) {
                                                         img_labels.at<int>(row, col) = label;
+                                                        quadtreeMap[label] = curCoeffs;
                                                     }
                                                 }
                                                 //std::cout << "current label = " << label << std::endl;
@@ -420,6 +448,7 @@ namespace cv {
                                     for (int col = quad.x; col < quad.x+quad.width; col++) {
                                         for (int row = quad.y; row < quad.y+quad.height; row++) {
                                             img_labels.at<int>(row, col) = new_label;
+                                            quadtreeMap[new_label] = curCoeffs;
                                         }
                                     }                                   
                                     new_label += 1;
