@@ -128,7 +128,7 @@ namespace cv {
             typedef boost::shared_ptr<DepthIntegralImages> Ptr;
 
             void computeMat_LUT();
-            
+
             CV_WRAP void initialize(int _width, int _height, float _cx, float _cy, float _inv_f,
                     cv::Size _winSize);
 
@@ -235,7 +235,7 @@ namespace cv {
             CV_WRAP void initializeIntegralImages(cv::Size _winSize) {
                 iImgs.initialize(width, height, cx, cy, inv_f, _winSize);
             }
-            
+
             bool staticDataOK();
 
             bool isContinuous() const {
@@ -409,8 +409,8 @@ namespace cv {
                 }
                 return (data.size() == numSamples) ? true : false;
             }
-            
-            
+
+
             bool fitPlane(RectWithError& r, Plane3f& plane3) const;
 
             Point2f project(Point3f p3) const {
@@ -541,7 +541,7 @@ namespace cv {
             static cv::Plane3_<scalar_t> fitPlaneExplicitLeastSquares(const std::vector<cv::Point3_<scalar_t>>&points) {
                 return cv::uncc::SurfaceFitting::fitPlaneExplicitLeastSquares(points);
             }
-            
+
             template <typename scalar_t>
             static cv::Plane3_<scalar_t> fitPlaneExplicitLeastSquares(const Eigen::Matrix<scalar_t, 4, Eigen::Dynamic, Eigen::ColMajor>& points_homogeneous) {
                 return cv::uncc::SurfaceFitting::fitPlaneExplicitLeastSquares(points_homogeneous);
@@ -551,12 +551,12 @@ namespace cv {
             std::pair<cv::Plane3_<scalar_t>, cv::FitStatistics> fitPlaneExplicitLeastSquaresWithStats(const std::vector<cv::Point3_<scalar_t>>&points) const {
                 return this->fitPlaneExplicitLeastSquaresWithStats(reinterpret_cast<const scalar_t*> (points.data()), points.size(), 3);
             }
-            
+
             template <typename scalar_t>
             std::pair<cv::Plane3_<scalar_t>, cv::FitStatistics> fitPlaneExplicitLeastSquaresWithStats(const Eigen::Matrix<scalar_t, 4, Eigen::Dynamic, Eigen::ColMajor>& points_homogeneous) const {
                 return this->fitPlaneExplicitLeastSquaresWithStats(points_homogeneous.data(), points_homogeneous.cols(), 4);
             }
-            
+
             std::pair<cv::Plane3f, cv::FitStatistics> fitPlaneRANSACWithStats(pcl::PointCloud<pcl::PointXYZ>::Ptr points, double distance_threshold = .01, size_t max_iterations = 1000, bool refine = true) const {
 
                 pcl::SampleConsensusModelPlane<pcl::PointXYZ>::Ptr plane_model =
@@ -813,62 +813,69 @@ namespace cv {
                 return std::make_pair(plane3, stats);
 
             }
-            
+
         public:
+
             std::pair<cv::Plane3f, cv::FitStatistics> fitPlaneExplicitLeastSquaresWithStats_newImpl(
-                    const cv::Mat blockDepth, const int blockRange[4], 
-                    const float c_x, const float c_y, const float f_x, const float f_y, const int numValid) const {
+                    const RgbdImage& rgbd_img, const int blockRange[4], const int& numValid) const {
 
                 cv::Plane3f plane3;
                 cv::FitStatistics stats;
-                
+
                 int n_r1 = blockRange[0];
                 int n_r2 = blockRange[1];
                 int n_c1 = blockRange[2];
                 int n_c2 = blockRange[3];
-                
-                cv::Mat _MtM =  cv::Mat::zeros(3, 3, CV_32F);
-                _MtM.at<float>(0,0)  = -(((n_c1*(6*c_x*c_x - 6*c_x*n_c1 + 6*c_x + 2*n_c1*n_c1 - 3*n_c1 + 1))/6 - ((n_c2 + 1)*(6*c_x*c_x - 6*c_x*n_c2 + 2*n_c2*n_c2 + n_c2))/6)*(n_r2 - n_r1 + 1))/(f_x*f_x);
-                _MtM.at<float>(0,1) = ((c_x*(n_c2 - n_c1 + 1) + (n_c1*(n_c1 - 1))/2 - (n_c2*(n_c2 + 1))/2)*(c_y*(n_r2 - n_r1 + 1) + (n_r1*(n_r1 - 1))/2 - (n_r2*(n_r2 + 1))/2))/(f_x*f_y);
-                _MtM.at<float>(0,2) = -((n_r2 - n_r1 + 1)*(c_x*(n_c2 - n_c1 + 1) + (n_c1*(n_c1 - 1))/2 - (n_c2*(n_c2 + 1))/2))/f_x;
-                _MtM.at<float>(1,0) = ((c_x*(n_c2 - n_c1 + 1) + (n_c1*(n_c1 - 1))/2 - (n_c2*(n_c2 + 1))/2)*(c_y*(n_r2 - n_r1 + 1) + (n_r1*(n_r1 - 1))/2 - (n_r2*(n_r2 + 1))/2))/(f_x*f_y);
-                _MtM.at<float>(1,1) = -(((n_r1*(6*c_y*c_y - 6*c_y*n_r1 + 6*c_y + 2*n_r1*n_r1- 3*n_r1 + 1))/6 - ((n_r2 + 1)*(6*c_y*c_y - 6*c_y*n_r2 + 2*n_r2*n_r2 + n_r2))/6)*(n_c2 - n_c1 + 1))/(f_y*f_y);
-                _MtM.at<float>(1,2) = -((n_c2 - n_c1 + 1)*(c_y*(n_r2 - n_r1 + 1) + (n_r1*(n_r1 - 1))/2 - (n_r2*(n_r2 + 1))/2))/f_y;
-                _MtM.at<float>(2,0) = -((n_r2 - n_r1 + 1)*(c_x*(n_c2 - n_c1 + 1) + (n_c1*(n_c1 - 1))/2 - (n_c2*(n_c2 + 1))/2))/f_x;
-                _MtM.at<float>(2,1) = -((n_c2 - n_c1 + 1)*(c_y*(n_r2 - n_r1 + 1) + (n_r1*(n_r1 - 1))/2 - (n_r2*(n_r2 + 1))/2))/f_y;
-                _MtM.at<float>(2,2) = (n_c2 - n_c1 + 1)*(n_r2 - n_r1 + 1);
+
+                float i_f_x = rgbd_img.inv_f;
+                float i_f_y = rgbd_img.inv_f;
+                float f_x = 1.0f / i_f_x;
+                float f_y = 1.0f / i_f_y;
+                float c_x = rgbd_img.cx;
+                float c_y = rgbd_img.cy;
+
+                cv::Mat _MtM = cv::Mat::zeros(3, 3, CV_32F);
+                _MtM.at<float>(0, 0) = -(((n_c1 * (6 * c_x * c_x - 6 * c_x * n_c1 + 6 * c_x + 2 * n_c1 * n_c1 - 3 * n_c1 + 1)) / 6 - ((n_c2 + 1)*(6 * c_x * c_x - 6 * c_x * n_c2 + 2 * n_c2 * n_c2 + n_c2)) / 6)*(n_r2 - n_r1 + 1)) / (f_x * f_x);
+                _MtM.at<float>(0, 1) = ((c_x * (n_c2 - n_c1 + 1) + (n_c1 * (n_c1 - 1)) / 2 - (n_c2 * (n_c2 + 1)) / 2)*(c_y * (n_r2 - n_r1 + 1) + (n_r1 * (n_r1 - 1)) / 2 - (n_r2 * (n_r2 + 1)) / 2)) / (f_x * f_y);
+                _MtM.at<float>(0, 2) = -((n_r2 - n_r1 + 1)*(c_x * (n_c2 - n_c1 + 1) + (n_c1 * (n_c1 - 1)) / 2 - (n_c2 * (n_c2 + 1)) / 2)) / f_x;
+                _MtM.at<float>(1, 0) = _MtM.at<float>(0, 1);
+                _MtM.at<float>(1, 1) = -(((n_r1 * (6 * c_y * c_y - 6 * c_y * n_r1 + 6 * c_y + 2 * n_r1 * n_r1 - 3 * n_r1 + 1)) / 6 - ((n_r2 + 1)*(6 * c_y * c_y - 6 * c_y * n_r2 + 2 * n_r2 * n_r2 + n_r2)) / 6)*(n_c2 - n_c1 + 1)) / (f_y * f_y);
+                _MtM.at<float>(1, 2) = -((n_c2 - n_c1 + 1)*(c_y * (n_r2 - n_r1 + 1) + (n_r1 * (n_r1 - 1)) / 2 - (n_r2 * (n_r2 + 1)) / 2)) / f_y;
+                _MtM.at<float>(2, 0) = _MtM.at<float>(0, 2);
+                _MtM.at<float>(2, 1) = _MtM.at<float>(1, 2);
+                _MtM.at<float>(2, 2) = (n_c2 - n_c1 + 1)*(n_r2 - n_r1 + 1);
                 //std::cout << "MtM = " << _MtM << std::endl;
                 cv::Mat iMtM = _MtM.inv();
-                
-                float i_f_x = 1.0f/f_x;
-                float i_f_y = 1.0f/f_y;
+
+                //float i_f_x = 1.0f/f_x;
+                //float i_f_y = 1.0f/f_y;
                 float depth, i_depth, *mtb_ptr, *sol_ptr;
-                const float *_blockDepth;
-                
-                _blockDepth = blockDepth.ptr<float>(0);
+                //const float *_blockDepth;
+
+                //_blockDepth = blockDepth.ptr<float>(0);
                 cv::Mat Mtb = cv::Mat::zeros(3, 1, CV_32F);
                 cv::Mat sol(3, 1, CV_32F);
                 mtb_ptr = Mtb.ptr<float>(0);
                 sol_ptr = sol.ptr<float>(0);
-                
+
                 size_t total_points = (n_c2 - n_c1 + 1)*(n_r2 - n_r1 + 1);
                 size_t valid_points = total_points;
                 cv::Mat _M = cv::Mat::zeros(total_points, 3, CV_32F);
                 cv::Mat _Z = cv::Mat::zeros(total_points, 1, CV_32F);
                 float* M = _M.ptr<float>(0);
-                float* Z = _Z.ptr<float>(0); 
+                float* Z = _Z.ptr<float>(0);
                 size_t ptIdx = 0;
                 for (int row = n_r1; row < n_r2 + 1; row++) {
                     for (int col = n_c1; col < n_c2 + 1; col++) {
-                        depth = _blockDepth[ptIdx];
-                        if (std::isnan(depth)) {  // nan values in blockDepth have already been replaced by 0
+                        depth = rgbd_img.getDepth(col, row);
+                        if (std::isnan(depth)) { // nan values in blockDepth have already been replaced by 0
                             i_depth = 0;
                             valid_points--;
                         } else {
                             i_depth = 1.0f / depth;
-                            mtb_ptr[0] = mtb_ptr[0] + (col-c_x) * i_f_x * i_depth;
-                            mtb_ptr[1] = mtb_ptr[1] + (row-c_y) * i_f_y * i_depth;
-                            mtb_ptr[2] = mtb_ptr[2] + i_depth;  
+                            mtb_ptr[0] = mtb_ptr[0] + (col - c_x) * i_f_x * i_depth;
+                            mtb_ptr[1] = mtb_ptr[1] + (row - c_y) * i_f_y * i_depth;
+                            mtb_ptr[2] = mtb_ptr[2] + i_depth;
 
                             M[3 * ptIdx] = (col - c_x) * i_f_x;
                             M[3 * ptIdx + 1] = (row - c_y) * i_f_y;
@@ -881,10 +888,10 @@ namespace cv {
                     }
                 }
                 //std::cout << "mtb = " << Mtb << std::endl;
-                sol_ptr[0] = iMtM.at<float>(0,0) * mtb_ptr[0] + iMtM.at<float>(0,1) * mtb_ptr[1] + iMtM.at<float>(0,2) * mtb_ptr[2];
-                sol_ptr[1] = iMtM.at<float>(1,0) * mtb_ptr[0] + iMtM.at<float>(1,1) * mtb_ptr[1] + iMtM.at<float>(1,2) * mtb_ptr[2];
-                sol_ptr[2] = iMtM.at<float>(2,0) * mtb_ptr[0] + iMtM.at<float>(2,1) * mtb_ptr[1] + iMtM.at<float>(2,2) * mtb_ptr[2];
-                                
+                sol_ptr[0] = iMtM.at<float>(0, 0) * mtb_ptr[0] + iMtM.at<float>(0, 1) * mtb_ptr[1] + iMtM.at<float>(0, 2) * mtb_ptr[2];
+                sol_ptr[1] = iMtM.at<float>(1, 0) * mtb_ptr[0] + iMtM.at<float>(1, 1) * mtb_ptr[1] + iMtM.at<float>(1, 2) * mtb_ptr[2];
+                sol_ptr[2] = iMtM.at<float>(2, 0) * mtb_ptr[0] + iMtM.at<float>(2, 1) * mtb_ptr[1] + iMtM.at<float>(2, 2) * mtb_ptr[2];
+
                 cv::Mat planeCoeffs = cv::Mat::zeros(4, 1, CV_32F);
                 float *planeCoeffs_ptr = planeCoeffs.ptr<float>(0);
                 float normf = 0;
@@ -892,12 +899,13 @@ namespace cv {
                     planeCoeffs_ptr[dim] = sol_ptr[dim];
                     normf += planeCoeffs_ptr[dim] * planeCoeffs_ptr[dim];
                 }
-                normf = sqrt(normf);                                
+                normf = sqrt(normf);
 
                 float normalsData[3] = {planeCoeffs_ptr[0], planeCoeffs_ptr[1], planeCoeffs_ptr[2]};
                 cv::Mat normals = cv::Mat(3, 1, CV_32F, normalsData);
                 //std::cout << "normals = " << normals << std::endl;
                 cv::Mat _error = 1 / (_M * normals) - _Z;
+                //cv::Mat _error = (_M * normals) - _Z;
                 float* _z = _Z.ptr<float>();
                 float* _err = _error.ptr<float>();
 
@@ -914,7 +922,7 @@ namespace cv {
                 }
 
                 stats.error /= valid_points;
-                
+
                 planeCoeffs /= normf;
                 planeCoeffs_ptr[3] = 1.0 / normf;
                 plane3.x = planeCoeffs_ptr[0];
@@ -925,7 +933,7 @@ namespace cv {
                 return std::make_pair(plane3, stats);
 
             }
-            
+
         public:
             static DepthIntegralImages iImgs;
         }; /* class RgbdImage */
