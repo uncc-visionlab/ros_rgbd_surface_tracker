@@ -861,7 +861,7 @@ namespace cv {
                 for (int row = n_r1; row < n_r2 + 1; row++) {
                     for (int col = n_c1; col < n_c2 + 1; col++) {
                         depth = _blockDepth[ptIdx];
-                        if (std::isnan(depth) || depth == 0) {  // nan values in blockDepth have already been replaced by 0
+                        if (std::isnan(depth)) {  // nan values in blockDepth have already been replaced by 0
                             i_depth = 0;
                             valid_points--;
                         } else {
