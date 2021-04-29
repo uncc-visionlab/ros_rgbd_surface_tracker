@@ -817,15 +817,15 @@ namespace cv {
         public:
 
             std::pair<cv::Plane3f, cv::FitStatistics> fitPlaneExplicitLeastSquaresWithStats_newImpl(
-                    const RgbdImage& rgbd_img, const int blockRange[4], const int& numValid) const {
+                    const RgbdImage& rgbd_img, const std::vector<int>& blockRange, float& avgDepth) const {
 
                 cv::Plane3f plane3;
                 cv::FitStatistics stats;
 
-                int n_r1 = blockRange[0];
-                int n_r2 = blockRange[1];
-                int n_c1 = blockRange[2];
-                int n_c2 = blockRange[3];
+                int n_r1 = blockRange.at(0);
+                int n_r2 = blockRange.at(1);
+                int n_c1 = blockRange.at(2);
+                int n_c2 = blockRange.at(3);
 
                 float i_f_x = rgbd_img.inv_f;
                 float i_f_y = rgbd_img.inv_f;
@@ -834,6 +834,46 @@ namespace cv {
                 float c_x = rgbd_img.cx;
                 float c_y = rgbd_img.cy;
 
+                float depth, i_depth, *mtb_ptr, *sol_ptr;
+                cv::Mat Mtb = cv::Mat::zeros(3, 1, CV_32F);
+                cv::Mat sol(3, 1, CV_32F);
+                mtb_ptr = Mtb.ptr<float>(0);
+                sol_ptr = sol.ptr<float>(0);
+
+                size_t total_points = (n_c2 - n_c1 + 1)*(n_r2 - n_r1 + 1);
+                cv::Mat _M = cv::Mat::zeros(total_points, 3, CV_32F);
+                cv::Mat _i_Z = cv::Mat::zeros(total_points, 1, CV_32F);
+                cv::Mat _Z = cv::Mat::zeros(total_points, 1, CV_32F);
+                float* M = _M.ptr<float>(0);
+                float* i_Z = _i_Z.ptr<float>(0);
+                float* Z = _Z.ptr<float>(0);
+                size_t ptIdx = 0;
+                for (int row = n_r1; row < n_r2 + 1; row++) {
+                    for (int col = n_c1; col < n_c2 + 1; col++) {
+                        depth = rgbd_img.getDepth(col, row);
+                        if (std::isnan(depth)) {
+                            plane3.x = std::numeric_limits<float>::quiet_NaN();
+                            plane3.y = std::numeric_limits<float>::quiet_NaN();
+                            plane3.z = std::numeric_limits<float>::quiet_NaN();
+                            plane3.d = std::numeric_limits<float>::quiet_NaN();                            
+                            return std::make_pair(plane3, stats);
+                        } else {
+                            i_depth = 1.0f / depth;
+                            mtb_ptr[0] = mtb_ptr[0] + (col - c_x) * i_f_x * i_depth;
+                            mtb_ptr[1] = mtb_ptr[1] + (row - c_y) * i_f_y * i_depth;
+                            mtb_ptr[2] = mtb_ptr[2] + i_depth;
+
+                            M[3 * ptIdx] = (col - c_x) * i_f_x;
+                            M[3 * ptIdx + 1] = (row - c_y) * i_f_y;
+                            M[3 * ptIdx + 2] = 1.0;
+                            i_Z[ptIdx] = i_depth;
+                            Z[ptIdx] = depth;
+                            stats.noise += this->getErrorStandardDeviation(i_depth);
+                        }
+                        ptIdx++;
+                    }
+                }
+                
                 cv::Mat _MtM = cv::Mat::zeros(3, 3, CV_32F);
                 _MtM.at<float>(0, 0) = -(((n_c1 * (6 * c_x * c_x - 6 * c_x * n_c1 + 6 * c_x + 2 * n_c1 * n_c1 - 3 * n_c1 + 1)) / 6 - ((n_c2 + 1)*(6 * c_x * c_x - 6 * c_x * n_c2 + 2 * n_c2 * n_c2 + n_c2)) / 6)*(n_r2 - n_r1 + 1)) / (f_x * f_x);
                 _MtM.at<float>(0, 1) = ((c_x * (n_c2 - n_c1 + 1) + (n_c1 * (n_c1 - 1)) / 2 - (n_c2 * (n_c2 + 1)) / 2)*(c_y * (n_r2 - n_r1 + 1) + (n_r1 * (n_r1 - 1)) / 2 - (n_r2 * (n_r2 + 1)) / 2)) / (f_x * f_y);
@@ -846,47 +886,7 @@ namespace cv {
                 _MtM.at<float>(2, 2) = (n_c2 - n_c1 + 1)*(n_r2 - n_r1 + 1);
                 //std::cout << "MtM = " << _MtM << std::endl;
                 cv::Mat iMtM = _MtM.inv();
-
-                //float i_f_x = 1.0f/f_x;
-                //float i_f_y = 1.0f/f_y;
-                float depth, i_depth, *mtb_ptr, *sol_ptr;
-                //const float *_blockDepth;
-
-                //_blockDepth = blockDepth.ptr<float>(0);
-                cv::Mat Mtb = cv::Mat::zeros(3, 1, CV_32F);
-                cv::Mat sol(3, 1, CV_32F);
-                mtb_ptr = Mtb.ptr<float>(0);
-                sol_ptr = sol.ptr<float>(0);
-
-                size_t total_points = (n_c2 - n_c1 + 1)*(n_r2 - n_r1 + 1);
-                size_t valid_points = total_points;
-                cv::Mat _M = cv::Mat::zeros(total_points, 3, CV_32F);
-                cv::Mat _Z = cv::Mat::zeros(total_points, 1, CV_32F);
-                float* M = _M.ptr<float>(0);
-                float* Z = _Z.ptr<float>(0);
-                size_t ptIdx = 0;
-                for (int row = n_r1; row < n_r2 + 1; row++) {
-                    for (int col = n_c1; col < n_c2 + 1; col++) {
-                        depth = rgbd_img.getDepth(col, row);
-                        if (std::isnan(depth)) { // nan values in blockDepth have already been replaced by 0
-                            i_depth = 0;
-                            valid_points--;
-                        } else {
-                            i_depth = 1.0f / depth;
-                            mtb_ptr[0] = mtb_ptr[0] + (col - c_x) * i_f_x * i_depth;
-                            mtb_ptr[1] = mtb_ptr[1] + (row - c_y) * i_f_y * i_depth;
-                            mtb_ptr[2] = mtb_ptr[2] + i_depth;
-
-                            M[3 * ptIdx] = (col - c_x) * i_f_x;
-                            M[3 * ptIdx + 1] = (row - c_y) * i_f_y;
-                            M[3 * ptIdx + 2] = 1.0;
-                            Z[ptIdx] = depth;
-                            //std::cout << "depth = " << depth << std::endl;
-                            stats.noise += this->getErrorStandardDeviation(i_depth);
-                        }
-                        ptIdx++;
-                    }
-                }
+                
                 //std::cout << "mtb = " << Mtb << std::endl;
                 sol_ptr[0] = iMtM.at<float>(0, 0) * mtb_ptr[0] + iMtM.at<float>(0, 1) * mtb_ptr[1] + iMtM.at<float>(0, 2) * mtb_ptr[2];
                 sol_ptr[1] = iMtM.at<float>(1, 0) * mtb_ptr[0] + iMtM.at<float>(1, 1) * mtb_ptr[1] + iMtM.at<float>(1, 2) * mtb_ptr[2];
@@ -900,31 +900,30 @@ namespace cv {
                     normf += planeCoeffs_ptr[dim] * planeCoeffs_ptr[dim];
                 }
                 normf = sqrt(normf);
-
-                float normalsData[3] = {planeCoeffs_ptr[0], planeCoeffs_ptr[1], planeCoeffs_ptr[2]};
+                planeCoeffs /= normf;
+                planeCoeffs_ptr[3] = 1.0 / normf;
+                                  
+                float normalsData[3] = {sol_ptr[0], sol_ptr[1], sol_ptr[2]};
                 cv::Mat normals = cv::Mat(3, 1, CV_32F, normalsData);
-                //std::cout << "normals = " << normals << std::endl;
-                cv::Mat _error = 1 / (_M * normals) - _Z;
-                //cv::Mat _error = (_M * normals) - _Z;
-                float* _z = _Z.ptr<float>();
-                float* _err = _error.ptr<float>();
-
-                for (size_t ptIdx = 0; ptIdx < total_points; ptIdx++) {
-                    if (_err[ptIdx] < this->getErrorStandardDeviation(_z[ptIdx])) {
+               
+                avgDepth = 0;
+                for (size_t idx = 0; idx < total_points; idx++) { 
+                    float err = (_M.at<float>(idx, 0)*normals.at<float>(0) + _M.at<float>(idx, 1)*normals.at<float>(1) + _M.at<float>(idx, 2)*normals.at<float>(2)) - i_Z[idx]; 
+                    stats.error += std::abs(Z[idx]*planeCoeffs_ptr[3]*err);
+                    avgDepth += Z[idx];
+                    if (err < this->getErrorStandardDeviation(i_Z[idx])) {
                         stats.inliers++;
                     } else {
                         stats.outliers++;
                     }
-                    stats.error += std::abs(_err[ptIdx]);
                     if (stats.max_error < stats.error) {
                         stats.max_error = stats.error;
                     }
                 }
 
-                stats.error /= valid_points;
-
-                planeCoeffs /= normf;
-                planeCoeffs_ptr[3] = 1.0 / normf;
+                stats.error /= total_points;
+                avgDepth /= total_points;
+  
                 plane3.x = planeCoeffs_ptr[0];
                 plane3.y = planeCoeffs_ptr[1];
                 plane3.z = planeCoeffs_ptr[2];
