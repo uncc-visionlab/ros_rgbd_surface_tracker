@@ -793,9 +793,10 @@ namespace cv {
                     } else {
                         stats.outliers++;
                     }
-                    stats.error += std::abs(_err[ptIdx]);
-                    if (stats.max_error < stats.error) {
-                        stats.max_error = stats.error;
+                    float err = std::abs(_err[ptIdx]);
+                    stats.error += err;
+                    if (stats.max_error < err) {
+                        stats.max_error = err;
                     }
                 }
 
@@ -892,7 +893,7 @@ namespace cv {
                 sol_ptr[1] = iMtM.at<float>(1, 0) * mtb_ptr[0] + iMtM.at<float>(1, 1) * mtb_ptr[1] + iMtM.at<float>(1, 2) * mtb_ptr[2];
                 sol_ptr[2] = iMtM.at<float>(2, 0) * mtb_ptr[0] + iMtM.at<float>(2, 1) * mtb_ptr[1] + iMtM.at<float>(2, 2) * mtb_ptr[2];
 
-                cv::Mat planeCoeffs = cv::Mat::zeros(4, 1, CV_32F);
+                cv::Mat planeCoeffs = cv::Mat::zeros(3, 1, CV_32F);
                 float *planeCoeffs_ptr = planeCoeffs.ptr<float>(0);
                 float normf = 0;
                 for (int dim = 0; dim < 3; ++dim) {
@@ -900,34 +901,45 @@ namespace cv {
                     normf += planeCoeffs_ptr[dim] * planeCoeffs_ptr[dim];
                 }
                 normf = sqrt(normf);
-                planeCoeffs /= normf;
-                planeCoeffs_ptr[3] = 1.0 / normf;
+                float d = 1/normf;
                                   
                 float normalsData[3] = {sol_ptr[0], sol_ptr[1], sol_ptr[2]};
                 cv::Mat normals = cv::Mat(3, 1, CV_32F, normalsData);
+                
+                cv::Mat _error = _M * normals - _i_Z;
+                float* _err = _error.ptr<float>();
                
                 avgDepth = 0;
                 for (size_t idx = 0; idx < total_points; idx++) { 
-                    float err = (_M.at<float>(idx, 0)*normals.at<float>(0) + _M.at<float>(idx, 1)*normals.at<float>(1) + _M.at<float>(idx, 2)*normals.at<float>(2)) - i_Z[idx]; 
-                    stats.error += std::abs(Z[idx]*planeCoeffs_ptr[3]*err);
+                    //float err = (_M.at<float>(idx, 0)*normals.at<float>(0) + _M.at<float>(idx, 1)*normals.at<float>(1) + _M.at<float>(idx, 2)*normals.at<float>(2)) - i_Z[idx]; 
+                    float err = std::abs(Z[idx]*d*_err[idx]);
+                    stats.error += err;
                     avgDepth += Z[idx];
-                    if (err < this->getErrorStandardDeviation(i_Z[idx])) {
+                    if (_err[idx] < this->getErrorStandardDeviation(i_Z[idx])) {
                         stats.inliers++;
                     } else {
                         stats.outliers++;
                     }
-                    if (stats.max_error < stats.error) {
-                        stats.max_error = stats.error;
+                    if (stats.max_error < err) {
+                        stats.max_error = err;
                     }
                 }
 
                 stats.error /= total_points;
                 avgDepth /= total_points;
-  
+ 
+                planeCoeffs *= d;
+                planeCoeffs_ptr[3] = d;
                 plane3.x = planeCoeffs_ptr[0];
                 plane3.y = planeCoeffs_ptr[1];
                 plane3.z = planeCoeffs_ptr[2];
                 plane3.d = planeCoeffs_ptr[3];
+//                plane3.x = planeCoeffs_ptr[0];
+//                plane3.y = planeCoeffs_ptr[1];
+//                plane3.z = -1;
+//                plane3.d = planeCoeffs_ptr[2];
+//                float normScale = 1.0 / sqrt(plane3.x * plane3.x + plane3.y * plane3.y + plane3.z * plane3.z);
+//                plane3.scale(normScale);
                 //std::cout << "planeCoeffs = " << plane3 << " error = " << stats.error << std::endl;
                 return std::make_pair(plane3, stats);
 

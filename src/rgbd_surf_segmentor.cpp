@@ -17,7 +17,7 @@
  * and open the template in the editor.
  */
 #include <vector>
-
+#include <functional>
 #include <opencv2/core.hpp>
 
 #include <ros_rgbd_surface_tracker/opencv_geom_uncc.hpp>
@@ -326,56 +326,57 @@ namespace cv {
             float avgDepth = 0.0;
             for (cv::Point2i tileIdx : subdivideTileVec) {
                 quadTree->setRect(tileIdx.x, tileIdx.y, quad);
-                if (checkTilePlanar2(rgbd_img, quad, avgDepth, recurseTileVec, tileIdx.x, tileIdx.y)) {
-                //if (1) {
-                    //std::vector<cv::Point3f> tile_data; // data for each tile in array of vectors
-                    //int numSamples = std::max((quad.width * quad.height) / 2, 3);
-                    //tile_data.reserve(numSamples);
-                    //rgbd_img.getTileData_Uniform(quad.x, quad.y,
-                    //       quad.width, quad.height, tile_data, numSamples);
-                    //if (tile_data.size() > (numSamples >> 2)) {
-//                    cv::Rect rec(quad.x, quad.y, quad.width, quad.height);
-//                    cv::Mat quadBlock = rgbd_img.getDepthImage()(rec);
-//                    int numSamples = (cv::sum((quadBlock == quadBlock))[0])/255;
-                    cv::FitStatistics stats;
-                    std::vector<int> blockRange{quad.y, quad.y + quad.height - 1, quad.x, quad.x + quad.width - 1};
-                    std::tie(plane3, stats) = rgbd_img.fitPlaneExplicitLeastSquaresWithStats_newImpl(rgbd_img, blockRange, avgDepth);
-                    if (!std::isnan(plane3.x)) {
+                if (checkTilePlanar2(rgbd_img, quad, avgDepth, recurseTileVec, tileIdx.x, tileIdx.y) || 
+                        (quad.area() < (MIN_QUAD_PIXEL_AREA_QUADTREE_SPLIT << 2))) {
+                    cv::Rect rec(quad.x, quad.y, quad.width, quad.height);
+                    cv::Mat quadBlock = rgbd_img.getDepthImage()(rec);
+                    int numSamples = (cv::sum((quadBlock == quadBlock))[0])/255;
+                    if (numSamples == quad.area()) {
+                        cv::FitStatistics stats;
+                        std::vector<int> blockRange{quad.y, quad.y + quad.height - 1, quad.x, quad.x + quad.width - 1};
+                        std::tie(plane3, stats) = rgbd_img.fitPlaneExplicitLeastSquaresWithStats_newImpl(rgbd_img, blockRange, avgDepth);
+                    //if (!std::isnan(plane3.x)) {
                         //std::tie(plane3, stats) = rgbd_img.fitPlaneImplicitLeastSquaresWithStats(tile_data);
                         //std::tie(plane3, stats) = rgbd_img.fitPlaneExplicitLeastSquaresWithStats(tile_data);
-                        //std::tie(plane3, stats) = rgbd_img.fitPlaneExplicitLeastSquaresWithStats_newImpl(rgbd_img, blockRange, avgDepth);
+                        quad.max_error = stats.max_error;
                         quad.error = stats.error;
                         quad.noise = stats.noise;
                         quad.inliers = stats.inliers;
                         quad.outliers = stats.outliers;
-                        quad.invalid = stats.invalid;                        
-                        if (quad.error < 0.0014 * avgDepth * avgDepth || // PLANE_AVG_FIT_ERROR_THRESHOLD_QUADTREE_SPLIT * avgDepth * scalef || 
-                               (quad.area() < (MIN_QUAD_PIXEL_AREA_QUADTREE_SPLIT << 2))) {
-                            //&& plane3.d > 0 && abs(plane3.x) < 0.99 && abs(plane3.y) < 0.99) {
-                            //std::cout << "areaA " << planeA->area() << " errorA = " 
-                            //<< planeA->avgError() << " planeA = " << *planeA << std::endl;
+                        quad.invalid = stats.invalid;  
+//                        std::cout << "quad.noise = " << quad.noise << std::endl;
+//                        std::cout << "quad.inliers = " << quad.inliers << std::endl;
+//                        std::cout << "quad.outliers = " << quad.outliers << std::endl;
+//                        std::cout << "quad.max_error = " << quad.max_error << std::endl;
+                        if (quad.max_error < 3*0.00145 * avgDepth * avgDepth || (quad.area() < (MIN_QUAD_PIXEL_AREA_QUADTREE_SPLIT << 2))) {
                             cv::TesselatedPlane3f tplane(plane3, numLabels++);
                             tplane.addQuad(quad);
                             sg::Plane<float>::Ptr planePtr(new sg::Plane<float>(tplane));
                             std::vector<float> curCoeffs{planePtr->x, planePtr->y, planePtr->z, planePtr->d};
-                            //cv::Mat curCoeffsMat(3, 1, CV_32FC1, curCoeffs);
                             bool foundLabel = false;
-                            int label = -1;
-                            //std::cout << "RecurseTile level index = " << level_index << std::endl;                                          
+                            int label = -1;                                         
                             for(auto q : quadtreeMap) {
                                 int searchLabel = q.first;
-                                std::vector<float> searchCoeffs = q.second;
-                                float coff_err = searchCoeffs.at(0) * curCoeffs.at(0) + searchCoeffs.at(1) * curCoeffs.at(1) + searchCoeffs.at(2) * curCoeffs.at(2);
-                                float ang_err = abs(asin(1 - coff_err))*180 / PI; // get the ang error of the fitted planes from two blocks
-                                //std::cout << "angular error = " << ang_err << std::endl;
-                                float d_err = abs(abs(searchCoeffs.at(3)) - abs(curCoeffs.at(3)));
-                                float scalef = (avgDepth < 2.5) ? 2.0f : 1.0f;
-                                if (ang_err < 5 * scalef || d_err < 0.05 * scalef) {
+                                std::vector<float>& searchCoeffs = q.second;
+                                float curvature_coeffs = searchCoeffs.at(0) * curCoeffs.at(0) + searchCoeffs.at(1) * curCoeffs.at(1) + searchCoeffs.at(2) * curCoeffs.at(2);
+                                float diffAng = abs(acos(curvature_coeffs))*180 / PI; // get the angle difference of the fitted planes from two blocks
+                                //std::cout << "angular error = " << diffAng << std::endl;
+                                float searchCP[3] = {searchCoeffs.at(0) * searchCoeffs.at(3), searchCoeffs.at(1) * searchCoeffs.at(3),
+                                                        searchCoeffs.at(2) * searchCoeffs.at(3)};
+                                float curCP[3] = {curCoeffs.at(0) * curCoeffs.at(3), curCoeffs.at(1) * curCoeffs.at(3), curCoeffs.at(2) * curCoeffs.at(3)};
+                                float diffX = searchCP[0] - curCP[0];
+                                float diffY = searchCP[1] - curCP[1];
+                                float diffZ = searchCP[2] - curCP[2];
+                                float diffCoeff = sqrt(diffX*diffX + diffY*diffY + diffZ*diffZ);
+//                                float diffDist = abs(abs(searchCoeffs.at(3)) - abs(curCoeffs.at(3)));
+                                if (diffCoeff < 0.5 * curCoeffs.at(3)) {
                                     foundLabel = true;
                                     // extract the label of current searchBlock for label assignment later
-                                    label = searchLabel; // set labels to current block in current level (need to modify the search_level_ptr level)
-                                    // assign the accpeted label to the the latest accpted block in the img_labels             
-                                    //quadtreeMap[label] = curCoeffs;
+                                    label = searchLabel; 
+                                    // update the quadtreemap coeffs with average results
+                                    std::transform (curCoeffs.begin(), curCoeffs.end(), searchCoeffs.begin(), searchCoeffs.begin(), std::plus<float>());
+                                    std::transform(searchCoeffs.begin(), searchCoeffs.end(), searchCoeffs.begin(), std::bind(std::multiplies<float>(), std::placeholders::_1, 0.5));
+                                    // assign the accepted label to the the latest accepted block in the img_labels 
                                     for (int col = quad.x; col < quad.x + quad.width; col++) {
                                         for (int row = quad.y; row < quad.y + quad.height; row++) {
                                             img_labels.at<int>(row, col) = label;
@@ -414,7 +415,7 @@ namespace cv {
                         }
                     } else {
                         // not enough samples found in tile -> stop recursions
-                        if (quad.area() >= (MIN_QUAD_PIXEL_AREA_QUADTREE_SPLIT << 2)) {
+                        if ((quad.area() >= (MIN_QUAD_PIXEL_AREA_QUADTREE_SPLIT << 2)) && numSamples >= 3) {
                             //std::cout << "recurse on quad dims = (" << quad.width << ", " << quad.height << ")" << std::endl;
                             recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 0, (tileIdx.y << 1) + 0));
                             recurseTileVec.push_back(Point2i((tileIdx.x << 1) + 1, (tileIdx.y << 1) + 0));
