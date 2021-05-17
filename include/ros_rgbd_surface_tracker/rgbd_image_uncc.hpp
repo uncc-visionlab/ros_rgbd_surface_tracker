@@ -57,7 +57,7 @@ namespace cv {
         // Comment in/out CACHE_INVERSE to enable/disable caching of 
         // depth matrix inverses for explicit normal estimation. 
         // When active a significant speedup is obtained.
-#define CACHE_INVERSE
+//#define CACHE_INVERSE
 
         class CV_EXPORTS_W DepthIntegralImages {
         private:
@@ -869,7 +869,7 @@ namespace cv {
                             M[3 * ptIdx + 2] = 1.0;
                             i_Z[ptIdx] = i_depth;
                             Z[ptIdx] = depth;
-                            stats.noise += this->getErrorStandardDeviation(i_depth);
+                            stats.noise += this->getErrorStandardDeviation(depth);
                         }
                         ptIdx++;
                     }
@@ -912,16 +912,16 @@ namespace cv {
                 avgDepth = 0;
                 for (size_t idx = 0; idx < total_points; idx++) { 
                     //float err = (_M.at<float>(idx, 0)*normals.at<float>(0) + _M.at<float>(idx, 1)*normals.at<float>(1) + _M.at<float>(idx, 2)*normals.at<float>(2)) - i_Z[idx]; 
-                    float err = std::abs(Z[idx]*d*_err[idx]);
-                    stats.error += err;
+                    float eucl_err = std::abs(Z[idx]*d*_err[idx]);
+                    stats.error += eucl_err;
                     avgDepth += Z[idx];
-                    if (_err[idx] < this->getErrorStandardDeviation(i_Z[idx])) {
+                    if (eucl_err < this->getErrorStandardDeviation(Z[idx])) {
                         stats.inliers++;
                     } else {
                         stats.outliers++;
                     }
-                    if (stats.max_error < err) {
-                        stats.max_error = err;
+                    if (stats.max_error < eucl_err) {
+                        stats.max_error = eucl_err;
                     }
                 }
 
